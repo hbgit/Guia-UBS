@@ -1,0 +1,866 @@
+<title>Guia UBS</title>
+<style>
+  /* ============ tokens: light (bare :root) ============ */
+  :root{
+    --ground:#F4F8F5;
+    --surface:#FFFFFF;
+    --surface-2:#ECF3EE;
+    --ink:#17251F;
+    --ink-soft:#5A6B63;
+    --line:#DFE8E2;
+    --green:#12805C;
+    --green-deep:#0C5F44;
+    --green-soft:#E3F2EB;
+    --on-green:#FFFFFF;
+    --red:#CE3A3A;
+    --red-deep:#A82B2B;
+    --red-soft:#FBE9E9;
+    --blue:#2F6DA8;
+    --blue-soft:#E7F0F8;
+    --amberish:#B98A2F;
+    --shadow:0 1px 2px rgba(23,37,31,.06),0 8px 24px rgba(23,37,31,.10);
+    --shadow-lg:0 2px 6px rgba(23,37,31,.08),0 18px 48px rgba(23,37,31,.16);
+    --focus:#2F6DA8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E1613;
+      --surface:#182219;
+      --surface-2:#1F2B24;
+      --ink:#E8F0EB;
+      --ink-soft:#94A79D;
+      --line:#28352E;
+      --green:#3FC28D;
+      --green-deep:#7ADDB6;
+      --green-soft:#153427;
+      --on-green:#0E1613;
+      --red:#E36A6A;
+      --red-deep:#F0918F;
+      --red-soft:#3A1D1D;
+      --blue:#6BA6DC;
+      --blue-soft:#16293A;
+      --amberish:#D9B25F;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
+      --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 18px 48px rgba(0,0,0,.55);
+      --focus:#6BA6DC;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E1613;
+    --surface:#182219;
+    --surface-2:#1F2B24;
+    --ink:#E8F0EB;
+    --ink-soft:#94A79D;
+    --line:#28352E;
+    --green:#3FC28D;
+    --green-deep:#7ADDB6;
+    --green-soft:#153427;
+    --on-green:#0E1613;
+    --red:#E36A6A;
+    --red-deep:#F0918F;
+    --red-soft:#3A1D1D;
+    --blue:#6BA6DC;
+    --blue-soft:#16293A;
+    --amberish:#D9B25F;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
+    --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 18px 48px rgba(0,0,0,.55);
+    --focus:#6BA6DC;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;align-items:center;justify-content:center;
+    padding:32px 16px;
+  }
+
+  /* ============ phone frame (desktop) → full screen (mobile) ============ */
+  .stage{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
+  .stage-caption{
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-soft);display:flex;align-items:center;gap:8px;
+  }
+  .stage-caption .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .phone{
+    width:100%;max-width:412px;height:min(860px,calc(100vh - 96px));min-height:640px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:36px;
+    box-shadow:var(--shadow-lg);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    position:relative;
+  }
+  @media (max-width:520px){
+    body{padding:0}
+    .stage{gap:0}
+    .stage-caption{display:none}
+    .phone{max-width:none;height:100vh;height:100dvh;min-height:0;border-radius:0;border:none}
+  }
+
+  /* ============ app bar ============ */
+  .appbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 20px 12px;
+    flex:0 0 auto;
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-mark{
+    width:40px;height:40px;border-radius:14px;background:var(--green);
+    display:grid;place-items:center;color:var(--on-green);flex:0 0 auto;
+  }
+  .brand-name{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  .brand-sub{font-size:11px;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase}
+  .lang-chip{
+    display:flex;align-items:center;gap:6px;
+    min-height:44px;padding:6px 12px;border-radius:999px;
+    background:var(--surface-2);border:1px solid var(--line);
+    font-size:18px;cursor:pointer;font-family:inherit;
+    transition:transform .15s ease, background .2s ease;
+  }
+  .lang-chip:hover{background:var(--green-soft)}
+  .lang-chip:active{transform:scale(.94)}
+
+  /* ============ screens ============ */
+  .screens{flex:1 1 auto;position:relative;overflow:hidden}
+  .screen{
+    position:absolute;inset:0;overflow-y:auto;
+    padding:8px 20px 24px;
+    display:none;flex-direction:column;gap:16px;
+    scrollbar-width:thin;
+  }
+  .screen.active{display:flex;animation:slidein .28s ease}
+  @keyframes slidein{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .screen.active{animation:none}
+    *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+  }
+
+  /* ============ common blocks ============ */
+  .hero-q{text-align:center;padding:8px 0 0}
+  .hero-q h2{font-size:22px;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+  .hero-q p{font-size:13px;color:var(--ink-soft);margin-top:4px}
+  .icon-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tile{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    min-height:132px;padding:16px 12px;
+    background:var(--surface);border:1.5px solid var(--line);border-radius:20px;
+    box-shadow:var(--shadow);
+    cursor:pointer;position:relative;overflow:hidden;
+    transition:transform .16s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+    -webkit-tap-highlight-color:transparent;
+    color:var(--ink);
+    font:inherit;text-align:center;
+  }
+  .tile:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+  .tile:active{transform:scale(.96)}
+  .tile .ic{width:56px;height:56px;color:var(--green);flex:0 0 auto}
+  .tile .lbl{font-size:13px;font-weight:700;color:var(--ink)}
+  .tile.sel{border-color:var(--green);background:var(--green-soft)}
+  .tile.sel::after{
+    content:"✓";position:absolute;top:10px;right:12px;
+    width:24px;height:24px;border-radius:50%;background:var(--green);color:var(--surface);
+    display:grid;place-items:center;font-size:14px;font-weight:800;
+    animation:pop .25s ease;
+  }
+  @keyframes pop{from{transform:scale(0)}60%{transform:scale(1.2)}to{transform:scale(1)}}
+  .tile.tile-red .ic{color:var(--red)}
+  .tile.tile-red:hover{border-color:var(--red)}
+  .tile.tile-red.sel{border-color:var(--red);background:var(--red-soft)}
+  .tile.tile-red.sel::after{background:var(--red)}
+  .tile.tile-blue .ic{color:var(--blue)}
+  .tile.tile-blue:hover{border-color:var(--blue)}
+
+  .cta{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    min-height:64px;border-radius:20px;border:none;
+    background:var(--green);color:var(--on-green);
+    font-size:16px;font-weight:800;letter-spacing:.01em;font-family:inherit;
+    cursor:pointer;position:relative;overflow:hidden;
+    box-shadow:var(--shadow);
+    transition:transform .16s ease, filter .2s ease, box-shadow .2s ease;
+    width:100%;flex:0 0 auto;
+  }
+  .cta:hover{filter:brightness(1.07);box-shadow:var(--shadow-lg)}
+  .cta:active{transform:scale(.97)}
+  .cta:disabled{opacity:.35;cursor:default;transform:none;filter:none}
+  .cta .ic{width:24px;height:24px}
+  .cta.cta-ghost{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+  .cta.cta-ghost:hover{border-color:var(--green)}
+
+  .ripple{
+    position:absolute;border-radius:50%;pointer-events:none;
+    background:currentColor;opacity:.18;transform:scale(0);
+    animation:rip .5s ease-out forwards;
+  }
+  @keyframes rip{to{transform:scale(3);opacity:0}}
+
+  .backrow{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .backbtn{
+    width:48px;height:48px;border-radius:16px;border:1.5px solid var(--line);
+    background:var(--surface);color:var(--ink);cursor:pointer;
+    display:grid;place-items:center;flex:0 0 auto;
+    transition:transform .15s ease,border-color .2s ease;
+  }
+  .backbtn:hover{border-color:var(--green)}
+  .backbtn:active{transform:scale(.92)}
+  .backbtn .ic{width:22px;height:22px}
+  .steps{display:flex;gap:6px;flex:1;justify-content:center}
+  .steps span{width:28px;height:6px;border-radius:3px;background:var(--line);transition:background .3s ease}
+  .steps span.on{background:var(--green)}
+
+  /* ============ body map ============ */
+  .bodywrap{display:flex;justify-content:center;padding:4px 0}
+  .bodymap{width:min(210px,58%);height:auto}
+  .zone{
+    fill:var(--surface-2);stroke:var(--line);stroke-width:2;cursor:pointer;
+    transition:fill .2s ease, stroke .2s ease, transform .2s ease;
+    transform-box:fill-box;transform-origin:center;
+  }
+  .zone:hover{fill:var(--green-soft);stroke:var(--green)}
+  .zone.sel{fill:var(--green-soft);stroke:var(--green);stroke-width:3;animation:zpulse .4s ease}
+  @keyframes zpulse{50%{transform:scale(1.06)}}
+
+  /* ============ result cards ============ */
+  .result{
+    border-radius:24px;padding:24px 20px;
+    display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
+    animation:riseup .35s ease;box-shadow:var(--shadow-lg);
+    flex:0 0 auto;
+  }
+  @keyframes riseup{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .result.ok{background:var(--green-soft);border:2px solid var(--green)}
+  .result.danger{background:var(--red-soft);border:2px solid var(--red)}
+  .result .big-ic{width:88px;height:88px}
+  .result.ok .big-ic{color:var(--green)}
+  .result.danger .big-ic{color:var(--red)}
+  .result h3{font-size:20px;font-weight:800;letter-spacing:-.01em}
+  .result.ok h3{color:var(--green-deep)}
+  .result.danger h3{color:var(--red-deep)}
+  .result p{font-size:14px;color:var(--ink-soft);max-width:26ch}
+  .speakbtn{
+    display:flex;align-items:center;gap:10px;
+    min-height:56px;padding:0 22px;border-radius:999px;border:none;cursor:pointer;
+    font-size:14px;font-weight:800;font-family:inherit;
+    position:relative;overflow:visible;
+    transition:transform .15s ease;
+  }
+  .speakbtn:active{transform:scale(.94)}
+  .speakbtn .ic{width:24px;height:24px}
+  .result.ok .speakbtn{background:var(--green);color:var(--green-soft)}
+  .result.danger .speakbtn{background:var(--red);color:var(--red-soft)}
+  .speakbtn.playing::before{
+    content:"";position:absolute;inset:-6px;border-radius:999px;
+    border:2px solid currentColor;opacity:.5;
+    animation:ping 1s ease-out infinite;
+  }
+  @keyframes ping{from{transform:scale(.9);opacity:.6}to{transform:scale(1.15);opacity:0}}
+  .nextrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+  .nextrow .tile{min-height:96px}
+  .nextrow .tile .ic{width:40px;height:40px}
+
+  /* ============ where-to-go / flow ============ */
+  .place{
+    border-radius:22px;padding:18px;display:flex;gap:14px;align-items:center;
+    border:2px solid var(--line);background:var(--surface);cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:transform .16s ease,border-color .2s ease,box-shadow .2s ease;
+    flex:0 0 auto;
+  }
+  .place:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+  .place:active{transform:scale(.97)}
+  .place .ic{width:52px;height:52px;flex:0 0 auto}
+  .place.green{border-color:var(--green)} .place.green > .ic{color:var(--green)}
+  .place.red{border-color:var(--red)} .place.red > .ic{color:var(--red)}
+  .place h3{font-size:16px;font-weight:800}
+  .place p{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .place .go{margin-left:auto;color:var(--ink-soft);flex:0 0 auto}
+  .place .go .ic{width:20px;height:20px}
+  .minirow{display:flex;gap:8px;margin-top:8px}
+  .minirow .m{
+    width:34px;height:34px;border-radius:10px;background:var(--surface-2);
+    display:grid;place-items:center;color:var(--ink-soft);
+  }
+  .minirow .m .ic{width:20px;height:20px}
+
+  .flow{display:flex;flex-direction:column;flex:0 0 auto}
+  .fstep{display:flex;gap:14px;align-items:stretch;padding:4px 0}
+  .fstep .rail{display:flex;flex-direction:column;align-items:center;flex:0 0 auto}
+  .fstep .bubble{
+    width:56px;height:56px;border-radius:18px;background:var(--green-soft);
+    border:2px solid var(--green);color:var(--green);
+    display:grid;place-items:center;flex:0 0 auto;
+  }
+  .fstep .bubble .ic{width:30px;height:30px}
+  .fstep .stem{width:2px;flex:1;min-height:22px;background:var(--line)}
+  .fstep:last-child .stem{display:none}
+  .fstep .txt{padding:8px 0 14px}
+  .fstep .txt h4{font-size:15px;font-weight:800}
+  .fstep .txt p{font-size:12.5px;color:var(--ink-soft);margin-top:2px;max-width:32ch}
+  .fstep .n{font-size:11px;font-weight:800;color:var(--green);letter-spacing:.1em}
+
+  /* ============ documents ============ */
+  .doccard{
+    border-radius:18px;border:1.5px solid var(--line);background:var(--surface);
+    padding:14px;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow);
+    animation:riseup .3s ease;flex:0 0 auto;
+  }
+  .docart{width:92px;height:62px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center}
+  .doccard h4{font-size:14px;font-weight:800}
+  .doccard p{font-size:12px;color:var(--ink-soft);margin-top:2px}
+
+  /* ============ bottom nav ============ */
+  .bottomnav{
+    flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;
+    border-top:1.5px solid var(--line);background:var(--surface);
+    padding:8px 10px calc(10px + env(safe-area-inset-bottom));gap:6px;
+  }
+  .navbtn{
+    min-height:64px;border:none;background:transparent;border-radius:16px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    font-size:11px;font-weight:700;color:var(--ink-soft);font-family:inherit;
+    cursor:pointer;position:relative;overflow:hidden;
+    transition:background .2s ease,color .2s ease,transform .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .navbtn .ic{width:26px;height:26px;transition:transform .2s ease}
+  .navbtn:hover{background:var(--surface-2)}
+  .navbtn:active{transform:scale(.93)}
+  .navbtn.on{color:var(--green);background:var(--green-soft)}
+  .navbtn.on .ic{transform:translateY(-1px)}
+
+  /* ============ language overlay ============ */
+  .langover{
+    position:absolute;inset:0;z-index:30;background:var(--surface);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+    padding:32px;text-align:center;
+  }
+  .langover.hidden{display:none}
+  .langover .brand-mark{width:72px;height:72px;border-radius:24px}
+  .langover h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .langover p{font-size:13px;color:var(--ink-soft)}
+  .langbtns{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:320px}
+  .langbtn{
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    padding:22px 12px;border-radius:22px;border:2px solid var(--line);
+    background:var(--surface);cursor:pointer;font-family:inherit;
+    font-size:15px;font-weight:800;color:var(--ink);
+    transition:transform .16s ease,border-color .2s ease,background .2s ease;
+    box-shadow:var(--shadow);
+  }
+  .langbtn .flag{font-size:44px;line-height:1}
+  .langbtn:hover{border-color:var(--green);background:var(--green-soft)}
+  .langbtn:active{transform:scale(.95)}
+
+  :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  .screen::-webkit-scrollbar{width:4px}
+  .screen::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+</style>
+
+<!-- inline SVG icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="i-cross"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" fill="currentColor" stroke="none"/></g>
+    <g id="i-body" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="4.5" r="2.6"/><path d="M12 7.5v6M12 13.5l-3 6.5M12 13.5l3 6.5M12 9l-4 3M12 9l4 3"/></g>
+    <g id="i-building" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13"/><path d="M2 21h20"/><path d="M12 9v4M10 11h4"/><path d="M8 21v-4h8v4"/></g>
+    <g id="i-hospital" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3"/><path d="M12 11v6M9 14h6"/></g>
+    <g id="i-doc" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M6 10h5M6 13.5h8"/><circle cx="17" cy="11.8" r="1.8"/></g>
+    <g id="i-bolt"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5z" fill="currentColor" stroke="none"/></g>
+    <g id="i-thermo" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 14.5V4a2 2 0 1 1 4 0v10.5a4.5 4.5 0 1 1-4 0z"/><circle cx="12" cy="18" r="1.6" fill="currentColor" stroke="none"/></g>
+    <g id="i-lungs" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v7"/><path d="M9.5 8.5C8 7 4 8.5 4 14c0 4.5 1.5 6.5 3.5 6.5S11 19 11 16v-5"/><path d="M14.5 8.5C16 7 20 8.5 20 14c0 4.5-1.5 6.5-3.5 6.5S13 19 13 16v-5"/></g>
+    <g id="i-drop" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 1 1-12 0c0-4.5 6-11 6-11z"/></g>
+    <g id="i-dizzy" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M12 6a6 6 0 1 1-6 6"/><path d="M12 2a10 10 0 1 0 10 10"/></g>
+    <g id="i-ambulance" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h12v9H2z"/><path d="M14 11h4l3 3v3h-7"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/><path d="M8 10.5v3M6.5 12h3"/></g>
+    <g id="i-sun" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></g>
+    <g id="i-speaker" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a9 9 0 0 1 0 12"/></g>
+    <g id="i-back" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></g>
+    <g id="i-chev" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></g>
+    <g id="i-home" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></g>
+    <g id="i-pin" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6-7-11a7 7 0 1 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></g>
+    <g id="i-desk" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18v3H3z"/><path d="M5 13v7M19 13v7"/><circle cx="15.5" cy="5.5" r="2"/><path d="M12 10V8.5A1.5 1.5 0 0 1 13.5 7h4A1.5 1.5 0 0 1 19 8.5V10"/></g>
+    <g id="i-nurse" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M11 6.2h2M12 5.2v2"/></g>
+    <g id="i-steth" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v6a5 5 0 0 0 10 0V3"/><path d="M10 14v3a4.5 4.5 0 0 0 9 0v-2"/><circle cx="19" cy="12.5" r="2.2"/></g>
+    <g id="i-pill" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9.5" width="17" height="8" rx="4" transform="rotate(-40 12 13.5)"/><path d="M9.2 8.2l5.4 6.4"/></g>
+    <g id="i-syringe" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4l-2 2M15 3l6 6M6 12l6-6 6 6-6 6-4-4"/><path d="M4 20l4-4"/></g>
+    <g id="i-id" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><circle cx="8" cy="11" r="2"/><path d="M5.5 16a3 3 0 0 1 5 0"/><path d="M14 9.5h5M14 13h5"/></g>
+    <g id="i-house-doc" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M9.5 13h5M9.5 16h5"/></g>
+    <g id="i-band" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="3"/><path d="M9 9v6M15 9v6"/></g>
+    <g id="i-heartbeat" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-8-5.5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 5.5-8 11-8 11z"/><path d="M6.5 12h2.5l1.5-3 2.5 5 1.5-2h3"/></g>
+  </defs>
+</svg>
+
+<div class="stage">
+  <div class="stage-caption"><span class="dot"></span>Guia UBS · protótipo interativo · MVP v1.0</div>
+
+  <div class="phone">
+
+    <!-- language pick (first open) -->
+    <div class="langover" id="langover">
+      <div class="brand-mark"><svg width="40" height="40" viewBox="0 0 24 24"><use href="#i-cross"/></svg></div>
+      <div>
+        <h1>Guia UBS</h1>
+        <p>Toque no seu idioma · Toca tu idioma</p>
+      </div>
+      <div class="langbtns">
+        <button class="langbtn" data-lang="pt"><span class="flag">🇧🇷</span>Português</button>
+        <button class="langbtn" data-lang="es"><span class="flag">🇪🇸</span>Español</button>
+      </div>
+    </div>
+
+    <!-- app bar -->
+    <header class="appbar">
+      <div class="brand">
+        <div class="brand-mark"><svg width="22" height="22" viewBox="0 0 24 24"><use href="#i-cross"/></svg></div>
+        <div>
+          <div class="brand-name">Guia UBS</div>
+          <div class="brand-sub" data-i18n="offline">100% offline</div>
+        </div>
+      </div>
+      <button class="lang-chip" id="langchip" aria-label="Trocar idioma">🇧🇷</button>
+    </header>
+
+    <!-- screens -->
+    <main class="screens" id="screens">
+
+      <!-- TAB 1 · home -->
+      <section class="screen active" data-screen="home">
+        <div class="hero-q">
+          <h2 data-i18n="home_t">Como você está?</h2>
+          <p data-i18n="home_s">Toque em uma opção para começar</p>
+        </div>
+        <button class="cta" id="startTriage">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-body"/></svg>
+          <span data-i18n="home_cta">Estou com sintomas</span>
+        </button>
+        <div class="icon-grid">
+          <button class="tile tile-blue" data-goto="whereto">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-pin"/></svg>
+            <span class="lbl" data-i18n="t_where">Onde ir?</span>
+          </button>
+          <button class="tile tile-blue" data-goto="docs">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            <span class="lbl" data-i18n="t_docs">Documentos</span>
+          </button>
+          <button class="tile" data-goto="flow">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-desk"/></svg>
+            <span class="lbl" data-i18n="t_flow">Como funciona a UBS</span>
+          </button>
+          <button class="tile tile-red" data-goto="emergency">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-ambulance"/></svg>
+            <span class="lbl" data-i18n="t_emerg">Emergência</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- triage step 1: body -->
+      <section class="screen" data-screen="body">
+        <div class="backrow">
+          <button class="backbtn" data-back="home" aria-label="Voltar"><svg class="ic" viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+          <div class="steps"><span class="on"></span><span></span><span></span></div>
+          <div style="width:48px"></div>
+        </div>
+        <div class="hero-q">
+          <h2 data-i18n="body_t">Onde dói ou incomoda?</h2>
+          <p data-i18n="body_s">Toque na parte do corpo</p>
+        </div>
+        <div class="bodywrap">
+          <svg class="bodymap" viewBox="0 0 200 330" role="group" aria-label="Mapa do corpo">
+            <circle class="zone" data-zone="head" cx="100" cy="42" r="28" tabindex="0" role="button" aria-label="Cabeça"/>
+            <rect class="zone" data-zone="chest" x="66" y="78" width="68" height="52" rx="20" tabindex="0" role="button" aria-label="Peito"/>
+            <rect class="zone" data-zone="belly" x="70" y="136" width="60" height="46" rx="18" tabindex="0" role="button" aria-label="Barriga"/>
+            <rect class="zone" data-zone="arm" x="30" y="84" width="26" height="92" rx="13" tabindex="0" role="button" aria-label="Braço"/>
+            <rect class="zone" data-zone="arm2" x="144" y="84" width="26" height="92" rx="13" tabindex="0" role="button" aria-label="Braço direito"/>
+            <rect class="zone" data-zone="leg" x="70" y="190" width="26" height="110" rx="13" tabindex="0" role="button" aria-label="Perna"/>
+            <rect class="zone" data-zone="leg2" x="106" y="190" width="26" height="110" rx="13" tabindex="0" role="button" aria-label="Perna direita"/>
+          </svg>
+        </div>
+        <button class="cta" id="toSymptoms" disabled>
+          <span data-i18n="next">Continuar</span>
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+        </button>
+      </section>
+
+      <!-- triage step 2: symptoms -->
+      <section class="screen" data-screen="symptoms">
+        <div class="backrow">
+          <button class="backbtn" data-back="body" aria-label="Voltar"><svg class="ic" viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+          <div class="steps"><span class="on"></span><span class="on"></span><span></span></div>
+          <div style="width:48px"></div>
+        </div>
+        <div class="hero-q">
+          <h2 data-i18n="sym_t">O que você sente?</h2>
+          <p data-i18n="sym_s">Pode tocar em mais de um</p>
+        </div>
+        <div class="icon-grid">
+          <button class="tile sym" data-sym="pain"><svg class="ic" viewBox="0 0 24 24"><use href="#i-bolt"/></svg><span class="lbl" data-i18n="s_pain">Dor</span></button>
+          <button class="tile sym" data-sym="fever"><svg class="ic" viewBox="0 0 24 24"><use href="#i-thermo"/></svg><span class="lbl" data-i18n="s_fever">Febre</span></button>
+          <button class="tile sym tile-red" data-sym="breath"><svg class="ic" viewBox="0 0 24 24"><use href="#i-lungs"/></svg><span class="lbl" data-i18n="s_breath">Falta de ar</span></button>
+          <button class="tile sym tile-red" data-sym="bleed"><svg class="ic" viewBox="0 0 24 24"><use href="#i-drop"/></svg><span class="lbl" data-i18n="s_bleed">Sangramento</span></button>
+          <button class="tile sym" data-sym="dizzy"><svg class="ic" viewBox="0 0 24 24"><use href="#i-dizzy"/></svg><span class="lbl" data-i18n="s_dizzy">Tontura</span></button>
+          <button class="tile sym" data-sym="cut"><svg class="ic" viewBox="0 0 24 24"><use href="#i-band"/></svg><span class="lbl" data-i18n="s_cut">Machucado leve</span></button>
+        </div>
+        <button class="cta" id="toResult" disabled>
+          <span data-i18n="see">Ver orientação</span>
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+        </button>
+      </section>
+
+      <!-- triage step 3: result -->
+      <section class="screen" data-screen="result">
+        <div class="backrow">
+          <button class="backbtn" data-back="symptoms" aria-label="Voltar"><svg class="ic" viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+          <div class="steps"><span class="on"></span><span class="on"></span><span class="on"></span></div>
+          <div style="width:48px"></div>
+        </div>
+        <div id="resultbox"></div>
+        <div class="nextrow">
+          <button class="tile tile-blue" data-goto="docs">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            <span class="lbl" data-i18n="r_docs">Quais documentos?</span>
+          </button>
+          <button class="tile tile-blue" data-goto="flow">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-desk"/></svg>
+            <span class="lbl" data-i18n="r_flow">Como é o atendimento?</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- emergency direct -->
+      <section class="screen" data-screen="emergency">
+        <div class="backrow">
+          <button class="backbtn" data-back="home" aria-label="Voltar"><svg class="ic" viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+          <div class="steps"></div>
+          <div style="width:48px"></div>
+        </div>
+        <div id="emergbox"></div>
+      </section>
+
+      <!-- TAB 2 · where to go -->
+      <section class="screen" data-screen="whereto">
+        <div class="hero-q">
+          <h2 data-i18n="w_t">Onde ir?</h2>
+          <p data-i18n="w_s">Cada lugar cuida de uma coisa</p>
+        </div>
+        <div class="place green" data-goto="flow" role="button" tabindex="0">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-building"/></svg>
+          <div>
+            <h3>UBS</h3>
+            <p data-i18n="w_ubs">Vacina, receita, consulta, curativo</p>
+            <div class="minirow">
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-syringe"/></svg></span>
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-pill"/></svg></span>
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-band"/></svg></span>
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-heartbeat"/></svg></span>
+            </div>
+          </div>
+          <span class="go"><svg class="ic" viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+        </div>
+        <div class="place red" data-goto="emergency" role="button" tabindex="0">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-hospital"/></svg>
+          <div>
+            <h3>UPA · Hospital</h3>
+            <p data-i18n="w_upa">Acidente grave, dor forte no peito</p>
+            <div class="minirow">
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-ambulance"/></svg></span>
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-bolt"/></svg></span>
+              <span class="m"><svg class="ic" viewBox="0 0 24 24"><use href="#i-drop"/></svg></span>
+            </div>
+          </div>
+          <span class="go"><svg class="ic" viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+        </div>
+        <button class="cta cta-ghost" id="speakWhere">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-speaker"/></svg>
+          <span data-i18n="listen">Ouvir explicação</span>
+        </button>
+      </section>
+
+      <!-- flow inside UBS -->
+      <section class="screen" data-screen="flow">
+        <div class="backrow">
+          <button class="backbtn" data-back="whereto" aria-label="Voltar"><svg class="ic" viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+          <div class="steps"></div>
+          <div style="width:48px"></div>
+        </div>
+        <div class="hero-q">
+          <h2 data-i18n="f_t">Na UBS é assim</h2>
+          <p data-i18n="f_s">Passo a passo do atendimento</p>
+        </div>
+        <div class="flow">
+          <div class="fstep">
+            <div class="rail"><div class="bubble"><svg class="ic" viewBox="0 0 24 24"><use href="#i-desk"/></svg></div><div class="stem"></div></div>
+            <div class="txt"><span class="n">1</span><h4 data-i18n="f1">Recepção</h4><p data-i18n="f1s">Mostre seu documento no balcão</p></div>
+          </div>
+          <div class="fstep">
+            <div class="rail"><div class="bubble"><svg class="ic" viewBox="0 0 24 24"><use href="#i-nurse"/></svg></div><div class="stem"></div></div>
+            <div class="txt"><span class="n">2</span><h4 data-i18n="f2">Acolhimento</h4><p data-i18n="f2s">Enfermeiro mede pressão e escuta você</p></div>
+          </div>
+          <div class="fstep">
+            <div class="rail"><div class="bubble"><svg class="ic" viewBox="0 0 24 24"><use href="#i-steth"/></svg></div><div class="stem"></div></div>
+            <div class="txt"><span class="n">3</span><h4 data-i18n="f3">Consulta</h4><p data-i18n="f3s">Converse com o médico</p></div>
+          </div>
+          <div class="fstep">
+            <div class="rail"><div class="bubble"><svg class="ic" viewBox="0 0 24 24"><use href="#i-pill"/></svg></div><div class="stem"></div></div>
+            <div class="txt"><span class="n">4</span><h4 data-i18n="f4">Farmácia</h4><p data-i18n="f4s">Pegue o remédio de graça, se receitado</p></div>
+          </div>
+        </div>
+        <button class="cta cta-ghost" id="speakFlow">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-speaker"/></svg>
+          <span data-i18n="listen">Ouvir explicação</span>
+        </button>
+      </section>
+
+      <!-- TAB 3 · documents -->
+      <section class="screen" data-screen="docs">
+        <div class="hero-q">
+          <h2 data-i18n="d_t">O que levar?</h2>
+          <p data-i18n="d_s">Para ser atendido na UBS</p>
+        </div>
+        <div class="doccard">
+          <div class="docart" style="background:var(--green-soft);color:var(--green)">
+            <svg width="44" height="44" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+          </div>
+          <div><h4 data-i18n="d1">Cartão SUS</h4><p data-i18n="d1s">Se não tiver, faça na hora — é grátis</p></div>
+        </div>
+        <div class="doccard">
+          <div class="docart" style="background:var(--blue-soft);color:var(--blue)">
+            <svg width="44" height="44" viewBox="0 0 24 24"><use href="#i-id"/></svg>
+          </div>
+          <div><h4 data-i18n="d2">Identidade ou passaporte</h4><p data-i18n="d2s">Qualquer documento com foto vale</p></div>
+        </div>
+        <div class="doccard">
+          <div class="docart" style="background:var(--surface-2);color:var(--ink-soft)">
+            <svg width="44" height="44" viewBox="0 0 24 24"><use href="#i-house-doc"/></svg>
+          </div>
+          <div><h4 data-i18n="d3">Comprovante de endereço</h4><p data-i18n="d3s">Conta de luz ou declaração do bairro</p></div>
+        </div>
+        <button class="cta cta-ghost" id="speakDocs">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-speaker"/></svg>
+          <span data-i18n="listen">Ouvir explicação</span>
+        </button>
+      </section>
+    </main>
+
+    <!-- bottom nav -->
+    <nav class="bottomnav" aria-label="Navegação principal">
+      <button class="navbtn on" data-tab="home">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#i-home"/></svg>
+        <span data-i18n="n_home">Início</span>
+      </button>
+      <button class="navbtn" data-tab="whereto">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#i-pin"/></svg>
+        <span data-i18n="n_where">Onde ir</span>
+      </button>
+      <button class="navbtn" data-tab="docs">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+        <span data-i18n="n_docs">Documentos</span>
+      </button>
+    </nav>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- i18n ---------- */
+  const STR = {
+    pt: {
+      offline:"100% offline", home_t:"Como você está?", home_s:"Toque em uma opção para começar",
+      home_cta:"Estou com sintomas", t_where:"Onde ir?", t_docs:"Documentos",
+      t_flow:"Como funciona a UBS", t_emerg:"Emergência",
+      body_t:"Onde dói ou incomoda?", body_s:"Toque na parte do corpo",
+      sym_t:"O que você sente?", sym_s:"Pode tocar em mais de um",
+      s_pain:"Dor", s_fever:"Febre", s_breath:"Falta de ar", s_bleed:"Sangramento",
+      s_dizzy:"Tontura", s_cut:"Machucado leve",
+      next:"Continuar", see:"Ver orientação", listen:"Ouvir explicação",
+      r_docs:"Quais documentos?", r_flow:"Como é o atendimento?",
+      ok_t:"Vá à UBS", ok_p:"Procure a UBS amanhã de manhã. Não é emergência.",
+      ok_say:"Procure a UBS amanhã pela manhã e leve os seus documentos. Não é uma emergência.",
+      dg_t:"Procure emergência agora", dg_p:"Vá à UPA ou hospital, ou ligue 192.",
+      dg_say:"Atenção. Procure a UPA ou o hospital agora, ou ligue 192.",
+      w_t:"Onde ir?", w_s:"Cada lugar cuida de uma coisa",
+      w_ubs:"Vacina, receita, consulta, curativo", w_upa:"Acidente grave, dor forte no peito",
+      w_say:"A UBS cuida de vacina, receita e consulta. A UPA e o hospital cuidam de acidente grave e dor forte no peito.",
+      f_t:"Na UBS é assim", f_s:"Passo a passo do atendimento",
+      f1:"Recepção", f1s:"Mostre seu documento no balcão",
+      f2:"Acolhimento", f2s:"Enfermeiro mede pressão e escuta você",
+      f3:"Consulta", f3s:"Converse com o médico",
+      f4:"Farmácia", f4s:"Pegue o remédio de graça, se receitado",
+      f_say:"Na UBS: primeiro a recepção, depois o acolhimento com o enfermeiro, depois a consulta com o médico, e por fim a farmácia.",
+      d_t:"O que levar?", d_s:"Para ser atendido na UBS",
+      d1:"Cartão SUS", d1s:"Se não tiver, faça na hora — é grátis",
+      d2:"Identidade ou passaporte", d2s:"Qualquer documento com foto vale",
+      d3:"Comprovante de endereço", d3s:"Conta de luz ou declaração do bairro",
+      d_say:"Leve o Cartão SUS, um documento com foto e um comprovante de endereço. Se não tiver Cartão SUS, você faz na hora, de graça.",
+      n_home:"Início", n_where:"Onde ir", n_docs:"Documentos", flag:"🇧🇷", tts:"pt-BR"
+    },
+    es: {
+      offline:"100% sin internet", home_t:"¿Cómo estás?", home_s:"Toca una opción para empezar",
+      home_cta:"Tengo síntomas", t_where:"¿Dónde ir?", t_docs:"Documentos",
+      t_flow:"Cómo funciona la UBS", t_emerg:"Emergencia",
+      body_t:"¿Dónde te duele?", body_s:"Toca la parte del cuerpo",
+      sym_t:"¿Qué sientes?", sym_s:"Puedes tocar más de uno",
+      s_pain:"Dolor", s_fever:"Fiebre", s_breath:"Falta de aire", s_bleed:"Sangrado",
+      s_dizzy:"Mareo", s_cut:"Herida leve",
+      next:"Continuar", see:"Ver orientación", listen:"Escuchar explicación",
+      r_docs:"¿Qué documentos?", r_flow:"¿Cómo es la atención?",
+      ok_t:"Ve a la UBS", ok_p:"Busca la UBS mañana por la mañana. No es emergencia.",
+      ok_say:"Busca la UBS mañana por la mañana y lleva tus documentos. No es una emergencia.",
+      dg_t:"Busca emergencia ahora", dg_p:"Ve a la UPA u hospital, o llama al 192.",
+      dg_say:"Atención. Ve a la UPA o al hospital ahora, o llama al 192.",
+      w_t:"¿Dónde ir?", w_s:"Cada lugar cuida de algo",
+      w_ubs:"Vacuna, receta, consulta, curación", w_upa:"Accidente grave, dolor fuerte de pecho",
+      w_say:"La UBS cuida de vacunas, recetas y consultas. La UPA y el hospital cuidan de accidentes graves y dolor fuerte de pecho.",
+      f_t:"En la UBS es así", f_s:"Paso a paso de la atención",
+      f1:"Recepción", f1s:"Muestra tu documento en el mostrador",
+      f2:"Acogida", f2s:"El enfermero mide la presión y te escucha",
+      f3:"Consulta", f3s:"Habla con el médico",
+      f4:"Farmacia", f4s:"Recoge el medicamento gratis, si es recetado",
+      f_say:"En la UBS: primero la recepción, después la acogida con el enfermero, después la consulta con el médico, y al final la farmacia.",
+      d_t:"¿Qué llevar?", d_s:"Para ser atendido en la UBS",
+      d1:"Tarjeta SUS", d1s:"Si no la tienes, se hace al momento — es gratis",
+      d2:"Identidad o pasaporte", d2s:"Cualquier documento con foto sirve",
+      d3:"Comprobante de dirección", d3s:"Cuenta de luz o declaración del barrio",
+      d_say:"Lleva la tarjeta SUS, un documento con foto y un comprobante de dirección. Si no tienes tarjeta SUS, se hace al momento, gratis.",
+      n_home:"Inicio", n_where:"Dónde ir", n_docs:"Documentos", flag:"🇪🇸", tts:"es-ES"
+    }
+  };
+
+  /* ---------- state (mirrors FSM-A of the spec) ---------- */
+  const state = { lang:"pt", zone:null, syms:new Set() };
+  const $  = (s,el)=> (el||document).querySelector(s);
+  const $$ = (s,el)=> Array.from((el||document).querySelectorAll(s));
+
+  function applyLang(){
+    const t = STR[state.lang];
+    $$("[data-i18n]").forEach(el=>{ const k=el.getAttribute("data-i18n"); if(t[k]) el.textContent=t[k]; });
+    $("#langchip").textContent = t.flag;
+  }
+
+  /* ---------- navigation (linear, no dead ends) ---------- */
+  const TAB_OF = { home:"home", body:"home", symptoms:"home", result:"home", emergency:"home",
+                   whereto:"whereto", flow:"whereto", docs:"docs" };
+  function show(name){
+    stopSpeak();
+    $$(".screen").forEach(s=> s.classList.toggle("active", s.dataset.screen===name));
+    $$(".navbtn").forEach(b=> b.classList.toggle("on", b.dataset.tab===TAB_OF[name]));
+    if(name==="result") renderResult();
+    if(name==="emergency") renderEmergency();
+  }
+  $$(".navbtn").forEach(b=> b.addEventListener("click", ()=> show(b.dataset.tab)));
+  $$("[data-goto]").forEach(b=>{
+    b.addEventListener("click", ()=> show(b.dataset.goto));
+    b.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();show(b.dataset.goto);} });
+  });
+  $$("[data-back]").forEach(b=> b.addEventListener("click", ()=> show(b.dataset.back)));
+
+  /* ---------- ripple microinteraction ---------- */
+  $$(".cta,.navbtn,.tile").forEach(el=>{
+    el.addEventListener("pointerdown", e=>{
+      const r=el.getBoundingClientRect(), d=Math.max(r.width,r.height);
+      const s=document.createElement("span");
+      s.className="ripple";
+      s.style.width=s.style.height=d+"px";
+      s.style.left=(e.clientX-r.left-d/2)+"px";
+      s.style.top =(e.clientY-r.top -d/2)+"px";
+      el.appendChild(s);
+      setTimeout(()=>s.remove(),520);
+    });
+  });
+
+  /* ---------- language ---------- */
+  $$(".langbtn").forEach(b=> b.addEventListener("click", ()=>{
+    state.lang=b.dataset.lang; applyLang();
+    $("#langover").classList.add("hidden");
+    speak(state.lang==="pt" ? "Bem-vindo ao Guia UBS" : "Bienvenido a la Guía UBS");
+  }));
+  $("#langchip").addEventListener("click", ()=>{
+    state.lang = state.lang==="pt" ? "es" : "pt"; applyLang();
+  });
+
+  /* ---------- triage flow ---------- */
+  $("#startTriage").addEventListener("click", ()=>{
+    state.zone=null; state.syms.clear();
+    $$(".zone").forEach(z=>z.classList.remove("sel"));
+    $$(".sym").forEach(t=>t.classList.remove("sel"));
+    $("#toSymptoms").disabled=true; $("#toResult").disabled=true;
+    show("body");
+  });
+  $$(".zone").forEach(z=>{
+    const pick=()=>{ $$(".zone").forEach(o=>o.classList.remove("sel"));
+      z.classList.add("sel"); state.zone=z.dataset.zone.replace(/2$/,"");
+      $("#toSymptoms").disabled=false; };
+    z.addEventListener("click",pick);
+    z.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();} });
+  });
+  $("#toSymptoms").addEventListener("click", ()=> show("symptoms"));
+  $$(".sym").forEach(t=> t.addEventListener("click", ()=>{
+    const k=t.dataset.sym;
+    if(state.syms.has(k)){ state.syms.delete(k); t.classList.remove("sel"); }
+    else if(state.syms.size<5){ state.syms.add(k); t.classList.add("sel"); }
+    $("#toResult").disabled = state.syms.size===0;
+  }));
+  $("#toResult").addEventListener("click", ()=> show("result"));
+
+  /* deterministic red-flag gate — evaluated BEFORE anything else (spec INV-1) */
+  function gate(){
+    if(state.syms.has("breath")) return true;
+    if(state.syms.has("bleed")) return true;
+    if(state.zone==="chest" && state.syms.has("pain")) return true;
+    return false;
+  }
+
+  function resultCard(danger){
+    const t=STR[state.lang];
+    return `
+      <div class="result ${danger?"danger":"ok"}">
+        <svg class="big-ic" viewBox="0 0 24 24"><use href="${danger?"#i-ambulance":"#i-building"}"/></svg>
+        ${danger?"":'<svg width="34" height="34" viewBox="0 0 24 24" style="color:var(--amberish)"><use href="#i-sun"/></svg>'}
+        <h3>${danger?t.dg_t:t.ok_t}</h3>
+        <p>${danger?t.dg_p:t.ok_p}</p>
+        <button class="speakbtn" data-say="${danger?"dg_say":"ok_say"}">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-speaker"/></svg>
+          ${t.listen}
+        </button>
+      </div>`;
+  }
+  function bindSpeakButtons(box){
+    $$(".speakbtn",box).forEach(b=> b.addEventListener("click", ()=>{
+      speak(STR[state.lang][b.dataset.say], b);
+    }));
+  }
+  function renderResult(){
+    const danger=gate();
+    const box=$("#resultbox"); box.innerHTML=resultCard(danger); bindSpeakButtons(box);
+    speak(STR[state.lang][danger?"dg_say":"ok_say"], $(".speakbtn",box));
+  }
+  function renderEmergency(){
+    const box=$("#emergbox"); box.innerHTML=resultCard(true); bindSpeakButtons(box);
+  }
+
+  /* ---------- TTS (mirrors the offline multimodal response, RF-06) ---------- */
+  let speakingBtn=null;
+  function stopSpeak(){
+    if("speechSynthesis" in window) speechSynthesis.cancel();
+    if(speakingBtn){ speakingBtn.classList.remove("playing"); speakingBtn=null; }
+  }
+  function speak(text, btn){
+    stopSpeak();
+    if(!("speechSynthesis" in window)) return;   /* graceful: visual-only (INV-8) */
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang=STR[state.lang].tts; u.rate=.95;
+    if(btn){ speakingBtn=btn; btn.classList.add("playing");
+      u.onend=u.onerror=()=>{ btn.classList.remove("playing"); if(speakingBtn===btn) speakingBtn=null; }; }
+    speechSynthesis.speak(u);
+  }
+  $("#speakWhere").addEventListener("click", e=> speak(STR[state.lang].w_say, e.currentTarget));
+  $("#speakFlow").addEventListener("click",  e=> speak(STR[state.lang].f_say, e.currentTarget));
+  $("#speakDocs").addEventListener("click",  e=> speak(STR[state.lang].d_say, e.currentTarget));
+
+  applyLang();
+})();
+</script>
