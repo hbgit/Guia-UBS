@@ -12,7 +12,7 @@ Isso **não** torna a LGPD inaplicável ao projeto. Ela incide plenamente sobre:
 1. **Dados dos administradores e revisores do CMS** (nome, e-mail, credenciais, trilha de auditoria) — dados pessoais comuns de profissionais;
 2. **Participantes do piloto/UAT** (observação de uso por 20–30 pessoas reais) — exige consentimento específico;
 3. **O desenho da telemetria** — que só permanece fora do escopo do art. 5º, I, enquanto a anonimização for irreversível (coortes pequenas podem reidentificar);
-4. **Operadores contratados** (CDN/storage, banco gerenciado, hospedagem) — incluindo **transferência internacional** (arts. 33 a 36).
+4. **Operadores contratados** (provedor do VPS que hospeda a stack self-hosted) — com **transferência internacional** (arts. 33 a 36) aplicável apenas se o datacenter estiver no exterior; a stack 100% self-hosted permite escolher datacenter no Brasil e eliminar essa hipótese na prática.
 
 Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** uma função (marketing, anúncios, cookies), o requisito é formulado como **guardrail proibitivo**: a função não pode ser introduzida sem cumprir as condições listadas — isso é Privacy by Default (art. 46 c/c art. 6º, III).
 
@@ -58,7 +58,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Critério de aceitação:** fluxo de revogação testado de ponta a ponta em ≤ 2 interações; dados do participante revogado ausentes do conjunto final do piloto.
 
 ### LGPD-RF06 — Compartilhamento com terceiros (operadores)
-- **Descrição:** os fornecedores da stack (CDN/objeto: Cloudflare R2; banco gerenciado: Turso; hospedagem: Railway; e-mail transacional do CMS, se houver) atuam como **operadores** e devem: (a) constar de inventário público na Política de Privacidade; (b) ter contrato/DPA com cláusulas de tratamento conforme instruções do controlador; (c) quando situados no exterior, enquadrar-se em hipótese válida de **transferência internacional** (cláusulas contratuais padrão ou garantias equivalentes). É proibida qualquer transmissão de conteúdo de triagem a terceiros — o que é estruturalmente garantido, pois a triagem não sai do device.
+- **Descrição:** com a stack 100% self-hosted (MinIO, Caddy, `sqld`, CMS num único VPS), o rol de operadores reduz-se ao **provedor de infraestrutura do VPS** (e ao serviço de e-mail transacional do CMS, se houver). Esses operadores devem: (a) constar de inventário público na Política de Privacidade; (b) ter contrato/DPA com cláusulas de tratamento conforme instruções do controlador; (c) **preferencialmente operar datacenter no Brasil** — o que elimina a transferência internacional; se no exterior, enquadrar-se em hipótese válida dos arts. 33–36 (cláusulas contratuais padrão ou garantias equivalentes). Espelhos de conteúdo (rsync) não tratam dado pessoal — servem apenas artefatos públicos assinados. É proibida qualquer transmissão de conteúdo de triagem a terceiros — estruturalmente garantido, pois a triagem não sai do device.
 - **Objetivo:** manter a cadeia de tratamento sob controle jurídico e técnico.
 - **Base legal:** disciplina controlador–operador; transferência internacional.
 - **Artigos:** art. 5º, VI e VII; art. 39; arts. 33 a 36.

@@ -53,9 +53,9 @@
 | A2 Admin de conteúdo municipal | Humano | Edita catálogo no CMS (autenticado, Better Auth) |
 | A3 Revisor clínico | Humano | Aprova `red_flag_rules` e conteúdo antes do empacotamento (dual review) |
 | S1 Android OS | Sistema | WorkManager (agenda sync), engine TTS do sistema |
-| S2 CDN / R2 | Sistema | Serve `manifest.json` + packs imutáveis (não-confiável) |
+| S2 Servidor de conteúdo (MinIO+Caddy self-host / espelhos) | Sistema | Serve `manifest.json` + packs imutáveis (não-confiável) |
 | S3 Packer (CI) | Sistema | Compila, assina (Ed25519) e publica packs |
-| S4 Turso/libSQL | Sistema | Master DB do plano de controle |
+| S4 libSQL/`sqld` (self-host) | Sistema | Master DB do plano de controle |
 
 **Dentro da fronteira:** app device (UI, gate, engines, sync, repositórios), plano de controle (CMS, packer, buckets).
 **Fora da fronteira:** sistemas do SUS (prontuário, agendamento), Play Store, engine TTS (dependência do SO — tratada como serviço externo falível), conectividade (não garantida por definição).
@@ -183,7 +183,7 @@ classDiagram
 | `sync/` (WorkManager + verifier + swap) | Ciclo de vida do pack | rede, filesystem, `content/` (invalidação) | Nenhum módulo de feature depende dele (fire-and-forget) |
 | `speech/` | Saída de áudio | Engine do SO / assets Opus | UI (opcional: falha não propaga) |
 | `ui/` (navegação iconográfica) | Apresentação e input | `triage/`, `content/`, `speech/` | — |
-| CMS/packer (TS, fora do device) | Curadoria, empacotamento, assinatura | Turso, R2 | Nenhum (assíncrono via artefatos) |
+| CMS/packer (TS, fora do device) | Curadoria, empacotamento, assinatura | `sqld`, MinIO | Nenhum (assíncrono via artefatos) |
 
 Regra de dependência: `ui → triage → content ← sync`; `speech` é folha; nenhuma dependência cíclica. O único canal entre plano de controle e device é o **artefato assinado** — acoplamento temporal zero (nenhum dos lados precisa estar online simultaneamente).
 
@@ -242,7 +242,7 @@ sequenceDiagram
     autonumber
     participant OS as WorkManager (S1)
     participant SY as SyncService
-    participant CDN as CDN/R2 (S2)
+    participant CDN as Servidor de conteúdo (S2)
     participant PV as PackVerifier
     participant FS as Filesystem
 
@@ -446,7 +446,7 @@ stateDiagram-v2
 | **Tabela `red_flag_rules` incorreta** | Falso negativo clínico distribuído em escala | Dual review (A3 obrigatório) + suite golden clínica em CI (pass 100%) + auditoria pós-pack; regra ausente falha para o lado conservador do RuleOnly |
 | Modelo GGUF corrompido em disco | Engine crasha no load | Checksum no boot ⇒ desativa engine ⇒ RuleOnly (RF-12); re-download do modelo em janela futura |
 | Engine TTS ausente/quebrada (ROMs cortadas) | Perda do canal de áudio p/ baixo letramento | Detecção no boot; resposta visual íntegra (INV-8); v2: áudios gravados como fallback universal |
-| R2/CDN indisponível | Frota congela em vN | Não catastrófico por design: app 100% funcional; convergência apenas atrasa (BASE) |
+| Servidor de conteúdo indisponível (VPS único) | Frota congela em vN | Não catastrófico por design: app 100% funcional; convergência apenas atrasa (BASE); espelhos estáticos por rsync reduzem a janela |
 
 ### 6.2 Estratégias de Mitigação
 
@@ -469,7 +469,7 @@ stateDiagram-v2
 ### 7.1 Escalabilidade
 
 - **Horizontal por conteúdo (natural):** pack por município = sharding sem infraestrutura — `manifest.json` por município sob prefixo próprio no bucket; o app aponta para o prefixo do seu município (seleção única, offline, na primeira execução ou via QR na UBS).
-- **Vertical:** CMS e Turso escalam por upgrade de recurso (stack §5); nenhum componente de runtime do usuário escala com a base instalada além da CDN.
+- **Vertical:** CMS e `sqld` escalam por upgrade de recurso do VPS (stack §5); nenhum componente de runtime do usuário escala com a base instalada além do servidor de conteúdo/espelhos.
 - **Delta packs (quando o pack crescer >10 MB):** publicar `bsdiff` entre versões consecutivas ao lado do pack completo; device aplica patch + verifica hash final — mesma cadeia de confiança, fração do egress na janela de 30 s.
 - **iOS:** mesma base Flutter; principal trabalho é a matriz de build do llama.cpp (Metal) — já isolado atrás de `TriageEngine`.
 

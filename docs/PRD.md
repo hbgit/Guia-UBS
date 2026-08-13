@@ -75,9 +75,9 @@ flowchart LR
     subgraph Control["Plano de Controle (TS · Node 22)"]
         CMS["cms/\nHono + React SPA\nRBAC + dual review"]
         PK["packer/\ncompila + assina packs"]
-        DB[("Turso/libSQL\nmaster · Drizzle")]
+        DB[("libSQL/sqld self-host\nmaster · Drizzle")]
     end
-    CDN["R2 + CDN\nmanifest + packs imutáveis"]
+    CDN["MinIO + Caddy (self-host)\nmanifest + packs imutáveis"]
 
     UI --> TR --> CT
     UI --> SP
@@ -188,7 +188,7 @@ erDiagram
 
 | Módulo | Tecnologia | SQL/NoSQL | Justificativa |
 |---|---|---|---|
-| Catálogo master | Turso/libSQL + Drizzle | SQL | Integridade referencial real (regra→token, serviço→documento) e traduções normalizadas; violação aqui é incidente clínico, não bug |
+| Catálogo master | libSQL/`sqld` self-host + Drizzle | SQL | Integridade referencial real (regra→token, serviço→documento) e traduções normalizadas; violação aqui é incidente clínico, não bug |
 | `content.db` (device) | SQLite RO distribuído | SQL | Mesmo dialeto do master ⇒ packer sem ETL; consultas relacionais locais; arquivo único = unidade de swap/assinatura |
 | `user.db` (device) | SQLite via Drift | SQL | Type-safe em Dart; escopo minúsculo (prefs, estado de sync) |
 | Telemetria agregada | Contadores em arquivo local → endpoint de ingestão | n/a | Não é banco de dado pessoal por design (k ≥ 20; LGPD-RF14) |
@@ -223,7 +223,7 @@ erDiagram
 | Inferência SLM (device ≤ 4 GB) | p95 < 3 s; timeout hard 5 s | Idem; `fallback_rate` como guardrail |
 | Resposta total da triagem (toque→cartão) | p95 < 4 s | Telemetria agregada |
 | Cold start do app | < 2,5 s em device de entrada | Bench M5 |
-| `GET manifest.json` (CDN) | p99 < 300 ms; 99,9% disponibilidade | Métricas CDN — única superfície de rede do app |
+| `GET manifest.json` (edge Caddy/espelhos) | p99 < 300 ms; 99,5% disponibilidade (BASE tolera indisponibilidade) | Métricas do Caddy — única superfície de rede do app |
 | API CMS | p95 < 400 ms | APM do plano de controle |
 | Footprint | APK+modelo+pack ≤ 400 MB; RAM inferência ≤ 1,5 GB | Pipeline de release |
 | Estabilidade | Crash-free ≥ 99,5%; 72 h offline sem crash | M5 + telemetria |
@@ -244,7 +244,7 @@ erDiagram
 
 **Identidade:** usuário final — **nenhuma** (decisão de produto, ver §2.4). Plano de controle — **RBAC** 3 papéis (Editor, Revisor clínico, Admin) com segregação edição×aprovação; ABAC desnecessário nesta escala (revisar se surgir multi-tenancy por município com equipes próprias).
 
-**Criptografia:** TLS 1.2+ em trânsito; repouso criptografado no provedor (Turso/R2); Argon2id para senhas; Ed25519 para artefatos; segredos em cofre do provedor, nunca em código.
+**Criptografia:** TLS 1.2+ em trânsito (Caddy/Let's Encrypt); repouso criptografado no VPS (volume LUKS provisionado pelo Ansible); Argon2id para senhas; Ed25519 para artefatos; segredos fora do código (env do host, sem SaaS de cofre).
 
 ### 4.3 Acessibilidade e UX Técnica
 
@@ -258,7 +258,7 @@ erDiagram
 
 ### 5.1 Ambiente de Desenvolvimento (reprodutibilidade)
 
-- **Plano de controle:** `docker compose up` sobe `sqld` (Turso self-host) + MinIO (stand-in R2) + CMS + packer one-shot ([stack.md §7](stack.md)); imagens pinadas por versão; `.env` de exemplo versionado, segredos reais fora do repo.
+- **Plano de controle:** `docker compose up` sobe `sqld` + MinIO + Caddy + CMS + packer one-shot ([stack.md §7](stack.md)) — o compose é a própria topologia de produção; imagens pinadas por versão; `.env` de exemplo versionado, segredos reais fora do repo.
 - **App:** Flutter no host + emulador/device físico apontando para o MinIO local; modelo GGUF baixado por script com checksum verificado (não versionado no git).
 - **CI:** build do APK na imagem `cirruslabs/flutter` pinada; matriz mínima de devices de entrada no farm de testes; lockfiles (`pubspec.lock`, `package-lock.json`) obrigatórios.
 - **Paridade:** o mesmo packer que roda no compose local roda no CI — um só caminho de empacotamento.
@@ -298,7 +298,7 @@ CAP-01…CAP-15 (matriz §2.2). Corte: prova H1 (iconográfico sem mediação) +
 |---|---|---|---|---|
 | **Fase 1 — PoC** | 1–7 (M1–M3) | Wireframes validados em campo; protótipo Figma/HTML; PoC SLM em device ≤ 4 GB; PoC sync em rede instável; esquema de dados + pipeline de pack assinado | R1 (FFI), H3 (latência), H2 (sync), H1 parcial (usabilidade de protótipo) | Inferência p95 < 3 s; sync resume após corte; ≥ 80% conclusão de tarefas no teste de protótipo |
 | **Fase 2 — Alpha/Beta** | 7–21 (M4–M6) | 5 sprints de módulos (casca+TTS → triagem → encaminhamento+fluxo → documentos+privacidade → sync+CMS); testes M5 (perf/segurança/72 h); piloto UAT em 2 UBS | H1 (campo real), R5 (conteúdo clínico), R7 (TTS) | Zero orientação clinicamente incorreta no piloto; aprovação formal dos gestores; crash-free ≥ 99,5% |
-| **Fase 3 — GA** | 22+ (M7) | Play Store + APK sideload (Bluetooth/SD); telemetria agregada ativa; ciclo mensal de packs; delta packs (bsdiff) quando pack > 10 MB; sharding por município; v1.1 (vacinas/farmácia) | H4 (adoção), R6 (custo), escala de conteúdo | ≥ 90% convergência em 7 dias; custo/usuário ~0 confirmado; processo de curadoria municipal operando |
+| **Fase 3 — GA** | 22+ (M7) | Play Store + F-Droid + APK sideload (Bluetooth/SD); telemetria agregada ativa; ciclo mensal de packs; delta packs (bsdiff) quando pack > 10 MB; sharding por município; v1.1 (vacinas/farmácia) | H4 (adoção), R6 (custo), escala de conteúdo | ≥ 90% convergência em 7 dias; custo/usuário ~0 confirmado; processo de curadoria municipal operando |
 
 ### 6.3 Matriz de Riscos
 
@@ -309,7 +309,7 @@ CAP-01…CAP-15 (matriz §2.2). Corte: prova H1 (iconográfico sem mediação) +
 | R3 | Reidentificação via telemetria (coorte pequena) | Baixa | Alto (legal/confiança) | k ≥ 20 enforced no pipeline; revisão do encarregado por mudança de schema; capacidade de desligar telemetria por release |
 | R4 | Comprometimento da chave de assinatura | Baixa | **Crítico** | Cofre offline/HSM; dual-key para rotação; anti-downgrade limita replay; runbook de revogação + pack de emergência |
 | R5 | Conteúdo clínico incorreto distribuído | Média | **Crítico** | Dual review obrigatório; suite golden no packer (bloqueia assinatura); auditoria por profissional (M5/M6); correção via pack em horas (não depende de release) |
-| R6 | Custo Turso/Railway pós-free-tier | Média | Baixo | Self-host `sqld` no compose já validado; migração ~1 dia; CDN egress zero (R2) |
+| R6 | Banda/disponibilidade do VPS único de conteúdo (stack 100% self-host) | Média | Baixo | Espelhos estáticos por rsync (Ed25519 dispensa confiança no espelho); BASE tolera indisponibilidade — frota só converge mais devagar |
 | R7 | Qualidade/ausência de TTS do sistema em ROMs de entrada | Média | Médio | Detecção no boot; resposta visual íntegra (INV-8); v2 antecipável: áudios gravados como fallback universal |
 | R8 | Baixa adoção municipal (H4 falha) | Média | Alto | Canal duplo: ONGs/ACS além de prefeituras; sneakernet por APK reduz dependência de infraestrutura local; piloto gera casos de referência |
 

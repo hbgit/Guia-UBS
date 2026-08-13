@@ -39,7 +39,7 @@
 ### 2.2 Topologia: um dialeto, três encarnações
 
 ```
-┌─ Turso/libSQL (master DB, serverless) ─┐      ┌─ Device ─────────────────────┐
+┌─ libSQL/sqld self-host (master DB) ────┐      ┌─ Device ─────────────────────┐
 │  CMS escreve via Drizzle               │      │  content.db (SQLite, RO)     │
 │         │ packer (CI)                  │ CDN  │  swap atômico no sync        │
 │         ▼                              │─────▶│  user.db (Drift, RW local)   │
@@ -48,7 +48,7 @@
 └────────────────────────────────────────┘
 ```
 
-- **Servidor: Turso (libSQL serverless)** — free tier estável, réplicas de leitura, e o mesmo dialeto SQLite do device: o *packer* materializa o content pack sem camada de tradução de dialeto. Alternativa Neon (Postgres) descartada na v1: introduz um segundo dialeto e um ETL packer→SQLite que é puro custo.
+- **Servidor: libSQL/`sqld` self-hosted (MIT)** — mesmo dialeto SQLite do device: o *packer* materializa o content pack sem camada de tradução de dialeto. Roda como um container no próprio VPS — o compose do §7 **é** a topologia de produção (paridade dev/prod literal). Turso (SaaS gerenciado sobre o mesmo libSQL) descartado: serviço comercial que não agrega nada aqui, pois `sqld` entrega o mesmo dialeto sem fornecedor. Neon (Postgres) descartada na v1: segundo dialeto + ETL packer→SQLite que é puro custo.
 - **Device: Drift** (type-safe SQLite para Dart) para o `user.db` (preferências, cache de estado); o `content.db` chega **pronto e read-only** do pipeline — o app nunca roda migração de conteúdo, só troca o arquivo (swap atômico: download → verificação de assinatura → rename). Rollback = manter o pack anterior até o novo validar.
 - **Migrações rápidas:** `drizzle-kit` (SQL puro, diff automático) no master. No device, Drift migra apenas o `user.db` (esquema minúsculo).
 
@@ -67,11 +67,12 @@
 - **Drizzle + drizzle-kit** no backend: schema-as-code TS, introspecção real (`drizzle-kit pull`), migrações SQL legíveis, e dialeto SQLite nativo (Prisma trata SQLite como cidadão de segunda classe e seu engine engorda o container; SQLx é Rust — fora do ecossistema escolhido).
 - O schema Drizzle é a **fonte única de verdade** de onde deriva todo o resto (§3.3).
 
-### 3.2 IaC — SST v3 (engine Pulumi) sobre Cloudflare + Railway
+### 3.2 IaC — Docker Compose + Ansible (100% open source)
 
-- **SST v3** em TS: mesma linguagem do backend, tipado, e abstrai sem esconder — qualquer recurso desce para o provider Pulumi bruto quando necessário. Gerencia: bucket R2, DNS/CDN, secrets.
-- **Railway** para o container do CMS: deploy direto do `Dockerfile`, sem YAML de orquestração. O CMS é interno e de baixo tráfego — Kubernetes aqui seria autoflagelo.
-- Escape hatch comprovado localmente: o `docker-compose` (§7) sobe a stack inteira com `sqld` + MinIO — a paridade dev/prod é estrutural, não aspiracional.
+- **Ansible (GPL-3.0)** provisiona o VPS de forma reprodutível: Docker, firewall, volume criptografado (LUKS), usuário de deploy, unit systemd que roda `docker compose up -d`. Um playbook versionado no repo substitui todo o papel do SST/Railway.
+- **O `docker-compose.yaml` do §7 é o artefato de deploy** — não existe distinção dev/prod além do arquivo de override com o Caddy (TLS) e os segredos reais.
+- **Coolify (Apache-2.0)** como opção de PaaS self-hosted se a equipe quiser DX de deploy por git push — mesma máquina, zero SaaS.
+- SST v3 e Railway removidos: eram conveniência sobre nuvens comerciais; com a infra inteira num VPS, viram custo e dependência sem contrapartida. Kubernetes segue sendo autoflagelo nesta escala.
 
 ### 3.3 Cadeia de Type Safety de Ponta a Ponta
 
@@ -102,11 +103,11 @@ Renomeou uma coluna no Drizzle → o JSON Schema muda → o Dart gerado muda →
 
 ### 4.2 Cache & Entrega na Edge
 
-- **Cloudflare R2 + CDN** para os content packs. Egress zero do R2 é decisivo: o produto é 99% download de arquivos.
+- **MinIO (AGPL-3.0) atrás de Caddy (Apache-2.0)**, self-hosted no VPS, para os content packs. Caddy dá TLS automático (Let's Encrypt, gratuito) e cache de estáticos; MinIO dá a API S3 que o packer consome. Trade-off assumido ao remover a CDN comercial: perde-se capilaridade global — aceitável porque manifest e deltas são KB-scale e **qualquer servidor estático vira espelho** (nginx/Caddy + rsync, inclusive servidores municipais federados), sem nenhuma mudança no app.
 - Estratégia de cache em duas classes:
   - **Packs e áudios**: nomeados por hash de conteúdo (`pack-a1b2c3.db`), `Cache-Control: public, max-age=31536000, immutable` — cache infinito, invalidação impossível por construção.
   - **`manifest.json`**: `max-age=60` + ETag — único objeto mutável; o device faz um GET condicional barato e só baixa o resto se a versão mudou.
-- Assinatura **Ed25519 do manifest + hash dos artefatos** (chave pública embarcada no app): a CDN é infraestrutura não-confiável; o device verifica tudo. Isso também habilita distribuição sneakernet (APK + pack via Bluetooth/SD) com a mesma garantia de integridade.
+- Assinatura **Ed25519 do manifest + hash dos artefatos** (chave pública embarcada no app): o servidor de conteúdo e qualquer espelho são infraestrutura não-confiável; o device verifica tudo. Isso torna os espelhos triviais de operar (não precisam ser confiáveis) e habilita distribuição sneakernet (APK + pack via Bluetooth/SD) com a mesma garantia de integridade.
 
 ---
 
@@ -114,12 +115,12 @@ Renomeou uma coluna no Drizzle → o JSON Schema muda → o Dart gerado muda →
 
 | Componente | Carga 50x | Ação necessária |
 |---|---|---|
-| Entrega de packs (R2+CDN) | Estático + cache imutável | Nenhuma — CDN absorve por design |
+| Entrega de packs (MinIO+Caddy) | Estático + cache imutável | Adicionar espelhos estáticos (rsync) quando a banda do VPS saturar |
 | Inferência | Roda no device do usuário | Nenhuma — escala com a base instalada (custo marginal ~0) |
-| CMS (Railway) | Tráfego interno (admins) | Upgrade vertical do container; irrelevante para usuários finais |
-| Turso | Leitura só pelo packer/CMS | Réplicas de leitura no plano pago; ou self-host `sqld` |
+| CMS (VPS/compose) | Tráfego interno (admins) | Upgrade vertical do VPS; irrelevante para usuários finais |
+| `sqld` (self-host) | Leitura só pelo packer/CMS | Já é self-host; réplica de leitura opcional em segundo container |
 
-O único caminho quente (download de pack em campanha de vacinação nacional) já nasce no componente mais escalável da internet: arquivo estático atrás de CDN.
+O único caminho quente (download de pack em campanha de vacinação nacional) é arquivo estático cacheável e assinado — espelhável em qualquer servidor, de VPS comercial a máquina de secretaria municipal.
 
 ---
 
@@ -131,13 +132,13 @@ O único caminho quente (download de pack em campanha de vacinação nacional) j
 - **Custo de longo prazo:** não é fatura de cloud — é **custo de engenharia recorrente**: recompilar `.so` para arm64/armv7, testar em matriz de SoCs de entrada, perseguir regressões de quantização. É o único componente da stack sem free tier de manutenção alheia.
 - **Migração futura:** média-alta. A mitigação está desenhada desde o dia 1: **isolar a inferência atrás de uma interface Dart única (`TriageEngine`)** com três implementações possíveis — llama.cpp FFI (default), MediaPipe LLM (fallback Google-supported), e **regras puras sem LLM** (kill switch: o app degrada para triagem 100% determinística e continua clinicamente seguro). O modelo em GGUF preserva liquidez de formato.
 
-Menção honrosa: **Turso** pós-free-tier — mas o lock-in real é baixo (é SQLite; `sqld` é self-hostável no mesmo compose abaixo; Drizzle abstrai o driver). Sair custa uma tarde, não um trimestre.
+Menção honrosa: **banda e disponibilidade do VPS único** — sem CDN comercial, o servidor de conteúdo é o gargalo de distribuição e um ponto único de indisponibilidade. Mitigação barata e já desenhada: espelhos estáticos por rsync (federáveis com servidores municipais — a assinatura Ed25519 dispensa confiança no espelho), e o app tolera indisponibilidade por design (BASE: a frota apenas converge mais devagar, nunca para de funcionar).
 
 ---
 
 ## 7. `docker-compose.yaml` de Síntese
 
-Reproduz o plano de controle completo local: master DB (`sqld` = Turso self-host), CMS, storage S3-compatível (stand-in do R2) e o job de empacotamento. O app Flutter roda no host/emulador apontando para o MinIO; o CI de build do APK usa a imagem `ghcr.io/cirruslabs/flutter` (mesmo princípio Docker-first, pipeline separado).
+Este compose **é** a topologia de produção (não um stand-in): master DB `sqld`, CMS, MinIO como storage de packs, Caddy como edge TLS/cache e o job de empacotamento. Em dev, o app Flutter roda no host/emulador apontando para o MinIO local; o CI de build do APK usa a imagem `ghcr.io/cirruslabs/flutter` (mesmo princípio Docker-first, pipeline separado).
 
 ```yaml
 services:
@@ -176,7 +177,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  storage:                              # stand-in local do Cloudflare R2
+  storage:                              # storage de packs (dev e produção)
     image: minio/minio:RELEASE.2025-06-13T11-33-47Z
     command: server /data --console-address ":9001"
     ports:
@@ -187,6 +188,18 @@ services:
       MINIO_ROOT_PASSWORD: dev-secret
     volumes:
       - s3data:/data
+
+  edge:                                 # produção: TLS automático + cache de estáticos
+    image: caddy:2.8-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - storage
+      - cms
 
   packer:                               # one-shot: compila e assina o content pack
     build:
@@ -203,6 +216,7 @@ services:
 volumes:
   dbdata:
   s3data:
+  caddydata:
 ```
 
 ```bash
@@ -219,9 +233,88 @@ docker compose run --rm packer            # gera + assina + publica content-pack
 | App | Flutter + Riverpod + freezed + GoRouter | Produto offline-first iconográfico |
 | Edge AI | llama.cpp (FFI) + Gemma 3 1B GGUF, atrás de `TriageEngine` | Chatbot local com kill switch determinístico |
 | DB device | SQLite: `content.db` (RO, distribuído) + Drift `user.db` | Zero migração de conteúdo no device |
-| DB master | Turso/libSQL + Drizzle | Fonte de verdade; mesmo dialeto do device |
+| DB master | libSQL/`sqld` self-host + Drizzle | Fonte de verdade; mesmo dialeto do device |
 | API/CMS | Hono + Zod + React SPA, Node 22 | Plano de controle de conteúdo |
 | Type safety | Drizzle → Zod → JSON Schema → Dart (freezed) em CI | Schema muda ⇒ build Flutter quebra |
 | Auth | Better Auth (admins only); usuário final sem auth | Sem PII, sem lock-in |
-| Entrega | Cloudflare R2 + CDN, packs imutáveis + manifest ETag, Ed25519 | Egress zero, sneakernet-safe |
-| IaC/Deploy | SST v3 (Cloudflare) + Railway (container CMS) | TS de ponta a ponta, Docker-first |
+| Entrega | MinIO + Caddy (self-host), packs imutáveis + manifest ETag, Ed25519 | 100% OSS, espelhável, sneakernet-safe |
+| IaC/Deploy | Docker Compose + Ansible (Coolify opcional) | 100% OSS, um VPS, Docker-first |
+
+---
+
+## 9. Auditoria Open Source (revisão de 2026-08)
+
+Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado por equivalente open source:
+
+| Antes (pago/SaaS) | Depois (OSS) | Licença | O que muda |
+|---|---|---|---|
+| Turso (libSQL gerenciado) | `sqld`/libSQL self-host | MIT | Nada funcional — mesmo dialeto, mesmo driver; sai o fornecedor |
+| Cloudflare R2 + CDN | MinIO + Caddy no VPS | AGPL-3.0 / Apache-2.0 | Perde CDN global; ganha espelhos federáveis (Ed25519 dispensa confiança no espelho) |
+| Railway (PaaS) | Compose + systemd (Coolify opcional) | — / Apache-2.0 | Deploy = `docker compose up -d` via Ansible |
+| SST v3 (sobre nuvens pagas) | Ansible playbook | GPL-3.0 | IaC vira provisionamento de 1 VPS |
+
+**Notas de licenciamento e opções (sem mudança de default):**
+
+- **Modelo (Gemma 3 1B):** gratuito, mas *open weights* sob termos Google — **não é OSI**. Alternativas OSI-licenciadas de tamanho equivalente, compatíveis com o mesmo pipeline GGUF: **Qwen2.5 0.5B/1.5B (Apache-2.0)** e **Phi-3.5-mini (MIT)**. A troca é um arquivo — a interface `TriageEngine` e o eval harness clínico decidem por benchmark, não por ideologia.
+- **TTS:** o engine do sistema (Google TTS) é proprietário, embora gratuito e on-device. Opção 100% OSS que também mitiga o risco R7 (ROMs sem engine): **Piper (MIT) via sherpa-onnx**, com vozes pt-BR/es embarcadas (~20 MB/voz). Default continua `flutter_tts` (zero MB); Piper entra como fallback empacotável.
+- **CI:** GitHub Actions é serviço (gratuito para repositório público). Alternativas self-host quando desejado: **Woodpecker CI (Apache-2.0)** ou **Forgejo Actions (MIT)** no mesmo VPS.
+- **Distribuição:** Play Store cobra taxa única de publicação. Canais OSS-friendly já previstos: **F-Droid** (gratuito, exige build reprodutível — bônus de transparência para um app de saúde pública) e APK direto via sneakernet.
+
+**Custo remanescente honesto:** open source elimina licenças e SaaS, não hardware — resta o VPS (único item de fatura recorrente da stack inteira) e, opcionalmente, a taxa única da Play Store. Tudo o mais roda com custo marginal zero.
+
+---
+
+## 10. Registro de Decisões de Deploy (ADR)
+
+### ADR-001 — Vercel como plataforma de deploy: **REJEITADO** (2026-08-13)
+
+**Contexto:** avaliou-se o Vercel como alternativa de deploy para o plano de controle e/ou a entrega de conteúdo.
+
+**Decisão:** manter o deploy self-hosted (Compose + Ansible em VPS nacional, §3.2/§7). Vercel rejeitado.
+
+**Fundamentos (vinculados aos requisitos deste projeto):**
+
+1. **Perfil de carga invertido:** o Vercel otimiza frontend serverless com requisições dinâmicas na edge; este projeto tem zero requisição dinâmica de usuário — o caminho quente é download de binário estático assinado (HTTP Range para retomada), caso de uso de object storage, não de plataforma de frontend.
+2. **Docker-first violado:** requisito desta MVTS ("stack reprodutível via Dockerfile/Compose"); Vercel não executa containers arbitrários — o compose do §7, que é a topologia de produção, seria descartado.
+3. **Fragmentação da stack:** o CMS depende de `sqld` e MinIO, que o Vercel não hospeda — migrar exigiria recontratar banco gerenciado e storage externos, revertendo a auditoria do §9.
+4. **Segurança (SPOF R4):** o packer assina packs com a chave Ed25519; executá-lo em functions de terceiro colocaria o segredo mais crítico do modelo de ameaças sob custódia de SaaS, contra a política "cofre offline/HSM, assinatura só no CI". Timeout de 60 s em functions também é inadequado ao job.
+5. **Custo/termos:** o tier Hobby proíbe uso comercial/institucional — operação para prefeituras exigiria plano pago, conflitando com a decisão de stack 100% OSS (§9); banda de 100 GB/mês é insuficiente para campanhas de vacinação (milhares de devices × packs de MB).
+6. **LGPD:** reintroduziria operador estrangeiro e transferência internacional (arts. 33–36), revertendo a postura do [lgpd.md](lgpd.md) RF06 (datacenter no Brasil).
+
+**Exceção reconhecida:** hospedar um eventual site institucional estático — mesmo assim, o Caddy do VPS já cobre sem novo operador.
+
+**Revisão:** reavaliar somente se o projeto ganhar superfície web dinâmica voltada ao público (o que hoje contraria a arquitetura offline-first).
+
+---
+
+## 11. Para o Sponsor — Por que um app "100% offline" ainda precisa de serviços web?
+
+> Seção não técnica, para apresentação a patrocinadores e gestores. Explica em linguagem simples o papel da infraestrutura dos §§1.2–7.
+
+O Guia UBS funciona inteiro no celular, sem internet — a triagem, a voz, as orientações. Então é justo perguntar: **para que pagar por qualquer coisa na internet?** A resposta curta: o celular não precisa dos serviços web para *funcionar*, mas o projeto precisa deles para o conteúdo **nascer, ser confiável e chegar até os celulares**. São três papéis:
+
+### 11.1 A "redação" — onde o conteúdo de saúde é escrito e aprovado
+
+Horários da UBS mudam. Campanhas de vacinação começam e terminam. Remédios entram e saem da farmácia básica. Alguém da equipe de saúde precisa de um lugar para **editar essas informações, e um profissional de saúde precisa aprová-las antes de irem ao ar** — essa dupla checagem é uma trava de segurança do projeto: nenhuma orientação chega à população sem revisão clínica.
+
+Esse lugar é o painel web (o CMS, §1.2). Sem ele, o app nasceria com informação congelada e estaria desatualizado — e, em saúde, desatualizado é perigoso.
+
+### 11.2 O "carimbo oficial" — a garantia de que ninguém falsifica orientação de saúde
+
+Antes de ser distribuído, todo pacote de conteúdo recebe uma **assinatura digital** (§4.2) — pense num carimbo impossível de falsificar. O celular confere o carimbo e **recusa qualquer conteúdo que não seja oficial**. Isso protege a população contra alguém mal-intencionado tentando espalhar orientação de saúde falsa pelo nosso canal.
+
+### 11.3 O "correio" — a estante de onde os celulares pegam as atualizações
+
+Quando um celular da zona rural passa perto de um Wi-Fi (da escola, do centro comunitário), ele aproveita aqueles segundos para baixar, sozinho e em silêncio, a atualização — poucos kilobytes. Do outro lado precisa existir uma "estante" na internet com esses arquivos disponíveis 24h (MinIO + Caddy, §4.2). É só isso que esse servidor faz: entregar arquivos prontos.
+
+Detalhe importante: **se esse servidor cair, nenhum usuário percebe** — o app continua funcionando normalmente com o conteúdo que já tem; a atualização apenas chega um pouco depois. O servidor nunca é ponto de falha para quem está na ponta.
+
+### 11.4 O que isso custa
+
+Como o app não conversa com servidor durante o uso (a inteligência artificial roda no próprio celular), **o custo não cresce com o número de usuários**: atender 500 pessoas ou 50 mil custa praticamente o mesmo. Após a auditoria do §9, toda a infraestrutura roda em **um único servidor alugado (VPS), com software 100% gratuito e de código aberto** — essa é a única fatura recorrente do projeto. Sem mensalidade por usuário, sem licenças, sem serviços de nuvem caros.
+
+De quebra, hospedando esse servidor em datacenter no Brasil, os dados administrativos ficam em território nacional — o que simplifica a conformidade com a LGPD ([lgpd.md](lgpd.md) RF06).
+
+### 11.5 Resumo em uma frase
+
+> O celular carrega o agente de saúde; os serviços web são a **redação que escreve, o carimbo que autentica e o correio que entrega** a cartilha atualizada — por um custo fixo pequeno, que não aumenta com o sucesso do projeto.
