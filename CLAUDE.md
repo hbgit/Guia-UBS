@@ -10,7 +10,7 @@ Projeto em **fase de especificação** — ainda não há código-fonte, build o
 
 1. **`docs/PRD.md`** — fonte única da verdade; consolida e governa os demais. Em conflito, vale o PRD.
 2. **`docs/espec.md`** — normativo para comportamento: matrizes FSM completas (FSM-A triagem, FSM-B ciclo do pack), invariantes INV-1…8, requisitos RF/RNF com critérios de aceitação.
-3. **`docs/stack.md`** — decisões de tecnologia com trade-offs, auditoria open source (§9) e **ADRs de deploy (§10)**; §11 é a explicação não técnica para sponsors.
+3. **`docs/stack.md`** — decisões de tecnologia com trade-offs, auditoria open source (§9) e **ADRs arquiteturais (§10)**; §11 é a explicação não técnica para sponsors.
 4. **`docs/lgpd.md`** — requisitos de conformidade LGPD (LGPD-RF01…17, RT01…11).
 5. **`docs/brainstorm.md`** — visão de produto, milestones M1–M7, definição do MVP.
 6. **`docs/design.html`** — protótipo interativo autocontido (abrir no navegador); publicado como Artifact.
@@ -34,6 +34,7 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 - **Vercel rejeitado** (ADR-001, stack.md §10) — só reavaliar se surgir superfície web dinâmica pública.
 - O `docker-compose.yaml` de stack.md §7 **é** a topologia de produção planejada (paridade dev/prod literal).
 - Type safety cruza TS→Dart por codegen: schema Drizzle → Zod → `pack-schema.json` → freezed; mudança de schema deve quebrar `flutter analyze` no mesmo PR (stack.md §3.3).
+- **O Dart não fala com `llama.h`** (ADR-002, stack.md §10): a fronteira é o shim C de 4 funções em `native/llama_shim/`, com llama.cpp fixado na tag `b6100`. O laço de geração e o teto de 5 s moram no C — um `Future.timeout` no Dart abandonaria a espera sem parar a CPU do aparelho. Mudou assinatura no shim? Incremente `GUBS_LLAMA_ABI_VERSION` e `expectedAbiVersion` no mesmo commit.
 
 ## Convenções de design (UI)
 

@@ -264,7 +264,7 @@ Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado
 
 ---
 
-## 10. Registro de Decisões de Deploy (ADR)
+## 10. Registro de Decisões Arquiteturais (ADR)
 
 ### ADR-001 — Vercel como plataforma de deploy: **REJEITADO** (2026-08-13)
 
@@ -284,6 +284,26 @@ Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado
 **Exceção reconhecida:** hospedar um eventual site institucional estático — mesmo assim, o Caddy do VPS já cobre sem novo operador.
 
 **Revisão:** reavaliar somente se o projeto ganhar superfície web dinâmica voltada ao público (o que hoje contraria a arquitetura offline-first).
+
+### ADR-002 — Fronteira com o llama.cpp: **shim C de 4 funções** (2026-08-13)
+
+**Contexto:** o app precisa chamar o llama.cpp a partir do Dart. O caminho usual é gerar bindings com `ffigen` direto sobre `llama.h` e escrever o laço de geração em Dart.
+
+**Decisão:** interpor `native/llama_shim/` — quatro funções C (`open`, `generate`, `close`, `abi_version`) — e ligar o Dart apenas a elas. `llama.h` não é exposto ao Dart. Versão do llama.cpp fixada por tag (**b6100**) via `FetchContent`.
+
+**Fundamentos:**
+
+1. **Superfície e detecção de quebra.** `llama.h` expõe ~200 símbolos e muda a cada release; bindings gerados transformam mudança de ABI em *crash em campo*. Com o shim, uma quebra do upstream é erro de compilação C, encontrada no CI.
+2. **O teto de 5 s do RF-05 precisa abortar, não desistir.** Com o laço de geração no Dart, cada chamada FFI bloqueia o isolate e `Future.timeout` apenas abandona a espera — a CPU do aparelho continua gerando tokens que ninguém vai ler, num device que já é o gargalo. Com o laço em C, o prazo entra no `abort_callback` do llama.cpp e a geração **para**. Medido: prazos de 1/5/50 ms respeitados em 2/5/49 ms, com o motor permanecendo utilizável após o aborto.
+3. **Determinismo em um lugar só.** Decodificação gulosa (temperatura 0, sem amostragem estocástica) é imposta na criação da cadeia de sampling em C. Não há como um chamador Dart reintroduzir aleatoriedade.
+4. **Sem log fora da memória.** O shim instala um *log sink* vazio: o diagnóstico do llama.cpp — que carrega conteúdo de prompt — nunca chega a stderr (INV-2 / LGPD-RF13).
+5. **Tag fixa.** O pacote de conteúdo é assinado e auditável; a biblioteca que o interpreta precisa da mesma propriedade. `master` tornaria o build não reprodutível.
+
+**Custo aceito:** ~200 linhas de C sob nossa manutenção, e um passo de build nativo no CI. Em troca, a superfície FFI cai de ~200 símbolos para 4, com verificação de `GUBS_LLAMA_ABI_VERSION` no boot.
+
+**Verificado:** compila e linka para host x86-64 e para `arm64-v8a` / Android 26 (NDK r30), com inferência ponta a ponta exercitada.
+
+**Revisão:** reabrir se o llama.cpp passar a oferecer uma API C estável e versionada, ou se surgir necessidade de backend de GPU (o `abort_callback` só vale para execução em CPU).
 
 ---
 

@@ -1,0 +1,30 @@
+name: guia_ubs
+description: "Guia UBS — orientação sobre serviços da Atenção Básica, offline-first."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  meta: ^1.16.0
+  # Conversão de string para a fronteira FFI do shim do llama.cpp.
+  ffi: ^2.1.4
+
+  # Leitura do content.db distribuído (somente leitura no dispositivo).
+  sqlite3: ^2.4.0
+  # Biblioteca nativa do SQLite embarcada no APK: não dependemos da versão
+  # que o fabricante da ROM decidiu enviar.
+  sqlite3_flutter_libs: ^0.5.26
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # Lê a suite golden clínica nos testes (mesmo arquivo que o packer usa).
+  yaml: ^3.1.2
+
+flutter:
+  uses-material-design: true

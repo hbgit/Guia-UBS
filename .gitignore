@@ -18,6 +18,10 @@ packer/out/
 # Modelo GGUF: baixado por script com checksum (PRD §5.1)
 app/assets/models/*.gguf
 
+# Build do shim nativo — inclui a copia do llama.cpp que o FetchContent baixa
+build/shim/
+build/shim-arm64/
+
 # Flutter
 app/.dart_tool/
 app/build/

@@ -40,6 +40,10 @@ Guia-UBS/
 │   │   └── pack-signing-k2.pub  # dual-key para rotação sem release
 │   └── CHANGELOG.md             # histórico de schemaVersion
 ├── app/                         # ── Flutter (o produto) ──
+├── native/                      # ── fronteira C mínima ──
+│   └── llama_shim/              # 4 funções sobre o llama.cpp (tag fixa b6100)
+│       ├── gubs_llama.h · gubs_llama.c
+│       └── CMakeLists.txt       # FetchContent do llama.cpp; build host e arm64
 ├── cms/                         # ── plano de controle (TS) ──
 ├── packer/                      # ── CLI de empacotamento (TS) ──
 ├── infra/                       # ── deploy ──
@@ -85,9 +89,12 @@ app/
 │   │   ├── domain/{gate_verdict,triage_result,triage_session}.dart
 │   │   ├── gate/red_flag_gate.dart           # FUNÇÃO PURA E TOTAL
 │   │   ├── engine/triage_engine.dart         # interface (Strategy)
-│   │   ├── engine/llama_engine.dart          # FFI + timeout 5s
+│   │   ├── engine/llama_engine.dart          # política: falha → "sem opinião"
+│   │   ├── engine/llama_runner.dart          # isolate dedicado (contexto vivo)
+│   │   ├── engine/llama_bindings.dart        # dart:ffi ↔ native/llama_shim
+│   │   ├── engine/engine_decoder.dart        # saída do SLM = entrada não confiável
 │   │   ├── engine/rule_only_engine.dart      # kill switch (mesma tabela)
-│   │   ├── engine/prompt_builder.dart        # determinístico (temp 0, seed fixa)
+│   │   ├── engine/prompt_builder.dart        # determinístico (greedy, temp 0)
 │   │   ├── triage_orchestrator.dart          # FSM-A
 │   │   └── presentation/                     # telas + providers Riverpod
 │   ├── sync/                                 # FSM-B

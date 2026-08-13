@@ -19,3 +19,11 @@ Publicação SigV4	49 objetos no MinIO
 
 Ressalvas honestas
 As regras clínicas e os ícones são placeholders explicitamente marcados: clinical_source diz "revisão clínica pendente" em cada regra, os 24 casos golden têm reviewed_by: ~, e o packer emite aviso a cada build — "bloqueia o piloto, não a Fase 1". Nada aqui deve chegar perto de um usuário real antes da dupla aprovação clínica.
+
+Item 8
+* O bench em device ≤ 4 GB não aconteceu. O número acima prova o encanamento, não o orçamento: é host x86-64 com um modelo de 15 M parâmetros. Gemma 3 1B em arm64 será ordens de grandeza mais lento. O critério "p95 < 3 s" do PRD continua não verificado — não afirme que passou.
+
+* Falta, concretamente: (a) nenhum aparelho conectado (sem adb); (b) o GGUF do Gemma 3 1B não foi baixado; (c) o .so ainda não está ligado ao build Gradle — compilei o arm64 isolado, mas o APK não o embarca. Isso é trabalho de wiring do Android, não de arquitetura.
+
+* 
+

@@ -1,0 +1,72 @@
+# Guardas do app Flutter.
+#
+# O teste golden (test/triage/golden_clinical_test.dart) roda os MESMOS casos
+# clinicos que o packer, contra as MESMAS regras — e o que impede o gate Dart
+# e o avaliador de referencia em TypeScript de divergirem silenciosamente.
+
+name: app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Analise estatica
+        run: flutter analyze --fatal-infos
+
+      # Inclui a suite golden clinica: falso negativo reprova o PR (PRD risco R5).
+      - name: Testes
+        run: flutter test
+
+  # Guarda da fronteira nativa (stack.md ADR-002).
+  #
+  # O Dart nao verifica assinaturas do llama.cpp — o compilador C verifica. Sem
+  # este job, uma mudanca de ABI no upstream so apareceria como crash no
+  # aparelho de um usuario. Custa alguns minutos de build; e o preco de saber.
+  shim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias de build
+        run: sudo apt-get update && sudo apt-get install -y ninja-build cmake
+
+      # A tag do llama.cpp esta fixa no CMakeLists; o cache e por tag.
+      - name: Cache do llama.cpp
+        uses: actions/cache@v4
+        with:
+          path: build/shim/_deps
+          key: llama-cpp-${{ hashFiles('native/llama_shim/CMakeLists.txt') }}
+
+      - name: Compilar libgubs_llama (host)
+        run: |
+          cmake -S native/llama_shim -B build/shim -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/shim
+
+      # Falha ruidosa se o shim parar de exportar o que o Dart procura por nome.
+      - name: Conferir simbolos exportados
+        run: |
+          for symbol in gubs_llama_abi_version gubs_llama_open gubs_llama_generate gubs_llama_close; do
+            nm -D --defined-only build/shim/libgubs_llama.so | grep -q " T $symbol$" \
+              || { echo "simbolo ausente: $symbol"; exit 1; }
+          done
