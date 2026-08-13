@@ -1,0 +1,40 @@
+# Borda de entrega de conteudo.
+#
+# Duas classes de cache (stack.md 4.2):
+#   - packs e assets: nomeados por hash => imutaveis, cache infinito
+#   - manifest.json:  unico objeto mutavel => cache curto + revalidacao por ETag
+#
+# A borda NAO e confiavel: o device verifica assinatura Ed25519 e SHA-256 de
+# tudo que baixa (espec.md INV-3). Isso torna espelhos triviais de operar.
+{
+	email {$ACME_EMAIL}
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$CONTENT_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	@manifest path_regexp manifest ^/.+/manifest\.json$
+	header @manifest Cache-Control "public, max-age=60, must-revalidate"
+
+	# Regex e nao `path`: as chaves chegam prefixadas pelo bucket
+	# (/<bucket>/packs/...), entao um matcher ancorado na raiz nunca casaria.
+	@immutable path_regexp immutable ^/.+/(packs|assets)/.+$
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Somente leitura publica: publicacao acontece pela rede interna.
+	@mutating not method GET HEAD
+	respond @mutating 405
+
+	reverse_proxy storage:9000 {
+		header_up Host {upstream_hostport}
+	}
+}

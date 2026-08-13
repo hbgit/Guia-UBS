@@ -1,0 +1,14 @@
+# Sobreposicao de desenvolvimento (carregada automaticamente por `docker compose`).
+# Mantem a mesma topologia da producao, trocando apenas TLS por HTTP local.
+
+services:
+  edge:
+    ports: !override
+      - "127.0.0.1:8081:80"
+    environment:
+      CONTENT_DOMAIN: ":80"
+      ACME_EMAIL: dev@example.invalid
+    volumes:
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config

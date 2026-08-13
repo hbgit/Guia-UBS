@@ -1,0 +1,19 @@
+{
+  "name": "guia-ubs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Guia UBS — monorepo do plano de controle de conteudo (contract, cms, packer)",
+  "license": "MIT",
+  "workspaces": [
+    "contract"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "contract:generate": "npm --workspace contract run generate",
+    "contract:check": "npm run contract:generate && git diff --exit-code contract/",
+    "infra:validate": "docker compose -f infra/compose.yaml config --quiet",
+    "test": "npm --workspaces --if-present run test"
+  }
+}

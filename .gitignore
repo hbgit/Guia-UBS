@@ -1,0 +1,24 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Segredos — nunca versionar (stack.md §4.1, lgpd.md RT06)
+.env
+.env.local
+infra/.env
+contract/keys/*.pem
+!contract/keys/*.pub
+
+# Artefatos de build do plano de controle
+packer/out/
+*.db
+*.db-journal
+*.db-wal
+
+# Modelo GGUF: baixado por script com checksum (PRD §5.1)
+app/assets/models/*.gguf
+
+# Flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins*

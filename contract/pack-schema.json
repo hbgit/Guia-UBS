@@ -1,0 +1,663 @@
+{
+  "$id": "https://guia-ubs.example/contract/pack-schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Asset": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "icon",
+            "image",
+            "audio"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "kind",
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "Card": {
+      "additionalProperties": false,
+      "properties": {
+        "colorToken": {
+          "enum": [
+            "green",
+            "red",
+            "blue"
+          ],
+          "type": "string"
+        },
+        "iconRef": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "result",
+            "info",
+            "step",
+            "document"
+          ],
+          "type": "string"
+        },
+        "sortOrder": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "iconRef",
+        "colorToken",
+        "sortOrder"
+      ],
+      "type": "object"
+    },
+    "CardTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "audioRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cardId": {
+          "type": "string"
+        },
+        "lang": {
+          "enum": [
+            "pt",
+            "es"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cardId",
+        "lang",
+        "title",
+        "body",
+        "audioRef"
+      ],
+      "type": "object"
+    },
+    "Document": {
+      "additionalProperties": false,
+      "properties": {
+        "iconRef": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "imageRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "iconRef",
+        "imageRef"
+      ],
+      "type": "object"
+    },
+    "DocumentTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "audioRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "documentId": {
+          "type": "string"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "lang": {
+          "enum": [
+            "pt",
+            "es"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "documentId",
+        "lang",
+        "label",
+        "hint",
+        "audioRef"
+      ],
+      "type": "object"
+    },
+    "FlowStep": {
+      "additionalProperties": false,
+      "properties": {
+        "iconRef": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "stepOrder": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "venueId": {
+          "enum": [
+            "UBS",
+            "UPA",
+            "HOSPITAL"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "venueId",
+        "stepOrder",
+        "iconRef"
+      ],
+      "type": "object"
+    },
+    "FlowStepTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "audioRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lang": {
+          "enum": [
+            "pt",
+            "es"
+          ],
+          "type": "string"
+        },
+        "stepId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stepId",
+        "lang",
+        "title",
+        "body",
+        "audioRef"
+      ],
+      "type": "object"
+    },
+    "PackMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "builtAt": {
+          "type": "string"
+        },
+        "defaultOutcomeId": {
+          "type": "string"
+        },
+        "id": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "municipalityCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "packVersion": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "schemaVersion": {
+          "type": "string"
+        },
+        "sourceCommit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "packVersion",
+        "schemaVersion",
+        "municipalityCode",
+        "builtAt",
+        "defaultOutcomeId",
+        "sourceCommit"
+      ],
+      "type": "object"
+    },
+    "RoutingOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "severityLevel": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "venueId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "severityLevel",
+        "cardId",
+        "venueId"
+      ],
+      "type": "object"
+    },
+    "RoutingRule": {
+      "additionalProperties": false,
+      "properties": {
+        "clinicalSource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "outcomeId": {
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "priority",
+        "outcomeId",
+        "rationale",
+        "clinicalSource"
+      ],
+      "type": "object"
+    },
+    "RoutingRuleTerm": {
+      "additionalProperties": false,
+      "properties": {
+        "groupNo": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "negated": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "ruleId": {
+          "type": "string"
+        },
+        "tokenId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ruleId",
+        "groupNo",
+        "tokenId",
+        "negated"
+      ],
+      "type": "object"
+    },
+    "Service": {
+      "additionalProperties": false,
+      "properties": {
+        "iconRef": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "sortOrder": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "venueId": {
+          "enum": [
+            "UBS",
+            "UPA",
+            "HOSPITAL"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "venueId",
+        "iconRef",
+        "sortOrder"
+      ],
+      "type": "object"
+    },
+    "ServiceDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "documentId": {
+          "type": "string"
+        },
+        "required": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "serviceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "serviceId",
+        "documentId",
+        "required"
+      ],
+      "type": "object"
+    },
+    "ServiceTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "audioRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "lang": {
+          "enum": [
+            "pt",
+            "es"
+          ],
+          "type": "string"
+        },
+        "serviceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "serviceId",
+        "lang",
+        "label",
+        "audioRef"
+      ],
+      "type": "object"
+    },
+    "SymptomToken": {
+      "additionalProperties": false,
+      "properties": {
+        "deprecated": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        },
+        "iconRef": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "body_part",
+            "symptom",
+            "modifier"
+          ],
+          "type": "string"
+        },
+        "sortOrder": {
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "iconRef",
+        "sortOrder",
+        "deprecated"
+      ],
+      "type": "object"
+    },
+    "TokenTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "audioRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "lang": {
+          "enum": [
+            "pt",
+            "es"
+          ],
+          "type": "string"
+        },
+        "tokenId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tokenId",
+        "lang",
+        "label",
+        "audioRef"
+      ],
+      "type": "object"
+    },
+    "Venue": {
+      "additionalProperties": false,
+      "properties": {
+        "colorToken": {
+          "enum": [
+            "green",
+            "red",
+            "blue"
+          ],
+          "type": "string"
+        },
+        "iconRef": {
+          "type": "string"
+        },
+        "id": {
+          "enum": [
+            "UBS",
+            "UPA",
+            "HOSPITAL"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "iconRef",
+        "colorToken"
+      ],
+      "type": "object"
+    },
+    "VenueTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "audioRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "lang": {
+          "enum": [
+            "pt",
+            "es"
+          ],
+          "type": "string"
+        },
+        "venueId": {
+          "enum": [
+            "UBS",
+            "UPA",
+            "HOSPITAL"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "venueId",
+        "lang",
+        "label",
+        "audioRef"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Forma das linhas do content.db distribuido aos dispositivos. Gerado de src/content-schema.ts — nao editar a mao.",
+  "title": "Guia UBS content pack",
+  "x-packSchemaVersion": "1.0"
+}

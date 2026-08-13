@@ -1,0 +1,75 @@
+# Topologia do plano de controle — este arquivo E a producao (stack.md 3.2/7).
+# Dev usa o mesmo arquivo com `compose.override.yaml` sobreposto automaticamente.
+#
+# Servicos `cms` e `packer` entram nas Fases 3 e 1 respectivamente
+# (arquitetura.md 5); ate la o pack e produzido a partir de `seed/`.
+
+services:
+  # Banco master do catalogo. Mesmo dialeto SQLite do device: o packer
+  # materializa o content.db sem camada de traducao (stack.md 2.2).
+  db:
+    image: ghcr.io/tursodatabase/libsql-server:v0.24.32
+    restart: unless-stopped
+    environment:
+      SQLD_NODE: primary
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - dbdata:/var/lib/sqld
+    healthcheck:
+      test: ["CMD", "/bin/sqld", "--version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  # Storage S3-compativel dos packs assinados e assets.
+  storage:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?defina em infra/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?defina em infra/.env}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - s3data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  # Borda publica: TLS automatico (Let's Encrypt) e politica de cache.
+  # Unica superficie de rede que o app toca.
+  edge:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CONTENT_DOMAIN: ${CONTENT_DOMAIN:?defina em infra/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?defina em infra/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      storage:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  dbdata:
+  s3data:
+  caddydata:
+  caddyconfig:

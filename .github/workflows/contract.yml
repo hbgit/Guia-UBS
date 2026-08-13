@@ -1,0 +1,51 @@
+# Guarda do contrato: garante que os JSON Schemas publicados correspondem
+# exatamente a fonte em contract/src/. Um schema alterado sem regenerar quebra
+# aqui, antes de chegar ao app (stack.md 3.3).
+
+name: contract
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Testes do contrato
+        run: npm test
+
+      - name: Schemas gerados estao em dia
+        run: |
+          npm run contract:generate
+          if ! git diff --exit-code -- contract/; then
+            echo "::error::JSON Schemas desatualizados. Rode 'npm run contract:generate' e commite."
+            exit 1
+          fi
+
+      - name: Auditoria de dependencias
+        run: npm audit --audit-level=high
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose valido
+        working-directory: infra
+        run: |
+          cp .env.example .env
+          docker compose -f compose.yaml config --quiet

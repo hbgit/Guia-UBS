@@ -1,0 +1,16 @@
+# Borda em desenvolvimento: HTTP puro, mesma politica de cache da producao.
+# Manter as regras identicas evita que um bug de cache so apareca em producao.
+
+:80 {
+	encode zstd gzip
+
+	@manifest path_regexp manifest ^/.+/manifest\.json$
+	header @manifest Cache-Control "public, max-age=60, must-revalidate"
+
+	@immutable path_regexp immutable ^/.+/(packs|assets)/.+$
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	reverse_proxy storage:9000 {
+		header_up Host {upstream_hostport}
+	}
+}

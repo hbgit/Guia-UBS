@@ -1,0 +1,71 @@
+{
+  "$id": "https://guia-ubs.example/contract/telemetry-schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Allowlist de metricas agregadas. Campo novo exige revisao do encarregado (lgpd.md RF14).",
+  "properties": {
+    "bucketDay": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "type": "string"
+    },
+    "cohort": {
+      "additionalProperties": false,
+      "properties": {
+        "appVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "municipality": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "packVersion": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "municipality",
+        "appVersion",
+        "packVersion"
+      ],
+      "type": "object"
+    },
+    "kCount": {
+      "maximum": 9007199254740991,
+      "minimum": 20,
+      "type": "integer"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "number"
+      },
+      "propertyNames": {
+        "enum": [
+          "triage_completed_total",
+          "triage_outcome_routine_total",
+          "triage_outcome_emergency_total",
+          "triage_fallback_total",
+          "inference_ms_p50",
+          "inference_ms_p95",
+          "sync_success_total",
+          "sync_failure_total",
+          "crash_total",
+          "session_total"
+        ],
+        "type": "string"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "cohort",
+    "bucketDay",
+    "kCount",
+    "metrics"
+  ],
+  "title": "Guia UBS telemetry batch (allowlist)",
+  "type": "object"
+}
