@@ -48,7 +48,7 @@ export const packMeta = sqliteTable('pack_meta', {
 export const symptomToken = sqliteTable('symptom_token', {
   id: text('id').primaryKey(),
   kind: text('kind', { enum: ['body_part', 'symptom', 'modifier'] }).notNull(),
-  iconRef: text('icon_ref').notNull(),
+  iconRef: text('icon_ref').notNull().references(() => asset.ref),
   sortOrder: integer('sort_order').notNull().default(0),
   /** Token descontinuado continua legivel por packs antigos, mas some da UI. */
   deprecated: integer('deprecated').notNull().default(0),
@@ -57,11 +57,11 @@ export const symptomToken = sqliteTable('symptom_token', {
 export const tokenTranslation = sqliteTable(
   'token_translation',
   {
-    tokenId: text('token_id').notNull(),
+    tokenId: text('token_id').notNull().references(() => symptomToken.id),
     lang: text('lang', { enum: LANGS }).notNull(),
     /** Redundante ao icone: a UI nunca exige leitura (espec.md RNF-06). */
     label: text('label').notNull(),
-    audioRef: text('audio_ref'),
+    audioRef: text('audio_ref').references(() => asset.ref),
   },
   (t) => [primaryKey({ columns: [t.tokenId, t.lang] })],
 );
@@ -78,8 +78,8 @@ export const tokenTranslation = sqliteTable(
 export const routingOutcome = sqliteTable('routing_outcome', {
   id: text('id').primaryKey(),
   severityLevel: integer('severity_level').notNull(),
-  cardId: text('card_id').notNull(),
-  venueId: text('venue_id').notNull(),
+  cardId: text('card_id').notNull().references(() => card.id),
+  venueId: text('venue_id').notNull().references(() => venue.id),
 });
 
 /**
@@ -94,7 +94,7 @@ export const routingRule = sqliteTable('routing_rule', {
   id: text('id').primaryKey(),
   /** Menor valor vence quando mais de uma regra casa. */
   priority: integer('priority').notNull(),
-  outcomeId: text('outcome_id').notNull(),
+  outcomeId: text('outcome_id').notNull().references(() => routingOutcome.id),
   /** Justificativa clinica — auditavel, nunca exibida ao usuario. */
   rationale: text('rationale'),
   clinicalSource: text('clinical_source'),
@@ -107,9 +107,9 @@ export const routingRule = sqliteTable('routing_rule', {
 export const routingRuleTerm = sqliteTable(
   'routing_rule_term',
   {
-    ruleId: text('rule_id').notNull(),
+    ruleId: text('rule_id').notNull().references(() => routingRule.id),
     groupNo: integer('group_no').notNull(),
-    tokenId: text('token_id').notNull(),
+    tokenId: text('token_id').notNull().references(() => symptomToken.id),
     negated: integer('negated').notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.ruleId, t.groupNo, t.tokenId] })],
@@ -121,17 +121,17 @@ export const routingRuleTerm = sqliteTable(
 
 export const venue = sqliteTable('venue', {
   id: text('id', { enum: VENUES }).primaryKey(),
-  iconRef: text('icon_ref').notNull(),
+  iconRef: text('icon_ref').notNull().references(() => asset.ref),
   colorToken: text('color_token', { enum: COLOR_TOKENS }).notNull(),
 });
 
 export const venueTranslation = sqliteTable(
   'venue_translation',
   {
-    venueId: text('venue_id', { enum: VENUES }).notNull(),
+    venueId: text('venue_id', { enum: VENUES }).notNull().references(() => venue.id),
     lang: text('lang', { enum: LANGS }).notNull(),
     label: text('label').notNull(),
-    audioRef: text('audio_ref'),
+    audioRef: text('audio_ref').references(() => asset.ref),
   },
   (t) => [primaryKey({ columns: [t.venueId, t.lang] })],
 );
@@ -140,7 +140,7 @@ export const venueTranslation = sqliteTable(
 export const card = sqliteTable('card', {
   id: text('id').primaryKey(),
   kind: text('kind', { enum: ['result', 'info', 'step', 'document'] }).notNull(),
-  iconRef: text('icon_ref').notNull(),
+  iconRef: text('icon_ref').notNull().references(() => asset.ref),
   colorToken: text('color_token', { enum: COLOR_TOKENS }).notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
 });
@@ -148,30 +148,30 @@ export const card = sqliteTable('card', {
 export const cardTranslation = sqliteTable(
   'card_translation',
   {
-    cardId: text('card_id').notNull(),
+    cardId: text('card_id').notNull().references(() => card.id),
     lang: text('lang', { enum: LANGS }).notNull(),
     title: text('title').notNull(),
     body: text('body'),
     /** Narracao offline: essencial para publico de baixo letramento. */
-    audioRef: text('audio_ref'),
+    audioRef: text('audio_ref').references(() => asset.ref),
   },
   (t) => [primaryKey({ columns: [t.cardId, t.lang] })],
 );
 
 export const service = sqliteTable('service', {
   id: text('id').primaryKey(),
-  venueId: text('venue_id', { enum: VENUES }).notNull(),
-  iconRef: text('icon_ref').notNull(),
+  venueId: text('venue_id', { enum: VENUES }).notNull().references(() => venue.id),
+  iconRef: text('icon_ref').notNull().references(() => asset.ref),
   sortOrder: integer('sort_order').notNull().default(0),
 });
 
 export const serviceTranslation = sqliteTable(
   'service_translation',
   {
-    serviceId: text('service_id').notNull(),
+    serviceId: text('service_id').notNull().references(() => service.id),
     lang: text('lang', { enum: LANGS }).notNull(),
     label: text('label').notNull(),
-    audioRef: text('audio_ref'),
+    audioRef: text('audio_ref').references(() => asset.ref),
   },
   (t) => [primaryKey({ columns: [t.serviceId, t.lang] })],
 );
@@ -182,19 +182,19 @@ export const serviceTranslation = sqliteTable(
 
 export const document = sqliteTable('document', {
   id: text('id').primaryKey(),
-  iconRef: text('icon_ref').notNull(),
+  iconRef: text('icon_ref').notNull().references(() => asset.ref),
   /** Foto ilustrativa do documento — o usuario reconhece pela imagem. */
-  imageRef: text('image_ref'),
+  imageRef: text('image_ref').references(() => asset.ref),
 });
 
 export const documentTranslation = sqliteTable(
   'document_translation',
   {
-    documentId: text('document_id').notNull(),
+    documentId: text('document_id').notNull().references(() => document.id),
     lang: text('lang', { enum: LANGS }).notNull(),
     label: text('label').notNull(),
     hint: text('hint'),
-    audioRef: text('audio_ref'),
+    audioRef: text('audio_ref').references(() => asset.ref),
   },
   (t) => [primaryKey({ columns: [t.documentId, t.lang] })],
 );
@@ -202,8 +202,8 @@ export const documentTranslation = sqliteTable(
 export const serviceDocument = sqliteTable(
   'service_document',
   {
-    serviceId: text('service_id').notNull(),
-    documentId: text('document_id').notNull(),
+    serviceId: text('service_id').notNull().references(() => service.id),
+    documentId: text('document_id').notNull().references(() => document.id),
     required: integer('required').notNull().default(1),
   },
   (t) => [primaryKey({ columns: [t.serviceId, t.documentId] })],
@@ -215,19 +215,19 @@ export const serviceDocument = sqliteTable(
 
 export const flowStep = sqliteTable('flow_step', {
   id: text('id').primaryKey(),
-  venueId: text('venue_id', { enum: VENUES }).notNull(),
+  venueId: text('venue_id', { enum: VENUES }).notNull().references(() => venue.id),
   stepOrder: integer('step_order').notNull(),
-  iconRef: text('icon_ref').notNull(),
+  iconRef: text('icon_ref').notNull().references(() => asset.ref),
 });
 
 export const flowStepTranslation = sqliteTable(
   'flow_step_translation',
   {
-    stepId: text('step_id').notNull(),
+    stepId: text('step_id').notNull().references(() => flowStep.id),
     lang: text('lang', { enum: LANGS }).notNull(),
     title: text('title').notNull(),
     body: text('body'),
-    audioRef: text('audio_ref'),
+    audioRef: text('audio_ref').references(() => asset.ref),
   },
   (t) => [primaryKey({ columns: [t.stepId, t.lang] })],
 );

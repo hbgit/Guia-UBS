@@ -5,7 +5,8 @@
   "description": "Guia UBS — monorepo do plano de controle de conteudo (contract, cms, packer)",
   "license": "MIT",
   "workspaces": [
-    "contract"
+    "contract",
+    "packer"
   ],
   "engines": {
     "node": ">=22"
@@ -14,6 +15,9 @@
     "contract:generate": "npm --workspace contract run generate",
     "contract:check": "npm run contract:generate && git diff --exit-code contract/",
     "infra:validate": "docker compose -f infra/compose.yaml config --quiet",
-    "test": "npm --workspaces --if-present run test"
+    "test": "npm --workspaces --if-present run test",
+    "pack:build": "npm --workspace @guia-ubs/packer run build:pack",
+    "pack:publish": "npm --workspace @guia-ubs/packer run publish:pack",
+    "pack:check": "npm --workspace @guia-ubs/packer run build:pack:dry"
   }
 }

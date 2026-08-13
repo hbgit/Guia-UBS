@@ -1,0 +1,163 @@
+# ===========================================================================
+# SUITE GOLDEN CLINICA
+# ===========================================================================
+#
+# Criterio de aprovacao: 100%. Um unico caso vermelho BLOQUEIA a assinatura do
+# pacote — nenhum conteudo chega ao usuario (PRD risco R5, espec.md RF-04).
+#
+# Falso negativo (esperava EMERGENCY, obteve ROUTINE_UBS) e evento de seguranca
+# do paciente, nao bug comum. Por isso o packer reporta essa classe em separado.
+#
+# Esta suite protege as regras de `003_routing.sql`. Ao alterar uma regra,
+# adicione o caso correspondente ANTES — a suite e a especificacao executavel
+# do comportamento clinico, e migra para a tabela `golden_case` do CMS na Fase 3.
+#
+# Cada caso deve ter revisor clinico nomeado antes do piloto. Os `reviewed_by`
+# abaixo estao vazios de proposito: nada aqui foi aprovado clinicamente.
+
+cases:
+  # --- Red flags: devem SEMPRE resultar em EMERGENCY ----------------------
+  - id: chest-pain
+    tokens: [chest, pain]
+    expect: EMERGENCY
+    note: Dor toracica — regra rf.chest_pain
+    reviewed_by: ~
+
+  - id: chest-pain-with-noise
+    tokens: [chest, pain, persistent, elderly]
+    expect: EMERGENCY
+    note: Tokens adicionais nao podem rebaixar uma red flag
+    reviewed_by: ~
+
+  - id: breathless-alone
+    tokens: [breathless]
+    expect: EMERGENCY
+    note: Dispneia isolada — regra rf.breathless
+    reviewed_by: ~
+
+  - id: breathless-with-routine-token
+    tokens: [cough, breathless]
+    expect: EMERGENCY
+    note: Tosse sozinha seria rotina; com dispneia a prioridade menor vence
+    reviewed_by: ~
+
+  - id: airway-swelling
+    tokens: [throat, swelling]
+    expect: EMERGENCY
+    note: Via aerea — regra rf.airway_swelling
+    reviewed_by: ~
+
+  - id: bleeding-severe
+    tokens: [bleeding, severe]
+    expect: EMERGENCY
+    note: Primeiro grupo (OU) de rf.bleeding_critical
+    reviewed_by: ~
+
+  - id: bleeding-pregnant
+    tokens: [bleeding, pregnant]
+    expect: EMERGENCY
+    note: Segundo grupo (OU) de rf.bleeding_critical
+    reviewed_by: ~
+
+  - id: sudden-headache
+    tokens: [head, pain, sudden]
+    expect: EMERGENCY
+    note: Cefaleia subita — regra rf.sudden_headache
+    reviewed_by: ~
+
+  - id: palpitation-with-pain
+    tokens: [palpitation, pain]
+    expect: EMERGENCY
+    note: Primeiro grupo de rf.palpitation
+    reviewed_by: ~
+
+  - id: palpitation-with-breathless
+    tokens: [palpitation, breathless]
+    expect: EMERGENCY
+    note: Segundo grupo de rf.palpitation
+    reviewed_by: ~
+
+  - id: infant-fever
+    tokens: [infant, fever]
+    expect: EMERGENCY
+    note: Febre em bebe — regra rf.infant_fever
+    reviewed_by: ~
+
+  # --- Quase-acertos: NAO podem escalar para emergencia -------------------
+  - id: chest-alone
+    tokens: [chest]
+    expect: ROUTINE_UBS
+    note: Parte do corpo sem sintoma nao dispara red flag; cai no padrao
+    reviewed_by: ~
+
+  - id: headache-not-sudden
+    tokens: [head, pain]
+    expect: ROUTINE_UBS
+    note: Exercita o termo negado de rt.headache (ausencia de `sudden`)
+    reviewed_by: ~
+
+  - id: bleeding-alone
+    tokens: [bleeding]
+    expect: ROUTINE_UBS
+    note: Sangramento sem `severe` nem `pregnant` nao satisfaz nenhum grupo
+    reviewed_by: ~
+
+  - id: palpitation-alone
+    tokens: [palpitation]
+    expect: ROUTINE_UBS
+    note: Palpitacao isolada nao satisfaz nenhum grupo de rf.palpitation
+    reviewed_by: ~
+
+  - id: swelling-without-throat
+    tokens: [leg, swelling]
+    expect: ROUTINE_UBS
+    note: Inchaco fora da via aerea nao e red flag
+    reviewed_by: ~
+
+  - id: fever-adult
+    tokens: [fever]
+    expect: ROUTINE_UBS
+    note: Febre sem o modificador `infant`
+    reviewed_by: ~
+
+  - id: severe-without-bleeding
+    tokens: [back, pain, severe]
+    expect: ROUTINE_UBS
+    note: '`severe` sozinho nao escala — so compoe grupo com `bleeding`'
+    reviewed_by: ~
+
+  # --- Rotina ------------------------------------------------------------
+  - id: cough-alone
+    tokens: [cough]
+    expect: ROUTINE_UBS
+    reviewed_by: ~
+
+  - id: minor-cut
+    tokens: [arm, cut]
+    expect: ROUTINE_UBS
+    reviewed_by: ~
+
+  - id: vomit
+    tokens: [belly, vomit]
+    expect: ROUTINE_UBS
+    reviewed_by: ~
+
+  - id: diarrhea
+    tokens: [diarrhea]
+    expect: ROUTINE_UBS
+    note: Segundo grupo de rt.gastro
+    reviewed_by: ~
+
+  - id: rash
+    tokens: [skin, rash]
+    expect: ROUTINE_UBS
+    reviewed_by: ~
+
+  # --- Fallthrough: nenhuma regra casa -----------------------------------
+  - id: no-rule-matches
+    tokens: [elderly]
+    expect: ROUTINE_UBS
+    note: >
+      Nenhuma regra cobre este conjunto. O desfecho padrao do pacote assume,
+      e a orientacao segura e procurar atendimento — nunca silencio.
+    reviewed_by: ~

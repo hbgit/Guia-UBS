@@ -18,6 +18,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

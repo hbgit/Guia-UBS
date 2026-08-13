@@ -39,6 +39,28 @@ jobs:
       - name: Auditoria de dependencias
         run: npm audit --audit-level=high
 
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Portoes clinicos sem assinar: --dry-run nao toca em chave alguma.
+      # Falso negativo na suite golden reprova o PR (PRD risco R5).
+      - name: Portoes do pacote de conteudo
+        run: npm run pack:check
+
+      - name: Placeholders de asset em dia com 000_assets.sql
+        run: |
+          node seed/assets/generate-placeholders.mjs
+          git diff --exit-code -- seed/assets/
+
   infra:
     runs-on: ubuntu-latest
     steps:
