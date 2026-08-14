@@ -276,6 +276,39 @@ Ordem derivada da dependência real (contrato → packer → app → CMS) e da u
 9. `sync_service` PoC: manifest com ETag, download com Range, verificação, swap atômico.
 **Saída (gate do PRD):** inferência p95 < 3 s; sync retoma após corte; nenhum pack inválido ativado.
 
+#### 5.1 Resultado do bench do item 8 (2026-08-13)
+
+Medido com `app/tool/bench_inference.dart`, 20 iterações sobre casos derivados das próprias regras do pacote, contexto 512 tokens, 4 threads fixadas em 4 núcleos (`taskset`) de um **Intel i7-12650H** — CPU de notebook, **não** o aparelho alvo.
+
+| Modelo (Q4_K_M) | Arquivo | p50 | p95 | Pico de RAM | Respostas válidas |
+|---|---|---|---|---|---|
+| Gemma 3 **1B** | 768 MB | 1455 ms | **2549 ms** | 1136 MB | 17/20 |
+| Gemma 3 **270M** | 241 MB | 394 ms | 589 ms | 540 MB | **1/20** |
+
+**Três conclusões, duas delas ruins:**
+
+1. **RNF-03 é incompatível com o Gemma 3 1B.** O orçamento é *APK + modelo + pack ≤ 400 MB*. Medido:
+
+   | Parcela | Tamanho |
+   |---|---|
+   | APK release arm64-v8a (inclui `libllama` + `libggml*` + `libgubs_llama` = 4,2 MB) | **21,1 MB** |
+   | Modelo Gemma 3 1B Q4_K_M | **768 MB** |
+   | Pack de conteúdo (semente) | < 1 MB |
+   | **Total** | **≈ 790 MB** |
+
+   O app não é o problema: ele responde por 2,7% do total. A menor quantização utilizável do 1B é **681 MB** (IQ4_XS), e o gargalo é a tabela de embeddings de 256k tokens, que praticamente não quantiza. Não há ajuste de flag que resolva — ou o orçamento sobe para ~1 GB, ou o modelo muda. **Decisão de produto pendente.**
+2. **RF-05 (p95 < 3 s) está em risco sério.** Os 2549 ms saíram de núcleos Alder Lake de notebook. Um SoC de entrada (Cortex-A53/A55) roda inferência CPU do llama.cpp a uma fração dessa velocidade, então o p95 no aparelho alvo deve ficar bem acima de 3 s — e provavelmente acima do teto duro de 5 s, que dispararia o `RuleOnlyEngine` na maioria das triagens. **O critério não pode ser declarado atendido.**
+3. **Trocar para o 270M não é saída trivial.** Ele cabe no orçamento e é 4× mais rápido, mas produziu identificador válido em **1 de 20** casos: na prática o app rodaria sempre em modo degradado. Um modelo que se abstém sempre é seguro (o gate decide) e inútil.
+
+**Duas variáveis já descartadas por medição:** aplicar o *chat template* do Gemma **piora** o resultado (0/8 válidos — o modelo passa a responder em prosa, e o decodificador corretamente rejeita); e o pico de RAM, diferente da latência, **transfere entre arquiteturas**, então os 1136 MB medidos valem para o aparelho e cabem no RNF-03 (≤ 1,5 GB), ainda que com pouca folga.
+
+**Integração Android (verificada):** o `externalNativeBuild` do Gradle compila e empacota `libgubs_llama.so` para `arm64-v8a`, e o fecho de dependências dentro do APK está completo (`libllama`, `libggml{,-base,-cpu}`, `libc++_shared` — nenhuma ausente). Release fixado em arm64-v8a apenas; x86_64 só no debug, para emulador.
+
+**O que falta para fechar de fato:** rodar em arm64 real. Dois degraus continuam sem prova:
+
+1. **Carga do `.so` em runtime Android.** `integration_test/native_shim_test.dart` existe e faz essa checagem, mas não foi executado — o emulador do SDK não sobrevive neste ambiente, e só há imagem x86_64 (que também não mediria CPU de entrada). O fecho estático de dependências acima é evidência forte, não prova.
+2. **p95 em SoC de entrada.** Falta o aparelho.
+
 ### Fase 2 — App (CAP-01…13)
 10. Casca: tema, GoRouter, i18n pt/es, `speech/`.
 11. `content/` (repositórios RO) + `prefs/` (Drift).

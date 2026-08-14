@@ -58,6 +58,33 @@ List<Set<String>> _promptCases(RuleModel model) {
   return cases;
 }
 
+/// Pico de memória residente do processo, em MB, ou `null` fora do Linux.
+///
+/// `VmHWM` é a marca d'água alta do RSS — o maior valor já atingido, não o
+/// instantâneo. É o número que o RNF-03 limita (pico ≤ 1,5 GB).
+///
+/// Ao contrário da latência, este número **transfere entre arquiteturas**: o
+/// que ocupa memória são os pesos mapeados e o cache KV, cujo tamanho não
+/// depende de o processador ser x86-64 ou arm64. Medir no host diz algo real
+/// sobre o aparelho; medir latência no host, não.
+///
+/// Com `mmap` o kernel pode devolver páginas sob pressão, então em um aparelho
+/// apertado o RSS observado tende a ser MENOR que este — ao custo de releitura
+/// do armazenamento, que reaparece como latência.
+int? _peakRssMb() {
+  if (!Platform.isLinux && !Platform.isAndroid) return null;
+  try {
+    for (final line in File('/proc/self/status').readAsLinesSync()) {
+      if (!line.startsWith('VmHWM:')) continue;
+      final kb = int.tryParse(RegExp(r'\d+').firstMatch(line)?.group(0) ?? '');
+      if (kb != null) return (kb / 1024).round();
+    }
+  } on FileSystemException {
+    return null;
+  }
+  return null;
+}
+
 /// Percentil por posto mais próximo (nearest-rank) — sem interpolação, que
 /// inventaria uma latência que nenhuma execução observou.
 int _percentile(List<int> sortedMicros, double p) {
@@ -163,8 +190,15 @@ Future<int> _run(List<String> args) async {
     // Sugestão nula não é defeito: é o modelo se abstendo, e o gate decide. Mas
     // abstenção alta significa que o SLM não está agregando nada — informação
     // de produto, não de performance.
-    ..writeln('com opinião: $withOpinion/$iterations')
-    ..writeln('');
+    ..writeln('com opinião: $withOpinion/$iterations');
+
+  final rssMb = _peakRssMb();
+  final rssBudgetMb = int.parse(options['rss-budget-mb'] ?? '1536');
+  if (rssMb != null) {
+    final veredito = rssMb >= rssBudgetMb ? 'ESTOUROU' : 'ok';
+    stdout.writeln('pico de RAM: ${rssMb}MB / ${rssBudgetMb}MB  ($veredito)');
+  }
+  stdout.writeln('');
 
   if (p95 >= budgetMs * 1000) {
     stdout.writeln('REPROVADO: p95 ${_ms(p95)}ms >= orçamento ${budgetMs}ms (RF-05)');

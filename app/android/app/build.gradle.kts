@@ -15,14 +15,51 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "br.gov.exemplo.guia_ubs"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // RNF-09 fixa Android 8.0 como piso, e o shim nativo e compilado para
+        // android-26. Nao herdamos `flutter.minSdkVersion` (hoje 24): as duas
+        // bases precisam bater, ou o `.so` nao carrega no aparelho mais antigo
+        // que a Play Store deixaria instalar.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Somente arm64-v8a (RNF-09). O AGP faz UNIAO entre defaultConfig e
+        // buildType, entao o que entrar aqui nao sai depois: x86_64 e
+        // adicionado apenas no buildType `debug`, para emulador.
+        //
+        // `clear()` antes de adicionar e deliberado: sem isso a lista herda os
+        // padroes e o build tenta armeabi-v7a, alvo 32 bits que a espec nao
+        // suporta e cuja compilacao do llama.cpp quebra.
+        ndk {
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                // Sem esta lista o CMake compila as QUATRO ABIs, ignorando o
+                // filtro acima: `ndk.abiFilters` decide o que e EMPACOTADO,
+                // este decide o que e COMPILADO.
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
+
+                // libgubs_llama e libllama sao duas bibliotecas compartilhadas
+                // que usam a mesma libc++. Com o `c++_static` padrao, cada uma
+                // levaria sua propria copia da STL e o comportamento em runtime
+                // fica indefinido.
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+
+    // Fronteira nativa (stack.md ADR-002). O CMakeLists busca o llama.cpp por
+    // FetchContent numa tag fixa, entao o primeiro build precisa de rede.
+    externalNativeBuild {
+        cmake {
+            path = file("../../../native/llama_shim/CMakeLists.txt")
+        }
     }
 
     buildTypes {
@@ -30,6 +67,22 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+
+        // x86_64 so no debug, para rodar em emulador. Medido: deixar esta ABI
+        // no `defaultConfig` colocava ~4 MB de libs nativas no APK de release
+        // que nenhum aparelho de campo executa — e `--target-platform=
+        // android-arm64` NAO as remove, porque filtra apenas as libs do
+        // Flutter, nao as do externalNativeBuild.
+        debug {
+            ndk {
+                abiFilters.add("x86_64")
+            }
+            externalNativeBuild {
+                cmake {
+                    abiFilters.add("x86_64")
+                }
+            }
         }
     }
 }

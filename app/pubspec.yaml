@@ -22,6 +22,17 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Verifica no aparelho o que o host não alcança: se o `.so` do shim carrega
+  # dentro do APK (integration_test/native_shim_test.dart).
+  #
+  # ARMADILHA: este pacote registra um plugin Android. Um `flutter build apk
+  # --release` logo após um build debug falha com "package
+  # dev.flutter.plugins.integration_test does not exist" — o registrant gerado
+  # no debug (que inclui dev dependencies) é reaproveitado. Apagar
+  # `android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java`
+  # resolve; ele é regenerado no build seguinte.
+  integration_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
   # Lê a suite golden clínica nos testes (mesmo arquivo que o packer usa).
   yaml: ^3.1.2

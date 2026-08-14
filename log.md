@@ -21,9 +21,16 @@ Ressalvas honestas
 As regras clínicas e os ícones são placeholders explicitamente marcados: clinical_source diz "revisão clínica pendente" em cada regra, os 24 casos golden têm reviewed_by: ~, e o packer emite aviso a cada build — "bloqueia o piloto, não a Fase 1". Nada aqui deve chegar perto de um usuário real antes da dupla aprovação clínica.
 
 Item 8
-* O bench em device ≤ 4 GB não aconteceu. O número acima prova o encanamento, não o orçamento: é host x86-64 com um modelo de 15 M parâmetros. Gemma 3 1B em arm64 será ordens de grandeza mais lento. O critério "p95 < 3 s" do PRD continua não verificado — não afirme que passou.
+* O externalNativeBuild compila o shim e o empacota no APK. Verifiquei o fecho de dependências dentro do APK: libgubs_llama.so → libllama.so → libggml{,-base,-cpu}.so + libc++_shared.so, todas presentes, nenhuma ausente. Foi para isso que forcei ANDROID_STL=c++_shared — com o padrão c++_static, as duas libs C++ carregariam cópias separadas da STL.
 
-* Falta, concretamente: (a) nenhum aparelho conectado (sem adb); (b) o GGUF do Gemma 3 1B não foi baixado; (c) o .so ainda não está ligado ao build Gradle — compilei o arm64 isolado, mas o APK não o embarca. Isso é trabalho de wiring do Android, não de arquitetura.
+* Fixei também minSdk = 26 — o Flutter herdava 24, mas o RNF-09 e o ANDROID_PLATFORM do shim são 26. Sem isso, a Play Store instalaria em aparelhos onde o .so não carrega.
 
-* 
+* Os 2549 ms são má notícia, não boa. O orçamento é 3000 ms e isso foi medido em núcleos Alder Lake. Um Cortex-A53/A55 roda inferência CPU do llama.cpp a uma fração disso — o p95 no aparelho alvo deve passar não só dos 3 s do RF-05 como provavelmente do teto duro de 5 s, disparando o RuleOnlyEngine na maioria das triagens.
+
+[TODO] Resolver antes de ir para o item 9
+* [Verificar para Alteração] O app responde por 2,7% do total. Nenhuma quantização salva: o piso é 681 MB (IQ4_XS), porque a tabela de embeddings de 256k tokens não quantiza. Ou o orçamento sobe para ~1 GB, ou o modelo muda — e o 270M, único que cabe, produziu identificador válido em 1 de 20 casos, ou seja, rodaria sempre em modo degradado. Não alterei os números da espec: mudar critério de aceite é decisão de produto.
+
+* [Verificar para Teste] O caminho crítico agora não é código: é um aparelho arm64 de entrada, e a decisão sobre orçamento × modelo. Sigo para o item 9 (sync_service) enquanto isso?
+
+
 
