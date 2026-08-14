@@ -30,7 +30,12 @@ Item 8
 [TODO] Resolver antes de ir para o item 9
 * [Verificar para Alteração] O app responde por 2,7% do total. Nenhuma quantização salva: o piso é 681 MB (IQ4_XS), porque a tabela de embeddings de 256k tokens não quantiza. Ou o orçamento sobe para ~1 GB, ou o modelo muda — e o 270M, único que cabe, produziu identificador válido em 1 de 20 casos, ou seja, rodaria sempre em modo degradado. Não alterei os números da espec: mudar critério de aceite é decisão de produto.
 
-* [Verificar para Teste] O caminho crítico agora não é código: é um aparelho arm64 de entrada, e a decisão sobre orçamento × modelo. Sigo para o item 9 (sync_service) enquanto isso?
+* [DOING] O caminho crítico agora não é código: é um aparelho arm64 de entrada, e a decisão sobre orçamento × modelo. Sigo para o item 9 (sync_service) enquanto isso?
+    - p95 = 4731 ms num aparelho intermediário. O RF-05 exige < 3000 ms
+    - O RF-05 reprova por 58% — e num Motorola Edge 40 Neo, aparelho intermediário (Dimensity 7030, 7,6 GB de RAM), não no "≤ 4 GB de entrada" que o critério nomeia. O aparelho-alvo real será pior.
+    - Pior ainda: 4731 ms encosta no teto duro de 5 s. Já neste hardware, uma fração das triagens estouraria o timeout e cairia no RuleOnlyEngine. No aparelho de entrada, isso seria a regra, não a exceção — o SLM estaria embarcado, ocupando 768 MB, e quase nunca respondendo a tempo.
+    - A boa notícia isolada: pico de RAM de 832 MB, bem dentro do 1,5 GB do RNF-03 (no host eram 1136 MB — o Android devolve páginas do mmap sob pressão). E 20/20 respostas válidas: o Gemma 3 1B funciona para a tarefa. O problema é exclusivamente velocidade e tamanho.
+    - [TODO] As opções reais, na minha ordem de preferência: (1) adiar o SLM para pós-MVP e liberar com gate + regras, (2) subir o orçamento para ~1 GB e aceitar p95 na casa dos 5–10 s com degradação frequente, ou (3) buscar um modelo de 300–500 M com vocabulário menor e avaliá-lo com a mesma suite. >> prefere avaliar antes um modelo intermediário?
 
 
 

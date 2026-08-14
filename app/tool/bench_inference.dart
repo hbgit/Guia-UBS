@@ -23,7 +23,7 @@ import 'dart:io';
 
 import 'package:guia_ubs/content/data/pack_rule_source.dart';
 import 'package:guia_ubs/content/data/sqlite_native.dart';
-import 'package:guia_ubs/triage/domain/routing_rule.dart';
+import 'package:guia_ubs/triage/engine/inference_bench.dart';
 import 'package:guia_ubs/triage/engine/llama_engine.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -39,58 +39,6 @@ Map<String, String> _parseArgs(List<String> args) {
     }
   }
   return parsed;
-}
-
-/// Um conjunto de tokens por grupo de regra: são as combinações que o app
-/// precisa classificar bem, e por construção cobrem o vocabulário em uso.
-List<Set<String>> _promptCases(RuleModel model) {
-  final cases = <Set<String>>[];
-  for (final rule in model.rules) {
-    final byGroup = <int, Set<String>>{};
-    for (final term in rule.terms) {
-      if (term.negated) continue; // termo negado exige AUSÊNCIA do token
-      byGroup.putIfAbsent(term.groupNo, () => <String>{}).add(term.tokenId);
-    }
-    for (final tokens in byGroup.values) {
-      if (tokens.isNotEmpty) cases.add(tokens);
-    }
-  }
-  return cases;
-}
-
-/// Pico de memória residente do processo, em MB, ou `null` fora do Linux.
-///
-/// `VmHWM` é a marca d'água alta do RSS — o maior valor já atingido, não o
-/// instantâneo. É o número que o RNF-03 limita (pico ≤ 1,5 GB).
-///
-/// Ao contrário da latência, este número **transfere entre arquiteturas**: o
-/// que ocupa memória são os pesos mapeados e o cache KV, cujo tamanho não
-/// depende de o processador ser x86-64 ou arm64. Medir no host diz algo real
-/// sobre o aparelho; medir latência no host, não.
-///
-/// Com `mmap` o kernel pode devolver páginas sob pressão, então em um aparelho
-/// apertado o RSS observado tende a ser MENOR que este — ao custo de releitura
-/// do armazenamento, que reaparece como latência.
-int? _peakRssMb() {
-  if (!Platform.isLinux && !Platform.isAndroid) return null;
-  try {
-    for (final line in File('/proc/self/status').readAsLinesSync()) {
-      if (!line.startsWith('VmHWM:')) continue;
-      final kb = int.tryParse(RegExp(r'\d+').firstMatch(line)?.group(0) ?? '');
-      if (kb != null) return (kb / 1024).round();
-    }
-  } on FileSystemException {
-    return null;
-  }
-  return null;
-}
-
-/// Percentil por posto mais próximo (nearest-rank) — sem interpolação, que
-/// inventaria uma latência que nenhuma execução observou.
-int _percentile(List<int> sortedMicros, double p) {
-  if (sortedMicros.isEmpty) return 0;
-  final rank = (p * sortedMicros.length).ceil().clamp(1, sortedMicros.length);
-  return sortedMicros[rank - 1];
 }
 
 String _ms(int micros) => (micros / 1000).toStringAsFixed(1);
@@ -123,7 +71,7 @@ Future<int> _run(List<String> args) async {
   }
 
   final model = loadRuleModel(db);
-  final cases = _promptCases(model);
+  final cases = promptCasesFromModel(model);
   if (cases.isEmpty) {
     stderr.writeln('pacote sem regras — nada a medir');
     db.dispose();
@@ -158,41 +106,29 @@ Future<int> _run(List<String> args) async {
 
   stdout.writeln('carga do modelo: ${loadWatch.elapsedMilliseconds}ms');
 
-  final latencies = <int>[];
-  var withOpinion = 0;
-
-  // Uma passada de aquecimento: a primeira inferência paga paginação do mmap e
-  // alocação de buffers, e contá-la mascararia a latência de regime.
-  await engine.infer(cases.first);
-
-  for (var i = 0; i < iterations; i++) {
-    final tokens = cases[i % cases.length];
-    final watch = Stopwatch()..start();
-    final suggestion = await engine.infer(tokens);
-    watch.stop();
-
-    latencies.add(watch.elapsedMicroseconds);
-    if (suggestion != null) withOpinion++;
-  }
+  // MESMO código que o bench de aparelho (integration_test/): é o que torna os
+  // dois números comparáveis.
+  final result = await runInferenceBench(
+    engine: engine,
+    cases: cases,
+    iterations: iterations,
+    loadMillis: loadWatch.elapsedMilliseconds,
+  );
 
   await engine.dispose();
   db.dispose();
 
-  latencies.sort();
-  final p50 = _percentile(latencies, 0.50);
-  final p95 = _percentile(latencies, 0.95);
-
   stdout
     ..writeln('')
-    ..writeln('p50:  ${_ms(p50)}ms')
-    ..writeln('p95:  ${_ms(p95)}ms')
-    ..writeln('máx:  ${_ms(latencies.last)}ms')
+    ..writeln('p50:  ${_ms(result.p50)}ms')
+    ..writeln('p95:  ${_ms(result.p95)}ms')
+    ..writeln('máx:  ${_ms(result.max)}ms')
     // Sugestão nula não é defeito: é o modelo se abstendo, e o gate decide. Mas
     // abstenção alta significa que o SLM não está agregando nada — informação
     // de produto, não de performance.
-    ..writeln('com opinião: $withOpinion/$iterations');
+    ..writeln('com opinião: ${result.withOpinion}/${result.iterations}');
 
-  final rssMb = _peakRssMb();
+  final rssMb = result.peakRssMb;
   final rssBudgetMb = int.parse(options['rss-budget-mb'] ?? '1536');
   if (rssMb != null) {
     final veredito = rssMb >= rssBudgetMb ? 'ESTOUROU' : 'ok';
@@ -200,12 +136,14 @@ Future<int> _run(List<String> args) async {
   }
   stdout.writeln('');
 
-  if (p95 >= budgetMs * 1000) {
-    stdout.writeln('REPROVADO: p95 ${_ms(p95)}ms >= orçamento ${budgetMs}ms (RF-05)');
+  if (result.p95 >= budgetMs * 1000) {
+    stdout.writeln(
+        'REPROVADO: p95 ${_ms(result.p95)}ms >= orçamento ${budgetMs}ms (RF-05)');
     return 1;
   }
 
-  stdout.writeln('APROVADO: p95 ${_ms(p95)}ms < orçamento ${budgetMs}ms (RF-05)');
+  stdout.writeln(
+      'APROVADO: p95 ${_ms(result.p95)}ms < orçamento ${budgetMs}ms (RF-05)');
   return 0;
 }
 

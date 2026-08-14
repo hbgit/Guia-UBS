@@ -51,3 +51,18 @@ target_link_libraries(gubs_llama PRIVATE llama)
 # O shim e a unica coisa que o Dart procura por nome. Manter o SONAME estavel
 # entre plataformas evita ramificacao no lado Dart.
 set_target_properties(gubs_llama PROPERTIES OUTPUT_NAME "gubs_llama")
+
+# Bench autonomo. OFF por padrao: o APK nao deve ganhar um executavel.
+# Ligado so para medicao manual em aparelho, onde permite fixar nucleos com
+# `taskset` — impossivel de dentro do processo do app.
+#
+#   cmake -S native/llama_shim -B build/bench-arm64 -G Ninja \
+#     -DGUBS_BUILD_BENCH=ON -DCMAKE_BUILD_TYPE=Release \
+#     -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+#     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26
+option(GUBS_BUILD_BENCH "Compila o executavel de bench (gubs_bench)" OFF)
+
+if(GUBS_BUILD_BENCH)
+  add_executable(gubs_bench bench_main.c)
+  target_link_libraries(gubs_bench PRIVATE gubs_llama)
+endif()

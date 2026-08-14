@@ -276,18 +276,26 @@ Ordem derivada da dependência real (contrato → packer → app → CMS) e da u
 9. `sync_service` PoC: manifest com ETag, download com Range, verificação, swap atômico.
 **Saída (gate do PRD):** inferência p95 < 3 s; sync retoma após corte; nenhum pack inválido ativado.
 
-#### 5.1 Resultado do bench do item 8 (2026-08-13)
+#### 5.1 Resultado do bench do item 8 (2026-08-14)
 
-Medido com `app/tool/bench_inference.dart`, 20 iterações sobre casos derivados das próprias regras do pacote, contexto 512 tokens, 4 threads fixadas em 4 núcleos (`taskset`) de um **Intel i7-12650H** — CPU de notebook, **não** o aparelho alvo.
+**Medido em aparelho arm64 real:** Motorola Edge 40 Neo (MediaTek Dimensity 7030 — 6× Cortex-A55 @ 2,0 GHz + 2× Cortex-A78 @ 2,5 GHz), Android 15, 7,6 GB de RAM. Gemma 3 1B Q4_K_M, 20 iterações, contexto 512 tokens, 17 prompts gerados pelo construtor real do app.
 
-| Modelo (Q4_K_M) | Arquivo | p50 | p95 | Pico de RAM | Respostas válidas |
+O aparelho é **intermediário**, não o "≤ 4 GB de entrada" que o critério nomeia. Para cobrir essa lacuna sem estimativa de papel, o bench nativo (`native/llama_shim/bench_main.c`) roda sob `taskset`: fixar a inferência no cluster Cortex-A55 **mede** a classe de entrada, já que um SoC de entrada é essencialmente um punhado de A55.
+
+| Configuração de núcleos | p50 | **p95** | máx | Pico RAM | Válidas |
 |---|---|---|---|---|---|
-| Gemma 3 **1B** | 768 MB | 1455 ms | **2549 ms** | 1136 MB | 17/20 |
-| Gemma 3 **270M** | 241 MB | 394 ms | 589 ms | 540 MB | **1/20** |
+| A — 4 threads, agendador livre | 3359 ms | **4731 ms** | 4772 ms | 832 MB | 20/20 |
+| B — só Cortex-A55 ×4 · *proxy de entrada* | 8841 ms | **13130 ms** | 17121 ms | 832 MB | 20/20 |
+| C — só Cortex-A78 ×2 · *melhor caso* | 3663 ms | **4675 ms** | 4816 ms | 831 MB | 20/20 |
+| **Orçamento (RF-05 / RNF-03)** | — | **3000 ms** | — | 1536 MB | — |
 
-**Três conclusões, duas delas ruins:**
+**Referência de host (Intel i7-12650H, 4 núcleos):** Gemma 3 1B p95 2549 ms, RAM 1136 MB, 17/20 válidas; Gemma 3 270M p95 589 ms, RAM 540 MB, mas **1/20** válidas. O host é ~1,8× mais rápido que o melhor caso do aparelho e ~5× mais rápido que o proxy de entrada — motivo pelo qual nenhum número de host podia ser aceito como evidência.
 
-1. **RNF-03 é incompatível com o Gemma 3 1B.** O orçamento é *APK + modelo + pack ≤ 400 MB*. Medido:
+**Quatro conclusões:**
+
+1. **RF-05 reprova em todas as configurações medidas.** Nem o melhor caso deste aparelho (4675 ms) chega perto dos 3000 ms. No proxy de entrada, o p95 de 13,1 s é **2,6× o teto duro de 5 s** — praticamente toda triagem estouraria o timeout e cairia no `RuleOnlyEngine`. O modelo ocuparia 768 MB no aparelho para quase nunca responder a tempo. O critério **não** pode ser declarado atendido.
+
+2. **RNF-03 (tamanho) é incompatível com o Gemma 3 1B.** O orçamento é *APK + modelo + pack ≤ 400 MB*. Medido:
 
    | Parcela | Tamanho |
    |---|---|
@@ -297,17 +305,16 @@ Medido com `app/tool/bench_inference.dart`, 20 iterações sobre casos derivados
    | **Total** | **≈ 790 MB** |
 
    O app não é o problema: ele responde por 2,7% do total. A menor quantização utilizável do 1B é **681 MB** (IQ4_XS), e o gargalo é a tabela de embeddings de 256k tokens, que praticamente não quantiza. Não há ajuste de flag que resolva — ou o orçamento sobe para ~1 GB, ou o modelo muda. **Decisão de produto pendente.**
-2. **RF-05 (p95 < 3 s) está em risco sério.** Os 2549 ms saíram de núcleos Alder Lake de notebook. Um SoC de entrada (Cortex-A53/A55) roda inferência CPU do llama.cpp a uma fração dessa velocidade, então o p95 no aparelho alvo deve ficar bem acima de 3 s — e provavelmente acima do teto duro de 5 s, que dispararia o `RuleOnlyEngine` na maioria das triagens. **O critério não pode ser declarado atendido.**
-3. **Trocar para o 270M não é saída trivial.** Ele cabe no orçamento e é 4× mais rápido, mas produziu identificador válido em **1 de 20** casos: na prática o app rodaria sempre em modo degradado. Um modelo que se abstém sempre é seguro (o gate decide) e inútil.
+3. **RNF-03 (RAM) passa, com folga.** Pico de 832 MB no aparelho contra teto de 1,5 GB — e o número é estável nas três configurações, porque o que ocupa memória são os pesos mapeados e o cache KV, não os núcleos. No host o pico foi maior (1136 MB): sob pressão, o Android devolve páginas do `mmap`, ao custo de releitura do armazenamento — que reaparece como latência.
+4. **Trocar para o 270M não é saída trivial.** Ele cabe no orçamento e é 4× mais rápido, mas produziu identificador válido em **1 de 20** casos: na prática o app rodaria sempre em modo degradado. Um modelo que se abstém sempre é seguro (o gate decide) e inútil.
 
-**Duas variáveis já descartadas por medição:** aplicar o *chat template* do Gemma **piora** o resultado (0/8 válidos — o modelo passa a responder em prosa, e o decodificador corretamente rejeita); e o pico de RAM, diferente da latência, **transfere entre arquiteturas**, então os 1136 MB medidos valem para o aparelho e cabem no RNF-03 (≤ 1,5 GB), ainda que com pouca folga.
+**Uma variável descartada por medição:** aplicar o *chat template* do Gemma **piora** o resultado (0/8 válidos — o modelo passa a responder em prosa, e o decodificador corretamente rejeita). O prompt de completação cru é a escolha certa.
 
-**Integração Android (verificada):** o `externalNativeBuild` do Gradle compila e empacota `libgubs_llama.so` para `arm64-v8a`, e o fecho de dependências dentro do APK está completo (`libllama`, `libggml{,-base,-cpu}`, `libc++_shared` — nenhuma ausente). Release fixado em arm64-v8a apenas; x86_64 só no debug, para emulador.
+**Integração Android (verificada em aparelho):** o `externalNativeBuild` do Gradle compila e empacota `libgubs_llama.so` para `arm64-v8a`, com fecho de dependências completo no APK (`libllama`, `libggml{,-base,-cpu}`, `libc++_shared`). No aparelho, `integration_test/native_shim_test.dart` confirma que o linker encontra a biblioteca, que a ABI compilada é a que o Dart espera, e que modelo ausente devolve `nullptr` sem derrubar o app. Release fixado em arm64-v8a; x86_64 só no debug, para emulador.
 
-**O que falta para fechar de fato:** rodar em arm64 real. Dois degraus continuam sem prova:
+**Armadilha de ferramenta, registrada:** `flutter test integration_test/` **desinstala o app ao terminar**, e desinstalar apaga `/sdcard/Android/data/<pkg>/` — levando junto o GGUF de 768 MB enviado por `adb push`. Por isso o bench de aparelho vive em `native/llama_shim/bench_main.c`, rodando de `/data/local/tmp`; ele também é a única forma de fixar núcleos com `taskset`, o que de dentro do processo do app é impossível.
 
-1. **Carga do `.so` em runtime Android.** `integration_test/native_shim_test.dart` existe e faz essa checagem, mas não foi executado — o emulador do SDK não sobrevive neste ambiente, e só há imagem x86_64 (que também não mediria CPU de entrada). O fecho estático de dependências acima é evidência forte, não prova.
-2. **p95 em SoC de entrada.** Falta o aparelho.
+**O que falta:** nada de engenharia. Resta a **decisão de produto** sobre orçamento × modelo — ver as opções em aberto no item 8 da Fase 1.
 
 ### Fase 2 — App (CAP-01…13)
 10. Casca: tema, GoRouter, i18n pt/es, `speech/`.
