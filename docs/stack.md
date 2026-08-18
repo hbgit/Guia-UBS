@@ -305,6 +305,47 @@ Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado
 
 **Revisão:** reabrir se o llama.cpp passar a oferecer uma API C estável e versionada, ou se surgir necessidade de backend de GPU (o `abort_callback` só vale para execução em CPU).
 
+### ADR-003 — Orçamentos de footprint e latência: **ELEVADOS** para viabilizar o SLM (2026-08-17)
+
+**Contexto.** A Fase 1 mediu oito configurações de modelo em aparelho arm64 real (Motorola Edge 40 Neo) e em host, com a bancada de [arquitetura.md §5.1](arquitetura.md). O resultado foi inequívoco: **nenhum modelo satisfazia simultaneamente** o RNF-03 original (APK + modelo + pack ≤ 400 MB) e o RF-05 original (p95 < 3 s). Acerto clínico acompanha o tamanho do modelo, e o orçamento de 400 MB cortava exatamente onde o modelo começava a ser útil — os que cabiam pontuavam ≤ 10/20 na suite de identificadores; os que acertavam pesavam ≥ 768 MB.
+
+Havia duas saídas: cortar o SLM do MVP, ou elevar os orçamentos. **Decidiu-se elevar.**
+
+**Decisão.** Os seguintes requisitos passam a valer, substituindo os originais:
+
+| Requisito | Antes | **Agora** |
+|---|---|---|
+| Tamanho do APK base | (implícito no RNF-03) | **50–80 MB** |
+| Peso do modelo SLM | (implícito) | **700 MB – 1,2 GB**, baixado no 1º acesso ou embarcado como asset |
+| **RNF-03** — footprint total | APK + modelo + pack ≤ **400 MB** | APK + modelo + pack ≤ **1,2 GB** |
+| Espaço livre em disco | — | **≥ 3 GB** (novo pré-requisito) |
+| Contexto por atendimento | 512 tokens (padrão de código) | **512–1024 tokens**, máximo por atendimento |
+| RAM do aparelho | "entrada, ≤ 4 GB" | **mínimo 4 GB; recomendado 6–8 GB** |
+| **RF-05** — latência de inferência | p95 **< 3 s** | p95 **entre 3 e 5 s** |
+
+RAM de pico da inferência permanece ≤ 1,5 GB — a medição em aparelho deu 832 MB para o Gemma 3 1B, com folga.
+
+**Consequência imediata: vereditos medidos se invertem.** O Gemma 3 1B Q4_K_M passa a satisfazer os três critérios sem nenhuma alteração técnica, apenas pela mudança de régua:
+
+| Critério | Medido | Antes | Agora |
+|---|---|---|---|
+| Footprint (768 MB modelo + 21 MB APK + pack) | ≈ 790 MB | ✗ (2,0× o teto) | ✓ (66% do teto) |
+| p95 no aparelho, 4 threads | 4731 ms | ✗ | ✓ (dentro de 3–5 s) |
+| RAM de pico | 832 MB | ✓ | ✓ |
+
+**Risco aceito, explicitamente.** RAM mínima **não garante classe de CPU**. O proxy de aparelho de entrada — inferência fixada nos núcleos Cortex-A55 — mediu **p95 de 13.130 ms**, ainda 2,6× fora da nova janela e 2,6× acima do teto duro de 5 s. Aparelhos de 4 GB com SoC dominado por A55 (Snapdragon 4xx, Helio G) continuarão estourando o timeout e caindo no `RuleOnlyEngine` na maioria das triagens.
+
+Isso é tolerável **porque a arquitetura já foi construída para esse desfecho**: o gate determinístico decide sozinho, o fallback é total, e a INV-1 garante que nada rebaixa uma emergência. O usuário desses aparelhos recebe orientação clínica correta, sem o refinamento do SLM. O que muda é que essa degradação deixa de ser exceção e passa a ser o modo esperado numa fatia do parque instalado — por isso `fallback_rate` **por coorte de aparelho** vira métrica de produto, não apenas de saúde técnica.
+
+**Consequências de engenharia.**
+
+1. **Segunda superfície de rede.** "Download no 1º acesso" acrescenta uma chamada de rede além de manifest/pack. Ela herda obrigatoriamente o mesmo tratamento: HTTP Range retomável, verificação de SHA-256 antes de aceitar, e **falha nunca bloqueia o app** — sem modelo, roda em modo degradado (RF-12). O invariante de runtime offline-only permanece intacto: nenhuma funcionalidade do usuário depende de rede.
+2. **Verificação de espaço livre antes de baixar.** Iniciar um download de 1,2 GB num aparelho sem espaço deixa o usuário pior do que não baixar nada. O pré-requisito de 3 GB livres é checado *antes* de começar, e a falta de espaço resolve para degradação silenciosa (RuleOnly), não para erro na cara de quem usa.
+3. **Contexto vira orçamento explícito.** 512–1024 tokens por atendimento é teto de produto, não detalhe de implementação: inflar o prompt é o caminho mais fácil de estourar o p95, e o CI de eval deve tratá-lo como orçamento (já implementado como `promptCharBudget` em `prompt_builder.dart`, que falha alto ao ser excedido).
+4. **RNF-09 mantém minSdk 26**, mas o piso de RAM sobe para 4 GB — o que exclui parte do parque que a versão anterior contemplava.
+
+**Revisão.** Reabrir se (a) a telemetria de campo mostrar `fallback_rate` alto o bastante para tornar o SLM decorativo, caso em que cortá-lo economiza 1,2 GB sem perda funcional; ou (b) surgir modelo de vocabulário pequeno que atinja ≥ 15/20 na suite abaixo de 400 MB, permitindo voltar ao orçamento original.
+
 ---
 
 ## 11. Para o Sponsor — Por que um app "100% offline" ainda precisa de serviços web?

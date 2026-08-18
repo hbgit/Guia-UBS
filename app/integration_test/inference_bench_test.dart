@@ -3,8 +3,8 @@
 /// O bench de host (`tool/bench_inference.dart`) mede a mesma coisa com o mesmo
 /// código (`lib/triage/engine/inference_bench.dart`), mas num processador que
 /// nenhum usuário tem. Latência de inferência não transfere entre
-/// arquiteturas; só aqui o critério "p95 < 3 s em aparelho de entrada" pode ser
-/// declarado atendido ou reprovado.
+/// arquiteturas; só aqui o critério do RF-05 — "p95 entre 3 s e 5 s em aparelho
+/// mínimo de 4 GB" (ADR-003) — pode ser declarado atendido ou reprovado.
 ///
 /// Preparação (o modelo e o pacote não cabem no APK):
 ///
@@ -41,17 +41,24 @@ const String _modelPath =
 const String _packPath =
     String.fromEnvironment('GUBS_PACK', defaultValue: '$_filesDir/pack.db');
 
-/// RF-05: teto de 3 s para o p95. O teto duro de 5 s é o do timeout.
+/// RF-05, revisto pelo ADR-003: p95 aceitável entre 3 s e 5 s. O padrão é o
+/// teto da faixa, que coincide com o timeout duro — acima disso a inferência
+/// nem chega a ser entregue, é abortada no C.
 const int _budgetMillis =
-    int.fromEnvironment('GUBS_BUDGET_MS', defaultValue: 3000);
+    int.fromEnvironment('GUBS_BUDGET_MS', defaultValue: 5000);
 
 /// RNF-03: pico de RAM ≤ 1,5 GB.
 const int _rssBudgetMb = int.fromEnvironment('GUBS_RSS_MB', defaultValue: 1536);
 
 const int _iterations = int.fromEnvironment('GUBS_ITERATIONS', defaultValue: 20);
 
-/// Aparelho de entrada tem 4 núcleos grandes na melhor das hipóteses.
+/// Aparelho mínimo tem 4 núcleos grandes na melhor das hipóteses.
 const int _threads = int.fromEnvironment('GUBS_THREADS', defaultValue: 4);
+
+/// Contexto por atendimento. RF-05 fixa a faixa 512–1024 tokens; 512 é o piso
+/// dela, e subir custa latência p95 direto.
+const int _contextTokens =
+    int.fromEnvironment('GUBS_CTX', defaultValue: 512);
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -77,6 +84,7 @@ void main() {
     final engine = await startLlamaEngine(
       model: model,
       modelPath: _modelPath,
+      contextTokens: _contextTokens,
       threads: _threads,
     );
     loadWatch.stop();

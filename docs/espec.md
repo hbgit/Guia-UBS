@@ -22,7 +22,7 @@
 | RF-02 | Navegação 100% iconográfica | Grade inicial 6–8 ícones; profundidade máx. 4; botões voltar/casa em toda tela; zero dead-ends (toda tela possui ≥ 1 transição de saída) |
 | RF-03 | Composição visual de sintomas | 1..5 `IconToken` por sessão; cada token validado contra a ontologia do pack ativo; token inválido rejeitado com feedback visual |
 | RF-04 | Gate determinístico de red flags avaliado ANTES de qualquer inferência | Função pura e total sobre o domínio de tokens; 100% dos casos da tabela `red_flag_rules` → `EMERGENCY`; suite golden com pass criteria 100% (zero falso negativo tolerado) |
-| RF-05 | Inferência SLM local para casos não red-flag | p95 < 3 s em device de entrada (≤ 4 GB RAM); timeout hard de 5 s dispara RF-12; prompt determinístico (temperatura 0, seed fixa) |
+| RF-05 | Inferência SLM local para casos não red-flag | p95 **entre 3 s e 5 s** em device mínimo (≥ 4 GB RAM) — [ADR-003](stack.md); contexto máximo de **512–1024 tokens por atendimento**; timeout hard de 5 s dispara RF-12; prompt determinístico (decodificação gulosa, temperatura 0) |
 | RF-06 | Resposta multimodal: cartão visual + TTS | Áudio no idioma ativo; renderização do cartão independe do TTS (falha de TTS ⇒ resposta apenas visual, nunca bloqueio) |
 | RF-07 | Guia de encaminhamento UBS vs. UPA/Hospital | Conteúdo 100% oriundo do `content.db` ativo; navegável offline |
 | RF-08 | Orientador de documentação por serviço | Idem RF-07; imagens dos documentos embarcadas no pack |
@@ -36,14 +36,14 @@
 | ID | Requisito | Critérios de Aceitação Técnicos |
 |---|---|---|
 | RNF-01 | Offline total em runtime | Toda funcionalidade do ator A1 executável com rádio desligado (verificado em teste de integração com airplane mode) |
-| RNF-02 | Latência de triagem | Gate < 50 ms; inferência p95 < 3 s; resposta total (toque final → cartão) p95 < 4 s |
-| RNF-03 | Footprint | APK + modelo + pack ≤ 400 MB; RAM pico de inferência ≤ 1,5 GB |
+| RNF-02 | Latência de triagem | Gate < 50 ms; inferência p95 entre 3 s e 5 s; resposta total (toque final → cartão) p95 < 6 s |
+| RNF-03 | Footprint | APK + modelo + pack ≤ **1,2 GB** ([ADR-003](stack.md)); APK base 50–80 MB; modelo SLM 700 MB–1,2 GB (baixado no 1º acesso ou embarcado como asset); **espaço livre em disco ≥ 3 GB** verificado ANTES do download; RAM pico de inferência ≤ 1,5 GB |
 | RNF-04 | Privacidade (LGPD by design) | Zero PII em disco, logs e rede; telemetria apenas agregada por coorte (município+versão), nunca por device |
 | RNF-05 | Integridade de conteúdo | Cadeia de confiança: chave pública embarcada → manifest assinado → hashes dos artefatos; CDN tratada como não-confiável |
 | RNF-06 | Acessibilidade | Alvos de toque ≥ 64 dp; contraste WCAG 2.2 AA; semântica de cor fixa (verde/vermelho/azul); zero texto obrigatório |
 | RNF-07 | Estabilidade | 72 h de uso simulado offline sem crash; crash-free sessions ≥ 99,5% |
 | RNF-08 | Energia | Inferência apenas sob demanda; sem wakelocks persistentes; sync limitado à janela do WorkManager |
-| RNF-09 | Compatibilidade | Android 8.0+ (minSdk 26), arm64-v8a prioritário; degradação verificada em SoCs de entrada |
+| RNF-09 | Compatibilidade | Android 8.0+ (minSdk 26), arm64-v8a prioritário; **RAM mínima 4 GB, recomendada 6–8 GB** ([ADR-003](stack.md)); degradação verificada em SoCs de entrada — RAM mínima não garante classe de CPU, e SoCs dominados por Cortex-A55 operam predominantemente via `RuleOnlyEngine` |
 
 ### 1.3 Atores e Fronteiras
 

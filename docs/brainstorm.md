@@ -126,7 +126,7 @@ Democratizar o acesso à informação sobre os serviços das Unidades Básicas d
 
 - Esquema do banco local (SQLite): entidades `Serviço`, `Sintoma`, `Documento`, `Medicamento`, `Vacina`, `PacoteConteúdo` (versionado).
 - Pipeline do pacote de conteúdo: formato, versionamento, assinatura e hospedagem estática.
-- Prova de conceito da IA local: SLM quantizado + regras de segurança rodando em um aparelho Android de entrada (≤ 4 GB RAM).
+- Prova de conceito da IA local: SLM quantizado + regras de segurança rodando em aparelho Android mínimo (≥ 4 GB RAM; recomendado 6–8 GB — ADR-003).
 - **Critério de saída:** inferência local < 3 s em aparelho de entrada; sync de pacote funcionando em rede instável simulada.
 
 ### M4 — Desenvolvimento de Módulos em Sprints (Semanas 7–17, 5 sprints de 2 semanas)
@@ -142,7 +142,7 @@ Democratizar o acesso à informação sobre os serviços das Unidades Básicas d
 ### M5 — Testes de Usabilidade e Desempenho (Semanas 17–19)
 
 - Correção de bugs priorizada por severidade.
-- Testes de desempenho: consumo de bateria da inferência, uso de RAM, tamanho do app (< 400 MB com modelo), cold start.
+- Testes de desempenho: consumo de bateria da inferência, uso de RAM, tamanho do app (≤ 1,2 GB com modelo — ADR-003), cold start.
 - Testes de segurança: validação de assinatura dos pacotes de conteúdo; auditoria das respostas de triagem contra os protocolos oficiais (revisão por profissional de saúde).
 - Teste de estabilidade: 72h de uso simulado offline sem crash.
 

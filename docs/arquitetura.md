@@ -272,11 +272,13 @@ Ordem derivada da dependência real (contrato → packer → app → CMS) e da u
 5. `seed/` com ontologia mínima (~30 tokens), regras e cards.
 6. `packer` mínimo: build → validação referencial → golden → assinatura → publish.
 7. **`red_flag_gate.dart`** (função pura) + suite golden **pass 100%**.
-8. `llama_engine` PoC com bench em device ≤ 4 GB + `rule_only_engine`.
+8. `llama_engine` PoC com bench em device ≥ 4 GB + `rule_only_engine`.
 9. `sync_service` PoC: manifest com ETag, download com Range, verificação, swap atômico.
-**Saída (gate do PRD):** inferência p95 < 3 s; sync retoma após corte; nenhum pack inválido ativado.
+**Saída (gate do PRD):** inferência p95 entre 3 s e 5 s ([ADR-003](stack.md)); sync retoma após corte; nenhum pack inválido ativado.
 
 #### 5.1 Resultado do bench do item 8 (2026-08-14)
+
+> **⚠ Leia junto com o [ADR-003](stack.md).** As conclusões abaixo foram escritas contra os orçamentos ORIGINAIS (≤ 400 MB, p95 < 3 s). Em 2026-08-17 esses orçamentos foram elevados para **≤ 1,2 GB** e **p95 entre 3 e 5 s**, justamente por causa destas medições. Sob a régua nova, o **Gemma 3 1B passa nos três critérios** (790 MB de footprint, 4731 ms de p95 no aparelho, 832 MB de RAM). As medições seguem válidas; o que mudou foi o limiar de aprovação.
 
 **Medido em aparelho arm64 real:** Motorola Edge 40 Neo (MediaTek Dimensity 7030 — 6× Cortex-A55 @ 2,0 GHz + 2× Cortex-A78 @ 2,5 GHz), Android 15, 7,6 GB de RAM. Gemma 3 1B Q4_K_M, 20 iterações, contexto 512 tokens, 17 prompts gerados pelo construtor real do app.
 
@@ -339,7 +341,7 @@ Testados por serem os únicos candidatos que **cabem no orçamento de 400 MB**. 
 
 **Phi-4-mini avaliado e rejeitado (2026-08-14).** É o único modelo testado que acerta 20/20, mas perde em todo o resto: **2,2× mais lento** que o Gemma 3 1B na mesma sessão, arquivo de **2376 MB** (5,9× o orçamento total do RNF-03, contra 1,9× do Gemma) e pico de **3950 MB de RAM** — 2,6× o teto de 1,5 GB. Projetando pela razão host→aparelho do Gemma, o p95 no proxy de entrada ficaria na casa de **~29 s**; num aparelho de 4 GB o modelo provavelmente nem carregaria, deixando o motor permanentemente indisponível. Não foi medido em aparelho: as reprovações de tamanho e de RAM são aritméticas e independem de bancada.
 
-**Quatro conclusões:**
+**Quatro conclusões (avaliadas contra os orçamentos originais):**
 
 1. **RF-05 reprova em todas as configurações medidas.** Nem o melhor caso deste aparelho (4675 ms) chega perto dos 3000 ms. No proxy de entrada, o p95 de 13,1 s é **2,6× o teto duro de 5 s** — praticamente toda triagem estouraria o timeout e cairia no `RuleOnlyEngine`. O modelo ocuparia 768 MB no aparelho para quase nunca responder a tempo. O critério **não** pode ser declarado atendido.
 

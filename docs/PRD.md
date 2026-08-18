@@ -27,7 +27,7 @@ Guia UBS é um aplicativo Android offline-only em runtime que orienta populaçõ
 |---|---|---|---|
 | H1 | Interface 100% iconográfica + áudio permite uso **sem mediação humana** pelo público-alvo | Teste de usabilidade (M2) + piloto (M6) | ≥ 80% completam triagem sem ajuda |
 | H2 | Sync de oportunidade em janelas de ~30 s converge a frota de forma confiável | Rede instável simulada (M3) + piloto | ≥ 90% dos devices atualizados em ≤ 7 dias |
-| H3 | SLM quantizado roda em aparelho de entrada com latência aceitável | PoC em device ≤ 4 GB RAM (M3) | Inferência p95 < 3 s; RAM pico ≤ 1,5 GB |
+| H3 | SLM quantizado roda em aparelho mínimo com latência aceitável | PoC em device ≥ 4 GB RAM (M3) | Inferência p95 entre 3 s e 5 s; RAM pico ≤ 1,5 GB (ADR-003) |
 | H4 | Prefeituras/ONGs funcionam como canal de distribuição (APK sideload + Play Store) | Piloto em 2 UBS | Adoção ≥ 20 usuários ativos/UBS no piloto |
 
 Evidência atual: H1–H4 são **premissas — precisam de validação pelos métodos acima**. Nenhuma é tratada como fato.
@@ -220,12 +220,12 @@ erDiagram
 | Superfície | SLO | Medição |
 |---|---|---|
 | Gate de red flags | < 50 ms (síncrono) | Bench em CI + telemetria agregada |
-| Inferência SLM (device ≤ 4 GB) | p95 < 3 s; timeout hard 5 s | Idem; `fallback_rate` como guardrail |
+| Inferência SLM (device ≥ 4 GB) | p95 entre 3 s e 5 s; timeout hard 5 s | Idem; `fallback_rate` **por coorte de aparelho** como guardrail |
 | Resposta total da triagem (toque→cartão) | p95 < 4 s | Telemetria agregada |
 | Cold start do app | < 2,5 s em device de entrada | Bench M5 |
 | `GET manifest.json` (edge Caddy/espelhos) | p99 < 300 ms; 99,5% disponibilidade (BASE tolera indisponibilidade) | Métricas do Caddy — única superfície de rede do app |
 | API CMS | p95 < 400 ms | APM do plano de controle |
-| Footprint | APK+modelo+pack ≤ 400 MB; RAM inferência ≤ 1,5 GB | Pipeline de release |
+| Footprint | APK+modelo+pack ≤ **1,2 GB**; APK base 50–80 MB; modelo 700 MB–1,2 GB; disco livre ≥ 3 GB; RAM inferência ≤ 1,5 GB | Pipeline de release |
 | Estabilidade | Crash-free ≥ 99,5%; 72 h offline sem crash | M5 + telemetria |
 
 ### 4.2 Segurança por Design
@@ -296,7 +296,7 @@ CAP-01…CAP-15 (matriz §2.2). Corte: prova H1 (iconográfico sem mediação) +
 
 | Fase | Semanas | Entregas | Riscos que valida | Gate de saída |
 |---|---|---|---|---|
-| **Fase 1 — PoC** | 1–7 (M1–M3) | Wireframes validados em campo; protótipo Figma/HTML; PoC SLM em device ≤ 4 GB; PoC sync em rede instável; esquema de dados + pipeline de pack assinado | R1 (FFI), H3 (latência), H2 (sync), H1 parcial (usabilidade de protótipo) | Inferência p95 < 3 s; sync resume após corte; ≥ 80% conclusão de tarefas no teste de protótipo |
+| **Fase 1 — PoC** | 1–7 (M1–M3) | Wireframes validados em campo; protótipo Figma/HTML; PoC SLM em device ≥ 4 GB; PoC sync em rede instável; esquema de dados + pipeline de pack assinado | R1 (FFI), H3 (latência), H2 (sync), H1 parcial (usabilidade de protótipo) | Inferência p95 entre 3 s e 5 s; sync resume após corte; ≥ 80% conclusão de tarefas no teste de protótipo |
 | **Fase 2 — Alpha/Beta** | 7–21 (M4–M6) | 5 sprints de módulos (casca+TTS → triagem → encaminhamento+fluxo → documentos+privacidade → sync+CMS); testes M5 (perf/segurança/72 h); piloto UAT em 2 UBS | H1 (campo real), R5 (conteúdo clínico), R7 (TTS) | Zero orientação clinicamente incorreta no piloto; aprovação formal dos gestores; crash-free ≥ 99,5% |
 | **Fase 3 — GA** | 22+ (M7) | Play Store + F-Droid + APK sideload (Bluetooth/SD); telemetria agregada ativa; ciclo mensal de packs; delta packs (bsdiff) quando pack > 10 MB; sharding por município; v1.1 (vacinas/farmácia) | H4 (adoção), R6 (custo), escala de conteúdo | ≥ 90% convergência em 7 dias; custo/usuário ~0 confirmado; processo de curadoria municipal operando |
 
@@ -319,7 +319,7 @@ CAP-01…CAP-15 (matriz §2.2). Corte: prova H1 (iconográfico sem mediação) +
 |---|---|---|---|
 | CAP-02/03 (navegação + composição) | RF-02, RF-03; RNF-06 | H1 | ≥ 80% triagens sem mediação |
 | CAP-04 (gate) | RF-04; INV-1/2 | — (invariante) | 100% red flags em CI; taxa EMERGENCY monitorada |
-| CAP-05 (SLM) | RF-05; RNF-02/03 | H3 | p95 < 3 s; `fallback_rate` < 10% |
+| CAP-05 (SLM) | RF-05; RNF-02/03 | H3 | p95 entre 3 s e 5 s; `fallback_rate` < 10% em aparelhos recomendados (6–8 GB) |
 | CAP-06 (multimodal) | RF-06; LGPD-RF10 | H1 | Compreensão do aviso/resposta sem mediação (teste M2/M6) |
 | CAP-10/11 (sync + integridade) | RF-10, RF-11; INV-3/7 | H2 | ≥ 90% convergência ≤ 7 dias; zero pack inválido ativado |
 | CAP-12 (degradação) | RF-12 (espec); INV-8 | — | Triagem completa com engine desligado (teste M5) |

@@ -23,7 +23,7 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 
 - **Red flag ⇒ EMERGENCY, sempre.** O gate determinístico roda ANTES do LLM e `severity_final = max(gate, llm)` — o LLM nunca rebaixa severidade. Exceção no gate = fail-closed para EMERGENCY.
 - **Zero dado pessoal do usuário final** em disco, log ou rede. A sequência de sintomas morre em memória; telemetria só agregada por coorte com k-anonimato ≥ 20.
-- **Offline-only em runtime:** toda funcionalidade do usuário opera com rádio desligado; a única chamada de rede do app é o download de manifest/pack pelo WorkManager.
+- **Offline-only em runtime:** toda funcionalidade do usuário opera com rádio desligado. O app faz exatamente duas chamadas de rede, ambas fora do caminho do usuário: download de manifest/pack pelo WorkManager e, desde o [ADR-003](docs/stack.md), download do modelo SLM no 1º acesso (700 MB–1,2 GB). Ambas retomáveis por HTTP Range, com SHA-256 conferido antes de aceitar, e **falha em qualquer uma nunca bloqueia o app** — sem modelo, a triagem roda via `RuleOnlyEngine`.
 - **Nenhum conteúdo sem assinatura Ed25519 válida e dual review clínico** chega ao usuário; versão de pack é monotônica (downgrade rejeitado mesmo assinado).
 - **Falha de LLM/TTS/sync nunca bloqueia** navegação de conteúdo estático (degradação em escada: llama.cpp → MediaPipe → regras puras → conteúdo estático).
 - `RuleOnlyEngine` e `RedFlagGate` consomem a **mesma tabela** do pack — lógica de regras duplicada em código é proibida.

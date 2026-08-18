@@ -17,8 +17,9 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Catalogo. Formato: <nome>|<url>|<sha256>|<bytes>
 #
-# ATENCAO ao orcamento do RNF-03 (APK + modelo + pack <= 400 MB): nenhuma
-# quantizacao do Gemma 3 1B cabe nele hoje. Ver arquitetura.md 5.1.
+# Orcamento do RNF-03 (ADR-003): APK + modelo + pack <= 1,2 GB, com o modelo
+# entre 700 MB e 1,2 GB. O Gemma 3 1B Q4_K_M (768 MB) cabe; medicoes e
+# comparacao entre modelos em arquitetura.md 5.1.
 # ---------------------------------------------------------------------------
 CATALOG=(
   "gemma-3-1b|https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf|8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135|806058240"

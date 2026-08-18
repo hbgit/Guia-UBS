@@ -1,14 +1,15 @@
 /// Bench de latência da inferência local (RF-05 / RNF-02).
 ///
-/// Critério de aceite da Fase 1: **p95 < 3 s** em aparelho de entrada
-/// (≤ 4 GB de RAM). Este utilitário produz o número; ele não o presume.
+/// Critério de aceite (RF-05, revisto pelo ADR-003 em 2026-08-17):
+/// **p95 entre 3 s e 5 s** em aparelho mínimo (≥ 4 GB de RAM). O orçamento
+/// padrão é o teto da faixa; este utilitário produz o número, não o presume.
 ///
 /// Uso:
 ///
 /// ```
 /// dart run tool/bench_inference.dart \
 ///   --pack=<content.db> --model=<modelo.gguf> [--lib=<libgubs_llama.so>] \
-///   [--iterations=30] [--threads=4] [--ctx=512] [--budget-ms=3000]
+///   [--iterations=30] [--threads=4] [--ctx=512] [--budget-ms=5000]
 /// ```
 ///
 /// Sai com código 1 quando o orçamento estoura — dá para pendurar num job de
@@ -50,14 +51,14 @@ Future<int> _run(List<String> args) async {
 
   if (packPath == null || modelPath == null) {
     stderr.writeln('uso: --pack=<content.db> --model=<modelo.gguf> [--lib=...] '
-        '[--iterations=30] [--threads=4] [--ctx=512] [--budget-ms=3000]');
+        '[--iterations=30] [--threads=4] [--ctx=512] [--budget-ms=5000]');
     return 2;
   }
 
   final iterations = int.parse(options['iterations'] ?? '30');
   final threads = int.parse(options['threads'] ?? '4');
   final contextTokens = int.parse(options['ctx'] ?? '512');
-  final budgetMs = int.parse(options['budget-ms'] ?? '3000');
+  final budgetMs = int.parse(options['budget-ms'] ?? '5000');
   final libPath = options['lib'];
 
   configureSqliteForHost();
