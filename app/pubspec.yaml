@@ -12,6 +12,9 @@ dependencies:
   meta: ^1.16.0
   # Conversão de string para a fronteira FFI do shim do llama.cpp.
   ffi: ^2.1.4
+  # SHA-256 do modelo e dos pacotes de conteúdo, conferido antes de aceitar
+  # qualquer artefato baixado (RNF-03 / FSM-B).
+  crypto: ^3.0.6
 
   # Leitura do content.db distribuído (somente leitura no dispositivo).
   sqlite3: ^2.4.0

@@ -29,11 +29,10 @@ Item 8
 
 [TODO] Resolver antes de ir para o item 9
 
-* [DOING] O caminho crítico agora não é código: é um aparelho arm64 de entrada, e a decisão sobre orçamento × modelo. Sigo para o item 9 (sync_service) enquanto isso?
-    
-    Se ainda assim quiser SLM, a única porta que os dados deixam aberta é subir o orçamento para ~800 MB e aceitar degradação frequente em aparelhos de entrada — com o Gemma 3 1B, que segue sendo o melhor equilíbrio da amostra.
+* O que ainda não está ligado
+Estas peças existem e funcionam, mas nada as chama ainda — falta o ModelArtifact real (URL do espelho + SHA-256 versionado no código) e a decisão de quando disparar o download: o ADR-003 diz "1º acesso", mas o gatilho concreto (WorkManager só em Wi-Fi? tela de boas-vindas?) é escolha de produto que ainda não foi feita. E o caminho de destino depende de path_provider, que ainda não é dependência.
 
-    Tudo registrado em docs/arquitetura.md §5.1. Quer que eu formalize agora o ADR-003 com essa conclusão?)
+Quer que eu siga para o item 9 (sync_service completo, FSM-B, que passa a usar este mesmo downloader), ou prefere fechar o wiring do modelo primeiro?
 
 
 ---

@@ -76,6 +76,7 @@ app/
 │   ├── main.dart · app.dart                  # MaterialApp + GoRouter
 │   ├── core/
 │   │   ├── result.dart                       # Result<T,E> selado
+│   │   ├── disk_space.dart                   # statvfs; portão de 3 GB (RNF-03)
 │   │   ├── app_logger.dart                   # ring buffer, sem PII
 │   │   ├── clock.dart                        # injetável (testes determinísticos)
 │   │   └── theme/                            # tokens: verde/vermelho/azul, 64dp
@@ -98,9 +99,11 @@ app/
 │   │   ├── triage_orchestrator.dart          # FSM-A
 │   │   └── presentation/                     # telas + providers Riverpod
 │   ├── sync/                                 # FSM-B
+│   │   ├── resumable_downloader.dart         # Range + SHA-256 (COMPARTILHADO)
+│   │   ├── model_downloader.dart             # modelo SLM + portão de 3 GB
 │   │   ├── sync_service.dart                 # máquina explícita (enum + tabela)
 │   │   ├── manifest_client.dart              # ETag + condicional
-│   │   ├── pack_downloader.dart              # HTTP Range retomável
+│   │   ├── pack_downloader.dart              # usa resumable_downloader
 │   │   ├── pack_verifier.dart                # Ed25519 + SHA-256 + anti-downgrade
 │   │   ├── pack_installer.dart               # staging → rename atômico
 │   │   └── background_scheduler.dart         # WorkManager
