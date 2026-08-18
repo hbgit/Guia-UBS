@@ -282,14 +282,62 @@ Ordem derivada da dependência real (contrato → packer → app → CMS) e da u
 
 O aparelho é **intermediário**, não o "≤ 4 GB de entrada" que o critério nomeia. Para cobrir essa lacuna sem estimativa de papel, o bench nativo (`native/llama_shim/bench_main.c`) roda sob `taskset`: fixar a inferência no cluster Cortex-A55 **mede** a classe de entrada, já que um SoC de entrada é essencialmente um punhado de A55.
 
-| Configuração de núcleos | p50 | **p95** | máx | Pico RAM | Válidas |
+| Configuração de núcleos | p50 | **p95** | máx | Pico RAM | Com saída |
 |---|---|---|---|---|---|
 | A — 4 threads, agendador livre | 3359 ms | **4731 ms** | 4772 ms | 832 MB | 20/20 |
 | B — só Cortex-A55 ×4 · *proxy de entrada* | 8841 ms | **13130 ms** | 17121 ms | 832 MB | 20/20 |
 | C — só Cortex-A78 ×2 · *melhor caso* | 3663 ms | **4675 ms** | 4816 ms | 831 MB | 20/20 |
 | **Orçamento (RF-05 / RNF-03)** | — | **3000 ms** | — | 1536 MB | — |
 
-**Referência de host (Intel i7-12650H, 4 núcleos):** Gemma 3 1B p95 2549 ms, RAM 1136 MB, 17/20 válidas; Gemma 3 270M p95 589 ms, RAM 540 MB, mas **1/20** válidas. O host é ~1,8× mais rápido que o melhor caso do aparelho e ~5× mais rápido que o proxy de entrada — motivo pelo qual nenhum número de host podia ser aceito como evidência.
+> **"Com saída" ≠ "válida".** O bench nativo conta apenas geração não vazia; ele não decodifica. Validade (identificador do pacote reconhecido) só é medida pelo bench Dart — para o Gemma 3 1B, **17/20**. Os dois números não são intercambiáveis.
+
+##### Fox-1-1.6B no mesmo aparelho (2026-08-17)
+
+| Configuração | Gemma 3 1B | **Fox-1-1.6B** | Fox-1 / Gemma |
+|---|---|---|---|
+| A — 4 threads, agendador livre | 4731 ms | **6540 ms** | 1,38× |
+| B — só Cortex-A55 ×4 · *proxy de entrada* | 13130 ms | **18870 ms** | 1,44× |
+| C — só Cortex-A78 ×2 · *melhor caso* | 4675 ms | **6941 ms** | 1,48× |
+| Pico de RAM no aparelho | 832 MB | 1143 MB | 1,37× |
+| Arquivo Q4_K_M | 768 MB | 1066 MB | 1,39× |
+
+**Fox-1 avaliado e rejeitado.** Mesma patologia do Gemma 3 1B, agravada: `vocab_size` 256000 com `hidden_size` 2048 põe ~524 M dos 1,6 B parâmetros só na tabela de embeddings — um terço do modelo é vocabulário, e isso não quantiza. É ~1,4× pior que o Gemma em latência, RAM e tamanho, **sem compensação em qualidade**: o modelo **base** (o URL pedido) acerta **1/20**, e a variante **Instruct**, **16/20** — abaixo dos 17/20 do Gemma. Não há eixo em que ele ganhe.
+
+##### Modelos pequenos: Qwen2.5-0.5B e SmolLM2-360M (2026-08-17)
+
+Testados por serem os únicos candidatos que **cabem no orçamento de 400 MB**. Aparelho, mesmas três configurações:
+
+| Configuração | Gemma 3 1B (768 MB) | **Qwen2.5-0.5B Q4 (379 MB)** |
+|---|---|---|
+| A — 4 threads, agendador livre | 4731 ms | **3208 ms** |
+| B — só Cortex-A55 ×4 · *proxy de entrada* | 13130 ms | **8965 ms** |
+| C — só Cortex-A78 ×2 · *melhor caso* | 4675 ms | **2556 ms** ✅ |
+| Pico de RAM | 832 MB | **433 MB** |
+| Válidas (host) | 17/20 | **10/20** |
+
+**Este é o único ponto de todo o estudo que passa no RF-05** — e ele não vale: 2556 ms foram obtidos nos dois núcleos Cortex-A78 de um aparelho intermediário, exatamente o hardware que o critério **não** descreve. Nos núcleos A55, que são a classe alvo, o mesmo modelo dá 8965 ms — 3,0× o orçamento e 1,8× o teto duro de 5 s.
+
+**SmolLM2-360M reprovado antes do aparelho.** Validade de **2/20** (Q4) e **0/20** (Q8) no host; medir latência de um modelo que praticamente nunca responde nada aproveitável não produziria informação. Aos 360 M de parâmetros o modelo não sustenta a instrução de responder só um identificador.
+
+##### Comparação de modelos (host — Intel i7-12650H, 4 núcleos fixados)
+
+| Modelo (Q4_K_M) | Arquivo | p50 | p95 | Pico RAM | Válidas |
+|---|---|---|---|---|---|
+| Gemma 3 **1B** | 768 MB | 790 ms | **1041 ms** | 1136 MB | **17/20** |
+| Gemma 3 **270M** | 241 MB | 394 ms | 589 ms | 540 MB | **1/20** |
+| **Phi-4-mini** (3,8 B) | **2376 MB** | 2065 ms | **2197 ms** | **3950 MB** | **20/20** |
+| **Fox-1-1.6B** base | 1066 MB | 1113 ms | 1207 ms | 1903 MB | **1/20** |
+| **Fox-1-1.6B** Instruct | 1066 MB | 1118 ms | 1248 ms | 1905 MB | 16/20 |
+| **Qwen2.5-0.5B** Q8 | 506 MB | 488 ms | 506 ms | 786 MB | 12/20 |
+| **Qwen2.5-0.5B** Q4 | **379 MB** | 528 ms | 605 ms | 689 MB | 10/20 |
+| **SmolLM2-360M** Q8 | 368 MB | 463 ms | 476 ms | 642 MB | **0/20** |
+| **SmolLM2-360M** Q4 | **258 MB** | 593 ms | 626 ms | 550 MB | **2/20** |
+
+**O achado que fecha a investigação: acerto acompanha tamanho, e o orçamento corta exatamente onde o modelo começa a ser útil.** Ordenados por validade — 20/20 (2376 MB), 17/20 (768 MB), 16/20 (1066 MB), 12/20 (506 MB), 10/20 (379 MB), 2/20 (258 MB), 1/20 (241 MB), 0/20 (368 MB) — os únicos que cabem em 400 MB pontuam ≤ 10/20. Não é uma questão de escolher melhor o modelo: é que a tarefa exige mais parâmetros do que o orçamento comporta, e mais parâmetros exigem mais tempo do que o aparelho de entrada tem.
+
+**Cuidado: número de host é instável.** O Gemma 3 1B mediu p95 2549 ms numa sessão com compilações concorrentes e 939/1041/1048 ms em três repetições com a máquina ociosa. Só comparações feitas na MESMA sessão valem — e nenhum número de host serve como evidência de aceite: no aparelho, o mesmo Gemma dá 4731 ms (todos os núcleos) e 13130 ms (proxy A55), ou seja, o host é ~4,7× a ~13× otimista.
+
+**Phi-4-mini avaliado e rejeitado (2026-08-14).** É o único modelo testado que acerta 20/20, mas perde em todo o resto: **2,2× mais lento** que o Gemma 3 1B na mesma sessão, arquivo de **2376 MB** (5,9× o orçamento total do RNF-03, contra 1,9× do Gemma) e pico de **3950 MB de RAM** — 2,6× o teto de 1,5 GB. Projetando pela razão host→aparelho do Gemma, o p95 no proxy de entrada ficaria na casa de **~29 s**; num aparelho de 4 GB o modelo provavelmente nem carregaria, deixando o motor permanentemente indisponível. Não foi medido em aparelho: as reprovações de tamanho e de RAM são aritméticas e independem de bancada.
 
 **Quatro conclusões:**
 

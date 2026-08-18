@@ -36,6 +36,11 @@ Item 8
     - Pior ainda: 4731 ms encosta no teto duro de 5 s. Já neste hardware, uma fração das triagens estouraria o timeout e cairia no RuleOnlyEngine. No aparelho de entrada, isso seria a regra, não a exceção — o SLM estaria embarcado, ocupando 768 MB, e quase nunca respondendo a tempo.
     - A boa notícia isolada: pico de RAM de 832 MB, bem dentro do 1,5 GB do RNF-03 (no host eram 1136 MB — o Android devolve páginas do mmap sob pressão). E 20/20 respostas válidas: o Gemma 3 1B funciona para a tarefa. O problema é exclusivamente velocidade e tamanho.
     - [TODO] As opções reais, na minha ordem de preferência: (1) adiar o SLM para pós-MVP e liberar com gate + regras, (2) subir o orçamento para ~1 GB e aceitar p95 na casa dos 5–10 s com degradação frequente, ou (3) buscar um modelo de 300–500 M com vocabulário menor e avaliá-lo com a mesma suite. >> prefere avaliar antes um modelo intermediário?
+    (Isso encerra a busca por modelo — não por falta de candidatos, mas porque a fronteira medida é do problema, não da amostra. Mantenho a recomendação de cortar o SLM do MVP: o gate determinístico decide sozinho, o RuleOnlyEngine é total, a INV-1 garante que nada rebaixa emergência, e economizam-se 768 MB e todo o risco de latência.
+
+    Se ainda assim quiser SLM, a única porta que os dados deixam aberta é subir o orçamento para ~800 MB e aceitar degradação frequente em aparelhos de entrada — com o Gemma 3 1B, que segue sendo o melhor equilíbrio da amostra.
+
+    Tudo registrado em docs/arquitetura.md §5.1. Quer que eu formalize agora o ADR-003 com essa conclusão?)
 
 
 
