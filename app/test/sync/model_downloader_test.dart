@@ -23,6 +23,8 @@ class _FakeDownloader implements ResumableDownloader {
     required Uri url,
     required File destination,
     required String expectedSha256,
+    DownloadProgress? onProgress,
+    int fallbackTotalBytes = 0,
   }) async {
     calls++;
     return _outcome(destination);
@@ -48,9 +50,10 @@ void main() {
   tearDown(() => tmp.deleteSync(recursive: true));
 
   ModelArtifact artifact() => ModelArtifact(
-        url: Uri.parse('http://example.invalid/modelo.gguf'),
+        url: 'http://example.invalid/modelo.gguf',
         sha256: hash,
         sizeBytes: payload.length,
+        fileName: 'modelo.gguf',
       );
 
   test('espaço insuficiente impede QUALQUER byte de rede', () async {

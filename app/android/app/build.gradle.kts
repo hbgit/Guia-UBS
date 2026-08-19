@@ -6,7 +6,11 @@ plugins {
 
 android {
     namespace = "br.gov.exemplo.guia_ubs"
-    compileSdk = flutter.compileSdkVersion
+    // Fixado em 36: os plugins do onboarding (file_picker, workmanager)
+    // exigem compilacao contra API 36+. Herdar `flutter.compileSdkVersion`
+    // deixaria o build refem da versao que o SDK do Flutter escolher.
+    // compileSdk NAO afeta em quais aparelhos o app instala — isso e o minSdk.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

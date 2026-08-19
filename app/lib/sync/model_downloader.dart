@@ -73,13 +73,24 @@ class ModelArtifact {
     required this.url,
     required this.sha256,
     required this.sizeBytes,
+    required this.fileName,
   });
 
-  final Uri url;
+  /// URL do espelho. `String` e nao `Uri` para permitir `const` no catálogo —
+  /// o artefato precisa ser constante de compilação para ir embarcado no APK.
+  final String url;
+
+  /// SHA-256 esperado, versionado no código (ver `model_catalog.dart`).
   final String sha256;
 
   /// Tamanho anunciado do artefato.
   final int sizeBytes;
+
+  /// Nome do arquivo em disco. Inclui a quantização: trocar de modelo não pode
+  /// reaproveitar silenciosamente o arquivo antigo.
+  final String fileName;
+
+  Uri get uri => Uri.parse(url);
 }
 
 class ModelDownloader {
@@ -98,7 +109,11 @@ class ModelDownloader {
   final int requiredFreeBytes;
 
   /// Garante o modelo em disco. Idempotente: se já existe e confere, não baixa.
-  Future<ModelFetchResult> ensureAvailable() async {
+  ///
+  /// [onProgress] recebe (bytesRecebidos, bytesTotais) durante a transferência.
+  /// O total vem do servidor; quando ele não informa, cai para o tamanho
+  /// anunciado no catálogo — a barra de progresso precisa de um denominador.
+  Future<ModelFetchResult> ensureAvailable({DownloadProgress? onProgress}) async {
     // Portão de disco ANTES de qualquer byte de rede. Começar um download de
     // 1,2 GB num aparelho sem espaço deixa o usuário pior do que não começar.
     //
@@ -121,9 +136,11 @@ class ModelDownloader {
     }
 
     final outcome = await _downloader.fetch(
-      url: artifact.url,
+      url: artifact.uri,
       destination: destination,
       expectedSha256: artifact.sha256,
+      onProgress: onProgress,
+      fallbackTotalBytes: artifact.sizeBytes,
     );
 
     return switch (outcome) {

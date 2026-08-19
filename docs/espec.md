@@ -425,7 +425,7 @@ stateDiagram-v2
 | INV-5 | `¬∃ PII` em disco, log ou rede | Sem cadastro; telemetria por coorte; revisão de schema de telemetria no CI |
 | INV-6 | `schemaVersion(pack_ativo) ∈ faixa_suportada(binário)` | Guard em P1; contrato `pack-schema.json` versionado (stack §3.3) |
 | INV-7 | `version(pack_ativo)` é monotônica não-decrescente | Guard anti-downgrade em P1 |
-| INV-8 | Falha de LLM, TTS ou sync nunca impede navegação de conteúdo estático | Módulos falíveis são folhas; nenhuma feature depende de sync/speech |
+| INV-8 | Falha de LLM, TTS ou sync nunca impede navegação de conteúdo estático | Módulos falíveis são folhas; nenhuma feature depende de sync/speech. **EXCEÇÃO ÚNICA — First-Time Setup ([ADR-003](stack.md)):** no primeiro acesso, a tela clínica fica travada até o modelo ser baixado e verificado. A exceção vale só para `SetupStage != ready` no primeiro provisionamento; depois disso a INV-8 volta a valer integralmente — modelo ausente ou corrompido degrada para `RuleOnlyEngine` sem bloquear ninguém. Duas saídas obrigatórias mitigam o risco de posto sem rede: importação por pendrive/OTG e override de dados móveis pelo administrador. |
 
 ### 5.2 Políticas de Consistência
 

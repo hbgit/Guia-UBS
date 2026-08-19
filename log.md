@@ -27,12 +27,11 @@ Item 8
 
 * Os 2549 ms são má notícia, não boa. O orçamento é 3000 ms e isso foi medido em núcleos Alder Lake. Um Cortex-A53/A55 roda inferência CPU do llama.cpp a uma fração disso — o p95 no aparelho alvo deve passar não só dos 3 s do RF-05 como provavelmente do teto duro de 5 s, disparando o RuleOnlyEngine na maioria das triagens.
 
+* [TODO] O que continua sem verificação: o job do WorkManager disparando de fato — confirmei o registro e as restrições, mas não esperei uma janela periódica real (frequência de 6 h). E o picker OTG não foi testado com um pendrive físico.
+
 [TODO] Resolver antes de ir para o item 9
 
-* O que ainda não está ligado
-Estas peças existem e funcionam, mas nada as chama ainda — falta o ModelArtifact real (URL do espelho + SHA-256 versionado no código) e a decisão de quando disparar o download: o ADR-003 diz "1º acesso", mas o gatilho concreto (WorkManager só em Wi-Fi? tela de boas-vindas?) é escolha de produto que ainda não foi feita. E o caminho de destino depende de path_provider, que ainda não é dependência.
-
-Quer que eu siga para o item 9 (sync_service completo, FSM-B, que passa a usar este mesmo downloader), ou prefere fechar o wiring do modelo primeiro?
+* 
 
 
 ---

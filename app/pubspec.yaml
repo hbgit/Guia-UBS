@@ -22,6 +22,16 @@ dependencies:
   # que o fabricante da ROM decidiu enviar.
   sqlite3_flutter_libs: ^0.5.26
 
+  # Destino do modelo: getApplicationSupportDirectory() — armazenamento interno
+  # do app, sem permissão e invisível a gerenciadores de arquivos.
+  path_provider: ^2.1.5
+  # Classe da rede (Wi-Fi x dados moveis) para a restricao UNMETERED.
+  connectivity_plus: ^6.1.0
+  # Seletor de arquivo para importar o modelo de pendrive/OTG.
+  file_picker: ^12.0.0
+  # Agendamento em segundo plano do download do modelo (WorkManager no Android).
+  workmanager: ^0.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

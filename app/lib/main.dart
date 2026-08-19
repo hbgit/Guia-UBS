@@ -1,121 +1,163 @@
+/// Ponto de entrada. A responsabilidade aqui é uma só: decidir se o usuário vê
+/// o onboarding ou o app, e nunca deixar uma falha de provisionamento virar
+/// tela de erro.
+///
+/// A casca definitiva (tema, GoRouter, i18n) é o item 10 da Fase 2; isto é o
+/// mínimo para que o fluxo de primeiro acesso exista de ponta a ponta.
+library;
+
+import 'dart:io';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'core/app_paths.dart';
+import 'sync/model_background_sync.dart';
+import 'sync/model_catalog.dart';
+import 'sync/model_provisioning.dart';
+import 'sync/model_sync_scheduler.dart';
+import 'ui/onboarding/onboarding_screen.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Falha aqui não pode impedir o app de abrir: sem agendador, o modelo só é
+  // baixado em primeiro plano — degradação, não impedimento (INV-8).
+  try {
+    await initModelBackgroundSync();
+  } on Object {
+    // Segue sem sync em background.
   }
+  runApp(const GuiaUbsApp());
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+/// Abre o seletor de arquivos para importar o modelo de um pendrive/OTG.
+///
+/// Usa `pickFile` (singular) e lê apenas o CAMINHO — nunca os bytes. Carregar
+/// 800 MB na memória para depois gravar em disco derrubaria o app.
+///
+/// Sem filtro de extensão: gerenciadores de arquivos de pendrive costumam
+/// reportar `.gguf` como tipo desconhecido, e filtrar esconderia justamente o
+/// arquivo que a pessoa veio buscar. Quem valida é o SHA-256, não a extensão.
+///
+/// `path` é nulo quando a origem não é um arquivo local (provedor em nuvem,
+/// por exemplo). Nesse caso desistimos: copiar via stream de um provedor
+/// remoto não é "importar de armazenamento local".
+Future<File?> pickModelFromStorage() async {
+  final picked = await FilePicker.pickFile(
+    dialogTitle: 'Selecione o arquivo do modelo (.gguf)',
+    type: FileType.any,
+  );
+  final path = picked?.path;
+  return path == null ? null : File(path);
+}
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+/// Traduz o resultado do plugin para a classe de rede que a política entende.
+///
+/// Wi-Fi e Ethernet são não tarifados; celular é tarifado. VPN é ambíguo —
+/// tratamos como tarifado por prudência: melhor pedir confirmação do que gastar
+/// 800 MB do plano de dados de alguém.
+Future<NetworkClass> currentNetworkClass() async {
+  final results = await Connectivity().checkConnectivity();
+  if (results.isEmpty || results.every((r) => r == ConnectivityResult.none)) {
+    return NetworkClass.none;
+  }
+  final unmetered = results.any((r) =>
+      r == ConnectivityResult.wifi ||
+      r == ConnectivityResult.ethernet);
+  return unmetered ? NetworkClass.unmetered : NetworkClass.metered;
+}
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class GuiaUbsApp extends StatefulWidget {
+  const GuiaUbsApp({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<GuiaUbsApp> createState() => _GuiaUbsAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _GuiaUbsAppState extends State<GuiaUbsApp> {
+  late final ModelProvisioning _provisioning = ModelProvisioning(
+    artifact: activeModel,
+    destinationDirectory: modelsDirectory,
+    networkClass: currentNetworkClass,
+  );
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // O agendador só interessa enquanto falta modelo. Quando o provisionamento
+    // conclui, cancelamos: manter um job periódico para baixar algo que já
+    // existe é gasto de bateria sem contrapartida.
+    _provisioning.states.listen((state) {
+      if (state.stage == SetupStage.ready) {
+        cancelModelSync().ignore();
+      } else if (state.stage == SetupStage.readyDegraded ||
+          state.stage == SetupStage.blocked) {
+        // Seguiu sem o modelo, ou travou: o background assume a partir daqui.
+        scheduleModelSync(
+          policy: const ModelSyncPolicy()
+              .withMeteredOverride(allowed: _provisioning.allowMeteredNetworks),
+        ).ignore();
+      }
     });
   }
 
   @override
+  void dispose() {
+    _provisioning.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+    return MaterialApp(
+      title: 'Guia UBS',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF00695C)),
+        useMaterial3: true,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      home: _ready
+          ? const _ClinicalHomePlaceholder()
+          : OnboardingScreen(
+              provisioning: _provisioning,
+              pickLocalModel: pickModelFromStorage,
+              onReady: () {
+                if (!_ready && mounted) setState(() => _ready = true);
+              },
             ),
-          ],
+    );
+  }
+}
+
+/// Marcador da tela clínica. O conteúdo real chega nos itens 10–13 da Fase 2.
+class _ClinicalHomePlaceholder extends StatelessWidget {
+  const _ClinicalHomePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.local_hospital, size: 96),
+              const SizedBox(height: 24),
+              Text(
+                'Pronto para atender',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Telas de triagem chegam nos itens 10-13 da Fase 2.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }

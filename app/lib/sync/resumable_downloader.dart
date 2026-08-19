@@ -26,6 +26,13 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:meta/meta.dart';
 
+/// Notificação de progresso: bytes recebidos e total esperado.
+///
+/// O total pode ser 0 quando o servidor não informa `Content-Length` e o
+/// chamador não ofereceu um valor de reserva — nesse caso a UI deve mostrar
+/// progresso indeterminado em vez de inventar uma porcentagem.
+typedef DownloadProgress = void Function(int received, int total);
+
 /// Resultado de uma tentativa de download.
 @immutable
 sealed class DownloadOutcome {
@@ -92,6 +99,8 @@ class ResumableDownloader {
     required Uri url,
     required File destination,
     required String expectedSha256,
+    DownloadProgress? onProgress,
+    int fallbackTotalBytes = 0,
   }) async {
     final partial = File('${destination.path}.parcial');
 
@@ -109,7 +118,31 @@ class ResumableDownloader {
       await destination.parent.create(recursive: true);
       final resumeFrom = partial.existsSync() ? partial.lengthSync() : 0;
 
-      final failure = await _download(url, partial, resumeFrom);
+      // Atalho SEM REDE: o parcial já tem o tamanho esperado. Acontece quando
+      // o arquivo veio de um pendrive (importação OTG) ou quando o download
+      // terminou e o app morreu antes do rename. Verificar aqui evita uma
+      // requisição inútil — e, no caso do pendrive, evita exigir rede que o
+      // posto não tem.
+      if (resumeFrom > 0 && resumeFrom == fallbackTotalBytes) {
+        final digest = await _sha256Of(partial);
+        if (_matches(digest, expectedSha256)) {
+          await partial.rename(destination.path);
+          return DownloadCompleted(destination, bytes: resumeFrom);
+        }
+        // Tamanho certo e conteúdo errado: não é retomada, é arquivo errado.
+        await partial.delete();
+        return DownloadRejected(
+          'arquivo local com tamanho esperado mas SHA-256 divergente: $digest',
+        );
+      }
+
+      final failure = await _download(
+        url,
+        partial,
+        resumeFrom,
+        onProgress,
+        fallbackTotalBytes,
+      );
       if (failure != null) return failure;
 
       final digest = await _sha256Of(partial);
@@ -137,6 +170,8 @@ class ResumableDownloader {
     Uri url,
     File partial,
     int resumeFrom,
+    DownloadProgress? onProgress,
+    int fallbackTotalBytes,
   ) async {
     final request = await _client.getUrl(url).timeout(connectTimeout);
     if (resumeFrom > 0) {
@@ -174,11 +209,25 @@ class ResumableDownloader {
             : DownloadInterrupted(bytesSoFar: resumeFrom, reason: 'HTTP $code');
     }
 
+    // Total absoluto do arquivo, não do trecho: numa retomada o servidor
+    // informa só o que resta, e uma barra que reinicia em 0% a cada retomada
+    // faria o usuário achar que perdeu o progresso.
+    final remaining = response.contentLength;
+    var total = remaining > 0 ? offset + remaining : fallbackTotalBytes;
+    if (total < offset) total = offset;
+
+    var received = offset;
+    onProgress?.call(received, total);
+
     final sink = partial.openWrite(
       mode: offset > 0 ? FileMode.append : FileMode.write,
     );
     try {
-      await response.timeout(idleTimeout).forEach(sink.add);
+      await response.timeout(idleTimeout).forEach((chunk) {
+        sink.add(chunk);
+        received += chunk.length;
+        onProgress?.call(received, total);
+      });
       await sink.flush();
     } finally {
       await sink.close();

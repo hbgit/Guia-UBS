@@ -77,6 +77,7 @@ app/
 │   ├── core/
 │   │   ├── result.dart                       # Result<T,E> selado
 │   │   ├── disk_space.dart                   # statvfs; portão de 3 GB (RNF-03)
+│   │   ├── app_paths.dart                    # getApplicationSupportDirectory
 │   │   ├── app_logger.dart                   # ring buffer, sem PII
 │   │   ├── clock.dart                        # injetável (testes determinísticos)
 │   │   └── theme/                            # tokens: verde/vermelho/azul, 64dp
@@ -101,6 +102,10 @@ app/
 │   ├── sync/                                 # FSM-B
 │   │   ├── resumable_downloader.dart         # Range + SHA-256 (COMPARTILHADO)
 │   │   ├── model_downloader.dart             # modelo SLM + portão de 3 GB
+│   │   ├── model_catalog.dart                # URL + SHA-256 versionados no app
+│   │   ├── model_provisioning.dart           # First-Time Setup + trava + OTG
+│   │   ├── model_sync_scheduler.dart         # política UNMETERED / override
+│   │   ├── model_background_sync.dart        # ponte WorkManager (traduz a política)
 │   │   ├── sync_service.dart                 # máquina explícita (enum + tabela)
 │   │   ├── manifest_client.dart              # ETag + condicional
 │   │   ├── pack_downloader.dart              # usa resumable_downloader
@@ -111,6 +116,7 @@ app/
 │   ├── prefs/{user_database.dart,prefs_repository.dart}   # Drift
 │   ├── telemetry/{counters.dart,telemetry_uploader.dart}  # allowlist
 │   ├── privacy/                              # CAP-13 (LGPD-RF03)
+│   ├── ui/onboarding/onboarding_screen.dart  # trava educativa + progresso %
 │   ├── ui/{router.dart,screens/,widgets/}
 │   └── generated/pack_models.dart            # codegen do contract/ (não editar)
 ├── assets/models/                            # GGUF baixado por script (fora do git)
