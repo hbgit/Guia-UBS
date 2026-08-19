@@ -6,6 +6,7 @@
  * Sao o espelho em TypeScript do que o gate Dart precisa reproduzir.
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   createHash,
   generateKeyPairSync,
@@ -211,4 +212,32 @@ test('a suite golden do pacote semente passa integralmente', () => {
   const report = validateGolden(REPO_ROOT, readRuleModel(built.dbPath));
   assert.equal(report.falseNegatives, 0, 'nenhum falso negativo clinico');
   assert.equal(report.passed, report.total, `golden ${report.passed}/${report.total}`);
+});
+
+test('build e reproduzivel sob SOURCE_DATE_EPOCH', () => {
+  // O pack e servido por URL enderecada pelo proprio hash, e o app so
+  // re-baixa quando o hash muda. Com o relogio de parede em `built_at`, duas
+  // builds do mesmo conteudo geram hashes diferentes — e cada republicacao
+  // sem mudanca nenhuma obrigaria a frota inteira a baixar o pack de novo.
+  const previous = process.env.SOURCE_DATE_EPOCH;
+  process.env.SOURCE_DATE_EPOCH = '1787097600';
+  try {
+    const hashes = [0, 1].map(() => {
+      const built = buildPack({
+        repoRoot: REPO_ROOT,
+        outDir: mkdtempSync(join(tmpdir(), 'gubs-repro-')),
+        packVersion: 3,
+        schemaVersion: PACK_SCHEMA_VERSION,
+        municipality: '0000000',
+        defaultOutcomeId: 'ROUTINE_UBS',
+        sourceCommit: 'test',
+      });
+      return createHash('sha256').update(readFileSync(built.dbPath)).digest('hex');
+    });
+
+    assert.equal(hashes[0], hashes[1], 'duas builds do mesmo conteudo divergiram');
+  } finally {
+    if (previous === undefined) delete process.env.SOURCE_DATE_EPOCH;
+    else process.env.SOURCE_DATE_EPOCH = previous;
+  }
 });

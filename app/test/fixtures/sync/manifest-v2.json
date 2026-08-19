@@ -1,0 +1,301 @@
+{
+  "schemaVersion": "1.0",
+  "packVersion": 2,
+  "municipality": "0000000",
+  "pack": {
+    "url": "packs/pack-8757cfaf3cb7.db",
+    "sha256": "8757cfaf3cb760b4e0649175cda917b0cd34bc2d58a1d446a30669b106977623",
+    "bytes": 163840
+  },
+  "assets": [
+    {
+      "ref": "icon.arm",
+      "url": "assets/icon.arm.svg",
+      "sha256": "3847a0234830f11f3ad4417f82dc403afd5f8049aa8974e9f340d78697337613",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.back",
+      "url": "assets/icon.back.svg",
+      "sha256": "6b565fc66f0d0431f563f3dd35f5b3d9b8d3c51fb8045d387f5ee42725ceb3a3",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.belly",
+      "url": "assets/icon.belly.svg",
+      "sha256": "9432ce4a051b5ba6df963b8fe2ebe792834d4e54daf116936d35705f3d57f9f9",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.bleeding",
+      "url": "assets/icon.bleeding.svg",
+      "sha256": "894d7f21ed547d5d478ab79905ce3ceb94664f2fd7a2b2c11ced4a4935b93c82",
+      "bytes": 445
+    },
+    {
+      "ref": "icon.breathless",
+      "url": "assets/icon.breathless.svg",
+      "sha256": "a750d8e2d1b6ed6a74c384b8e82b2ad3457bf8dba85171d9c25d7bfef532377c",
+      "bytes": 452
+    },
+    {
+      "ref": "icon.card.docs",
+      "url": "assets/icon.card.docs.svg",
+      "sha256": "0eeeaf7667d3224b1ea5cd7385721d79e78614e3429544f40183bc288dd2a642",
+      "bytes": 445
+    },
+    {
+      "ref": "icon.card.emergency",
+      "url": "assets/icon.card.emergency.svg",
+      "sha256": "2c1e9b0b658dbd6f14ecda55a7b9404ccd3d2c8df52ab0da2ac8f8bb0c3289fa",
+      "bytes": 460
+    },
+    {
+      "ref": "icon.card.flow",
+      "url": "assets/icon.card.flow.svg",
+      "sha256": "2b10240308544e0baec2497140a5af1a5ec95dd93b203eeb0933e8fcb76ef2a9",
+      "bytes": 448
+    },
+    {
+      "ref": "icon.card.routine",
+      "url": "assets/icon.card.routine.svg",
+      "sha256": "14429714e2c49dbc9525756115189bffaa1297b3810e7970ddacc662d1531aca",
+      "bytes": 453
+    },
+    {
+      "ref": "icon.chest",
+      "url": "assets/icon.chest.svg",
+      "sha256": "150cf09ff82904cbaf0c55a4b68ed1aa4686d28c3923a3ebf38b4571a4a6a2e4",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.cough",
+      "url": "assets/icon.cough.svg",
+      "sha256": "a6e2c9eb4d6335422a6b4fd61aa5913aa393750e246119faa32a557951e0f9c8",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.cut",
+      "url": "assets/icon.cut.svg",
+      "sha256": "7a2926749aac7cb31ec92b10dd98fb1fb5df4dd17c9770034208653d5a281686",
+      "bytes": 432
+    },
+    {
+      "ref": "icon.diarrhea",
+      "url": "assets/icon.diarrhea.svg",
+      "sha256": "4c4c1e0b2ac7f432f1a4d3dce2cc621288dd5c337840dfe6ae1b7ee1b477a263",
+      "bytes": 445
+    },
+    {
+      "ref": "icon.dizzy",
+      "url": "assets/icon.dizzy.svg",
+      "sha256": "1742f7491c5c2cfcb773ff993aab7788cb09029454b43668ee7407f71b282310",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.doc.address",
+      "url": "assets/icon.doc.address.svg",
+      "sha256": "a6a9bcaca4c3c2d0e55f27e6b1ff10d580fa34ae16337edfc08a74ab104aba59",
+      "bytes": 454
+    },
+    {
+      "ref": "icon.doc.id",
+      "url": "assets/icon.doc.id.svg",
+      "sha256": "94e8a33a47a6e825aff764ea9621f87b082c695b1d81513f87771356e6ce433a",
+      "bytes": 440
+    },
+    {
+      "ref": "icon.doc.sus",
+      "url": "assets/icon.doc.sus.svg",
+      "sha256": "4fdaa8bb00bf76eb0e4fe5879b285d7e674195d7cc9d7929fccfa3362342e4a8",
+      "bytes": 443
+    },
+    {
+      "ref": "icon.elderly",
+      "url": "assets/icon.elderly.svg",
+      "sha256": "506d172e2381fba167627afa5dbb40b87eec1016480a603dd1fedd48ebce4eae",
+      "bytes": 446
+    },
+    {
+      "ref": "icon.fever",
+      "url": "assets/icon.fever.svg",
+      "sha256": "0863439f23089079d260f57b933161636b4a49d81cc5723566479d85c5d5706c",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.head",
+      "url": "assets/icon.head.svg",
+      "sha256": "e80b67d576a809c0a14310764240565694461d96e18c78a7c203a7aa562d423d",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.hospital",
+      "url": "assets/icon.hospital.svg",
+      "sha256": "7a91d2c333df4502395375e819e06ff3e3d17790224d95109733ec92a2290853",
+      "bytes": 445
+    },
+    {
+      "ref": "icon.infant",
+      "url": "assets/icon.infant.svg",
+      "sha256": "c4b7b93e4726dfca7fac5226bdef668e2359599b4d2297a9c40ab15eec4b29bd",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.leg",
+      "url": "assets/icon.leg.svg",
+      "sha256": "5b0eff5dacf8232d56a11e472a4f6a052c124c69b7cc07e65e264a7a3f73b233",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.pain",
+      "url": "assets/icon.pain.svg",
+      "sha256": "7f8c6a74f3bf098c9124c1e18fe16a5f4b411f2039399b29887d4f915241dd9f",
+      "bytes": 438
+    },
+    {
+      "ref": "icon.palpitation",
+      "url": "assets/icon.palpitation.svg",
+      "sha256": "c85770223a1a3cb236425028c99ed5e3944912422dd5543fb5d8865794c64185",
+      "bytes": 451
+    },
+    {
+      "ref": "icon.persistent",
+      "url": "assets/icon.persistent.svg",
+      "sha256": "fecd106273f4c6ed8409aa8c6b4f86c74450638391662aade1cf59d4ffd33911",
+      "bytes": 449
+    },
+    {
+      "ref": "icon.pregnant",
+      "url": "assets/icon.pregnant.svg",
+      "sha256": "d8b250fcfeeb931fafc658a843a12b230081a6ca10038c01e447304fe3bf9d5c",
+      "bytes": 445
+    },
+    {
+      "ref": "icon.rash",
+      "url": "assets/icon.rash.svg",
+      "sha256": "6e4e91af968df99451b939c8796b1c35a6be69d2575323e74eb64c92fed2bc30",
+      "bytes": 438
+    },
+    {
+      "ref": "icon.severe",
+      "url": "assets/icon.severe.svg",
+      "sha256": "e794e9a5c2fcee23cdefce234d1b102b09f1d067bb980f887c7e3b1171b0ba2e",
+      "bytes": 444
+    },
+    {
+      "ref": "icon.skin",
+      "url": "assets/icon.skin.svg",
+      "sha256": "3f3885b6bc1e12d8749274d58583f30c32df1a7ac75051f7c47342c27fb760ea",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.step.consult",
+      "url": "assets/icon.step.consult.svg",
+      "sha256": "7052c0357c0ab732278ab36843d5ccb0a79b5b7386ef1801e9c4c78a2fd14300",
+      "bytes": 453
+    },
+    {
+      "ref": "icon.step.pharmacy",
+      "url": "assets/icon.step.pharmacy.svg",
+      "sha256": "0e65e125248156427993a8bc0b5d556363dfcd72b36be34d357d9d74f48ef7f3",
+      "bytes": 458
+    },
+    {
+      "ref": "icon.step.reception",
+      "url": "assets/icon.step.reception.svg",
+      "sha256": "fbe9a43c4dd188da7ada7fb2d8b65911bcb0e877e0e3d01d9c5d19f6869c7460",
+      "bytes": 460
+    },
+    {
+      "ref": "icon.step.triage",
+      "url": "assets/icon.step.triage.svg",
+      "sha256": "01afb56b1d4afd47c0b8e149fb9e2207b6bd55fe1ee263792ff1fa64fc2c1383",
+      "bytes": 454
+    },
+    {
+      "ref": "icon.sudden",
+      "url": "assets/icon.sudden.svg",
+      "sha256": "49e2fb57f8b9ea13e6d48e5f2358a6aedd678f9e4707e76ebf61232ab20d3045",
+      "bytes": 444
+    },
+    {
+      "ref": "icon.svc.consult",
+      "url": "assets/icon.svc.consult.svg",
+      "sha256": "392346be84c514d08b0999ef0a24b99ed4bbe2f95a54a2dd237fc5481542474f",
+      "bytes": 454
+    },
+    {
+      "ref": "icon.svc.dressing",
+      "url": "assets/icon.svc.dressing.svg",
+      "sha256": "16a7e51d7239c3b087285cfdf28031d93e6fc3f018c8b8edd04bbd079acff909",
+      "bytes": 456
+    },
+    {
+      "ref": "icon.svc.emergency",
+      "url": "assets/icon.svc.emergency.svg",
+      "sha256": "906b6cdf0a338751bd6afda518545d8c1c4f6ec3cd4e3e2ae693bf44e5d5575e",
+      "bytes": 458
+    },
+    {
+      "ref": "icon.svc.vaccine",
+      "url": "assets/icon.svc.vaccine.svg",
+      "sha256": "548d8a0f88bac6dc0b338d52aa92be17601094b43d59b15985c6bd63994f9491",
+      "bytes": 451
+    },
+    {
+      "ref": "icon.swelling",
+      "url": "assets/icon.swelling.svg",
+      "sha256": "79c6c9e5f62982f9d36fd01731e83c1d2af2cc016337e882738f750196ab5690",
+      "bytes": 448
+    },
+    {
+      "ref": "icon.throat",
+      "url": "assets/icon.throat.svg",
+      "sha256": "b3d1f6771f6de449b2c785cc45b32322889daebe84adc5b2239568d595d2ee09",
+      "bytes": 441
+    },
+    {
+      "ref": "icon.ubs",
+      "url": "assets/icon.ubs.svg",
+      "sha256": "31aaf2c0ddcb2affccf95fa540e79e9c44fa6c79d57930da4856bf65abce2821",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.upa",
+      "url": "assets/icon.upa.svg",
+      "sha256": "4edd66da6862ee515a4b064efa194bb0c4cac2fca8509b5a13d268f15e7e164b",
+      "bytes": 435
+    },
+    {
+      "ref": "icon.vomit",
+      "url": "assets/icon.vomit.svg",
+      "sha256": "d417e4df060f3e5f25d022e9cfc956c6cedb9565ba0c8fce63ee1065133d0dcf",
+      "bytes": 438
+    },
+    {
+      "ref": "img.doc.address",
+      "url": "assets/img.doc.address.svg",
+      "sha256": "814870e652cb6a9dc1826cc9426abf8a1e3a69b68e47247a824a13fd0292ac59",
+      "bytes": 455
+    },
+    {
+      "ref": "img.doc.id",
+      "url": "assets/img.doc.id.svg",
+      "sha256": "15d22feccce0e742363936b249766f5be3a8979476f6ed6cfc62f525ae78d094",
+      "bytes": 444
+    },
+    {
+      "ref": "img.doc.sus",
+      "url": "assets/img.doc.sus.svg",
+      "sha256": "f62119e965f15694957c1c34501061ed90179c98d6764e79058ea98889cecdf3",
+      "bytes": 447
+    }
+  ],
+  "minAppBuild": 1,
+  "publishedAt": "2026-08-19",
+  "signature": {
+    "alg": "Ed25519",
+    "keyId": "k1",
+    "value": "emBHSH/jXHrDYtuq+Xz9z3hZMzYqSC7bEjRkkJgyBk1wPh5gLzVKTwgYSrFgYzWnTNfoG6U0EaveGz/ZlHEaDw=="
+  }
+}

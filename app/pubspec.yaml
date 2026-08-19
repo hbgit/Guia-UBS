@@ -15,6 +15,10 @@ dependencies:
   # SHA-256 do modelo e dos pacotes de conteúdo, conferido antes de aceitar
   # qualquer artefato baixado (RNF-03 / FSM-B).
   crypto: ^3.0.6
+  # Verificacao Ed25519 da assinatura do manifest (FSM-B / INV-7). Puro Dart:
+  # roda igual no host e no aparelho, e nao acrescenta biblioteca nativa ao APK.
+  # Usamos APENAS `verify` — o app nunca assina nada.
+  cryptography: ^2.9.0
 
   # Leitura do content.db distribuído (somente leitura no dispositivo).
   sqlite3: ^2.4.0

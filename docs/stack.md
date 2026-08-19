@@ -253,12 +253,23 @@ Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado
 | Railway (PaaS) | Compose + systemd (Coolify opcional) | — / Apache-2.0 | Deploy = `docker compose up -d` via Ansible |
 | SST v3 (sobre nuvens pagas) | Ansible playbook | GPL-3.0 | IaC vira provisionamento de 1 VPS |
 
+**Dependências novas do app (Fase 1, item 9):**
+
+| Pacote | Uso | Licença |
+|---|---|---|
+| `cryptography` (Dart) | **Só `verify`** da assinatura Ed25519 do manifest no device | Apache-2.0 |
+
+Implementação em Dart puro, sem biblioteca nativa adicional no APK: o mesmo
+código roda no host e no aparelho, e a suíte que confere a interoperabilidade
+com o assinador em Node executa em CI sem emulador. O app **nunca assina** —
+a chave privada não existe do lado do dispositivo, por construção.
+
 **Notas de licenciamento e opções (sem mudança de default):**
 
 - **Modelo (Gemma 3 1B):** gratuito, mas *open weights* sob termos Google — **não é OSI**. Alternativas OSI-licenciadas de tamanho equivalente, compatíveis com o mesmo pipeline GGUF: **Qwen2.5 0.5B/1.5B (Apache-2.0)** e **Phi-3.5-mini (MIT)**. A troca é um arquivo — a interface `TriageEngine` e o eval harness clínico decidem por benchmark, não por ideologia.
 - **TTS:** o engine do sistema (Google TTS) é proprietário, embora gratuito e on-device. Opção 100% OSS que também mitiga o risco R7 (ROMs sem engine): **Piper (MIT) via sherpa-onnx**, com vozes pt-BR/es embarcadas (~20 MB/voz). Default continua `flutter_tts` (zero MB); Piper entra como fallback empacotável.
 - **CI:** GitHub Actions é serviço (gratuito para repositório público). Alternativas self-host quando desejado: **Woodpecker CI (Apache-2.0)** ou **Forgejo Actions (MIT)** no mesmo VPS.
-- **Distribuição:** Play Store cobra taxa única de publicação. Canais OSS-friendly já previstos: **F-Droid** (gratuito, exige build reprodutível — bônus de transparência para um app de saúde pública) e APK direto via sneakernet.
+- **Distribuição:** Play Store cobra taxa única de publicação. Canais OSS-friendly já previstos: **F-Droid** (gratuito, exige build reprodutível — bônus de transparência para um app de saúde pública) e APK direto via sneakernet. O **packer** já é reprodutível sob `SOURCE_DATE_EPOCH` (mesma convenção do F-Droid): duas builds do mesmo conteúdo produzem `content.db` byte-idêntico, o que além da transparência evita que a frota re-baixe o pack a cada republicação sem mudança.
 
 **Custo remanescente honesto:** open source elimina licenças e SaaS, não hardware — resta o VPS (único item de fatura recorrente da stack inteira) e, opcionalmente, a taxa única da Play Store. Tudo o mais roda com custo marginal zero.
 

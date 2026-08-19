@@ -38,6 +38,44 @@ jobs:
       - name: Testes
         run: flutter test
 
+  # Guarda da fronteira de conteudo (espec.md FSM-B).
+  #
+  # A serializacao canonica do manifest vive duas vezes: em
+  # contract/src/manifest.ts (quem assina) e em app/lib/sync/pack_manifest.dart
+  # (quem verifica). Se alguem mudar uma e nao a outra, os fixtures versionados
+  # continuam passando — foram assinados E verificados pela versao antiga. A
+  # divergencia so apareceria em producao, como frota inteira parando de receber
+  # conteudo sem nenhum erro visivel.
+  #
+  # Este job assina AGORA e verifica AGORA, com par Ed25519 efemero: nenhuma
+  # chave precisa estar no repositorio.
+  interop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - run: npm ci
+      - run: flutter pub get
+        working-directory: app
+
+      - name: Assinar pack com chave efemera e verificar em Dart
+        run: |
+          openssl genpkey -algorithm ed25519 -out "$RUNNER_TEMP/ci-key.pem"
+          pub=$(openssl pkey -in "$RUNNER_TEMP/ci-key.pem" -pubout -outform DER \
+            | tail -c 32 | od -An -tx1 | tr -d ' \n')
+          PACK_SIGNING_KEY_PATH="$RUNNER_TEMP/ci-key.pem" npm run pack:build
+          cd app && dart run tool/verify_manifest.dart ../packer/out/manifest.json "$pub"
+
   # Guarda da fronteira nativa (stack.md ADR-002).
   #
   # O Dart nao verifica assinaturas do llama.cpp — o compilador C verifica. Sem

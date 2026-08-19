@@ -127,7 +127,7 @@ void main() {
 
   test('rejeição por hash é reportada como permanente', () async {
     final fake =
-        _FakeDownloader((_) => const DownloadRejected('SHA-256 nao confere'));
+        _FakeDownloader((_) => const DownloadRejected('SHA-256 nao confere', kind: DownloadRejectionKind.digestMismatch));
 
     final result = await ModelDownloader(
       artifact: artifact(),

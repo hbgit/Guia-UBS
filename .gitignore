@@ -7,13 +7,22 @@ dist/
 .env.local
 infra/.env
 contract/keys/*.pem
-contract/keys/*.pub
+
+# Chaves PUBLICAS sao versionadas de proposito (contract/keys/README.md): elas
+# sao a raiz de confianca do conteudo clinico, e raiz de confianca que ninguem
+# consegue revisar no repositorio nao e raiz de confianca.
 
 # Artefatos de build do plano de controle
 packer/out/
 *.db
 *.db-journal
 *.db-wal
+
+# Excecao: packs de fixture dos testes de sync. Sao artefatos ASSINADOS pelo
+# packer real (regerar com `npm run pack:build`) e sao o que prova que a
+# verificacao Ed25519 em Dart bate com o assinador em Node. Sem eles versionados
+# a suite passa na maquina de quem os gerou e falha em CI.
+!app/test/fixtures/sync/*.db
 
 # Modelo GGUF: baixado por script com checksum (PRD §5.1)
 app/assets/models/*.gguf

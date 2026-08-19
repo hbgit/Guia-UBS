@@ -336,10 +336,11 @@ Rastreabilidade: P1–P5→RF-10/RF-11; F1→RNF-08; F2→RNF-05.
 | P0_STEADY | `onConnectivity` (WorkManager) | circuito fechado | GET manifest c/ ETag (timeout 10 s) | P1_MANIFEST_FETCH |
 | P1_MANIFEST_FETCH | `304` | — | noop | P0_STEADY |
 | P1_MANIFEST_FETCH | `200(m)` | `verify(m.sig) ∧ m.version > vN ∧ m.schemaVersion ∈ suportados` | inicia/retoma download (Range) | P2_DOWNLOADING |
-| P1_MANIFEST_FETCH | `200(m)` | `¬verify(m.sig) ∨ m.version ≤ vN` | blacklist(hash) se sig inválida (INV-7) | F2_REJECTED |
+| P1_MANIFEST_FETCH | `200(m)` | `¬verify(m.sig)` | blacklist(**sha256 dos bytes do manifest**) (INV-7) | F2_REJECTED |
+| P1_MANIFEST_FETCH | `200(m)` | `verify(m.sig) ∧ m.version ≤ vN` | nenhuma — manifest autêntico, apenas velho | F2_REJECTED |
 | P1_MANIFEST_FETCH | `200(m)` | `m.schemaVersion ∉ suportados` | aguarda update do binário | F2_REJECTED |
 | P1_MANIFEST_FETCH | `timeout ∨ erro de rede` | — | incrementa contador do circuito | F1_RETRYABLE |
-| P2_DOWNLOADING | `janela fecha ∨ timeout` | bytes parciais persistidos | salva offset+ETag | F1_RETRYABLE |
+| P2_DOWNLOADING | `janela fecha ∨ timeout` | bytes parciais persistidos | persiste o offset; **não** grava o ETag | F1_RETRYABLE |
 | P2_DOWNLOADING | `download completo` | — | — | P3_VERIFYING |
 | P3_VERIFYING | `hash_ok` | `sha256(file) = m.packHash` | move p/ staging | P4_STAGED |
 | P3_VERIFYING | `hash_mismatch` | — | apaga staging; blacklist(m.packHash) | F2_REJECTED |
@@ -349,6 +350,29 @@ Rastreabilidade: P1–P5→RF-10/RF-11; F1→RNF-08; F2→RNF-05.
 | F1_RETRYABLE | `onConnectivity` | `backoff(2^n + jitter)` decorrido ∧ circuito fechado | retoma de offset | P1_MANIFEST_FETCH |
 | F1_RETRYABLE | `n ≥ 5 na mesma janela` | — | **abre circuito** até próxima janela do WorkManager | P0_STEADY |
 | F2_REJECTED | `manifest com versão > rejeitada` | — | novo ciclo (garante liveness) | P1_MANIFEST_FETCH |
+
+> **Qual hash entra na blacklist depende de quem escreveu o manifest.** Com
+> assinatura inválida (linha 4), `packHash` é um campo sob controle de quem
+> forjou o arquivo: blacklistá-lo deixaria qualquer um bloquear um pack
+> legítimo futuro sem possuir chave nenhuma — negação de serviço de conteúdo
+> a custo zero. Por isso a recusa por assinatura memoriza o **sha256 dos bytes
+> do manifest**, e apenas a recusa por hash divergente do artefato (`P3`, com
+> manifest já autenticado) memoriza o `packHash`.
+>
+> **A guarda de assinatura é avaliada antes das de versão e schema**, mesmo
+> aparecendo depois na leitura da tabela: decidir qualquer coisa a partir de
+> `packVersion` ou `schemaVersion` antes de saber de quem é o manifest seria
+> confiar no conteúdo para decidir se confiamos no conteúdo. A ordem
+> normativa é a de [contract/src/manifest.ts](../contract/src/manifest.ts):
+> assinatura → versão → schema → hash dos artefatos → swap.
+>
+> **O ETag só é gravado quando o ciclo repousa** (`P0_STEADY` ou
+> `F2_REJECTED`), nunca com download em voo. Gravá-lo ao fechar a janela faria
+> o servidor responder `304` na janela seguinte, e a máquina perderia o
+> manifest de que precisa para saber o que estava retomando — o download ficaria
+> parado para sempre a poucos KB do fim. O que identifica a retomada é o
+> arquivo parcial nomeado pelo `packHash`: endereçamento por conteúdo, que é
+> garantia mais forte que ETag, porque pack diferente é arquivo diferente.
 
 ### 4.3 Diagramas de Estados
 

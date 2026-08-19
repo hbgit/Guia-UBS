@@ -60,15 +60,31 @@ final class DownloadInterrupted extends DownloadOutcome {
   final String reason;
 }
 
+/// Por que um download foi recusado em definitivo.
+///
+/// A distinção existe porque as duas causas têm consequências diferentes rio
+/// acima: conteúdo que não confere com o hash de um manifest autêntico é um
+/// artefato adulterado e vai para a blacklist (FSM-B linha B10); um 404 é o
+/// servidor mal configurado, e blacklistar o hash por causa dele bloquearia um
+/// pack legítimo assim que o operador consertasse a publicação.
+enum DownloadRejectionKind {
+  /// O arquivo baixou inteiro mas o SHA-256 não é o esperado.
+  digestMismatch,
+
+  /// O servidor respondeu 4xx — recurso ausente ou URL errada.
+  permanentHttpError,
+}
+
 /// Rejeitado em definitivo — repetir com a mesma URL e hash não vai ajudar.
 ///
 /// O parcial é descartado: manter bytes que já sabemos estar errados só
 /// contaminaria a próxima tentativa.
 @immutable
 final class DownloadRejected extends DownloadOutcome {
-  const DownloadRejected(this.reason);
+  const DownloadRejected(this.reason, {required this.kind});
 
   final String reason;
+  final DownloadRejectionKind kind;
 }
 
 /// Baixa arquivos grandes de forma retomável e verificada.
@@ -133,6 +149,7 @@ class ResumableDownloader {
         await partial.delete();
         return DownloadRejected(
           'arquivo local com tamanho esperado mas SHA-256 divergente: $digest',
+          kind: DownloadRejectionKind.digestMismatch,
         );
       }
 
@@ -150,6 +167,7 @@ class ResumableDownloader {
         await partial.delete();
         return DownloadRejected(
           'SHA-256 nao confere: esperado $expectedSha256, obtido $digest',
+          kind: DownloadRejectionKind.digestMismatch,
         );
       }
 
@@ -205,7 +223,10 @@ class ResumableDownloader {
         // 4xx é problema nosso (URL errada, recurso removido) e repetir não
         // resolve; 5xx e falha de rede são transitórios.
         return code >= 400 && code < 500
-            ? DownloadRejected('HTTP $code em $url')
+            ? DownloadRejected(
+                'HTTP $code em $url',
+                kind: DownloadRejectionKind.permanentHttpError,
+              )
             : DownloadInterrupted(bytesSoFar: resumeFrom, reason: 'HTTP $code');
     }
 

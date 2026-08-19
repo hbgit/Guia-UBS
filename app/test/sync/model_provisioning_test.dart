@@ -46,7 +46,7 @@ class _FakeDownloader implements ResumableDownloader {
         return DownloadCompleted(destination, bytes: destination.lengthSync());
       }
       await partial.delete();
-      return const DownloadRejected('hash divergente');
+      return const DownloadRejected('hash divergente', kind: DownloadRejectionKind.digestMismatch);
     }
     if (destination.existsSync()) {
       final digest = await sha256.bind(destination.openRead()).first;
@@ -330,7 +330,7 @@ void main() {
 
     test('hash divergente bloqueia como falha de integridade', () async {
       final fake = _FakeDownloader();
-      fake.outcome = (_, _) => const DownloadRejected('SHA-256 nao confere');
+      fake.outcome = (_, _) => const DownloadRejected('SHA-256 nao confere', kind: DownloadRejectionKind.digestMismatch);
 
       final p = make(network: NetworkClass.unmetered, downloader: fake);
       await p.checkPrerequisites();

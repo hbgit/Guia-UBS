@@ -282,7 +282,7 @@ Ordem derivada da dependência real (contrato → packer → app → CMS) e da u
 6. `packer` mínimo: build → validação referencial → golden → assinatura → publish.
 7. **`red_flag_gate.dart`** (função pura) + suite golden **pass 100%**.
 8. `llama_engine` PoC com bench em device ≥ 4 GB + `rule_only_engine`.
-9. `sync_service` PoC: manifest com ETag, download com Range, verificação, swap atômico.
+9. `sync_service` PoC: manifest com ETag, download com Range, verificação, swap atômico. ✅
 **Saída (gate do PRD):** inferência p95 entre 3 s e 5 s ([ADR-003](stack.md)); sync retoma após corte; nenhum pack inválido ativado.
 
 #### 5.1 Resultado do bench do item 8 (2026-08-14)
@@ -374,6 +374,96 @@ Testados por serem os únicos candidatos que **cabem no orçamento de 400 MB**. 
 **Armadilha de ferramenta, registrada:** `flutter test integration_test/` **desinstala o app ao terminar**, e desinstalar apaga `/sdcard/Android/data/<pkg>/` — levando junto o GGUF de 768 MB enviado por `adb push`. Por isso o bench de aparelho vive em `native/llama_shim/bench_main.c`, rodando de `/data/local/tmp`; ele também é a única forma de fixar núcleos com `taskset`, o que de dentro do processo do app é impossível.
 
 **O que falta:** nada de engenharia. Resta a **decisão de produto** sobre orçamento × modelo — ver as opções em aberto no item 8 da Fase 1.
+
+#### 5.2 Resultado do item 9 — `sync_service` (2026-08-19)
+
+A FSM-B está implementada como **máquina explícita**, não como fluxo dentro do
+serviço: [`sync_fsm.dart`](../app/lib/sync/sync_fsm.dart) é a matriz da
+[espec.md §4.2](espec.md) transcrita em enum de estados, eventos e ações, sem
+I/O nenhum. O [`sync_service.dart`](../app/lib/sync/sync_service.dart) faz rede,
+disco e relógio, e traduz o que aconteceu em eventos. **A máquina decide, o
+driver executa** — é o antídoto direto para o anti-padrão que a própria espec
+registra (*"FSM-B implementada ad hoc dentro do SyncService"*).
+
+| Peça | Arquivo | Papel |
+|---|---|---|
+| Matriz de transições | `sync/sync_fsm.dart` | Pura. Um teste por linha da §4.2 |
+| Verificação Ed25519 | `sync/manifest_verifier.dart` | Fronteira de confiança do conteúdo |
+| Serialização canônica | `sync/pack_manifest.dart` | Precisa bater byte a byte com o Node |
+| Estado em disco | `sync/pack_store.dart` | Manifest ativo, packs por hash, blacklist, ETag |
+| Driver | `sync/sync_service.dart` | Um ciclo por chamada; nunca lança |
+| Transporte | `sync/resumable_downloader.dart` | **Reaproveitado** do download do modelo |
+
+**Os dois critérios de saída do PRD, medidos.** 58 testes novos (95 → 153), com
+servidor HTTP local que fala `If-None-Match`, `Range`/`206` e corta a conexão no
+meio da transferência:
+
+| Critério do PRD §6.2 | Evidência |
+|---|---|
+| *sync retoma após corte* | Conexão derrubada aos 40 000 B; o parcial sobrevive, o ciclo seguinte manda `Range: bytes=40000-` e commita. Nada fica ativo com download pela metade |
+| *nenhum pack inválido ativado* | 6 cenários: assinatura adulterada, campo extra não assinado, `keyId` desconhecido, artefato trocado no espelho, downgrade assinado, schema major futuro. Em todos, `loadActive()` continua devolvendo a versão anterior (ou nada) |
+
+**Três decisões de projeto que a implementação forçou** — todas propagadas para
+a [espec.md §4.2](espec.md):
+
+1. **O ponto de commit é o rename do `manifest.json`, não o do banco.** Os packs
+   vivem nomeados pelo próprio hash (`pack-<sha256>.db`); ativo é aquele que o
+   manifest corrente aponta. Assim a troca de versão é **um** `rename()` POSIX,
+   e o cenário S3 (processo morto no meio da troca) deixa de precisar de
+   protocolo de recuperação: não existe segundo passo capaz de falhar sozinho.
+   De brinde, nomear pelo hash dá a idempotência que o cenário S2 exige — duas
+   execuções concorrentes do WorkManager baixam para o mesmo caminho.
+2. **A blacklist por assinatura inválida guarda o hash dos BYTES do manifest,
+   não o `packHash`.** Num manifest forjado, `packHash` é campo do atacante;
+   blacklistá-lo permitiria bloquear um pack legítimo futuro sem possuir chave
+   nenhuma. Só a recusa por hash divergente do artefato — onde o manifest já foi
+   autenticado — memoriza o `packHash`.
+3. **O ETag não é gravado com download em voo.** Gravá-lo ao fechar a janela
+   faria o servidor responder `304` na janela seguinte e a máquina perderia o
+   manifest de que precisa para retomar. O que identifica a retomada é o parcial
+   nomeado pelo `packHash` — endereçamento por conteúdo, mais forte que ETag.
+
+**Um defeito no packer que só o item 9 revelaria.** O `built_at` do `pack_meta`
+usava o relógio de parede, então **duas builds do mesmo conteúdo produziam
+`content.db` diferentes** — e, como a URL do pack é o próprio hash, cada
+republicação sem mudança nenhuma obrigaria a frota inteira a re-baixar o pack
+por causa de uma linha de metadado. Num posto rural isso é a diferença entre
+atualizar e não atualizar. O packer agora honra `SOURCE_DATE_EPOCH` (a
+convenção do reproducible-builds.org, a mesma que o F-Droid usa — [stack.md
+§9](stack.md)), no pack e no `publishedAt` do manifest. Há teste que constrói
+duas vezes e compara os hashes, e ele reprova se o relógio voltar.
+
+**Interoperabilidade Node → Dart, verificada com artefato real.** O teste que
+mais importa neste conjunto não é de FSM: é o que pega o `manifest.json`
+assinado pelo **packer de verdade** e o verifica em Dart. Se as duas
+serializações canônicas divergissem em um byte, toda assinatura legítima
+passaria a parecer forjada e a frota inteira pararia de receber conteúdo — sem
+nenhuma mensagem de erro que explicasse por quê. Fixtures em
+`app/test/fixtures/sync/`, regeráveis com `npm run pack:build`.
+
+**Sabotagem, para provar que os testes têm dentes.** Quatro proteções foram
+desligadas uma a uma; cada uma foi pega por pelo menos um teste, e três delas
+por testes independentes em arquivos diferentes:
+
+| Proteção desligada | Testes que falharam |
+|---|---|
+| `verify` do Ed25519 sempre aceita | 4 |
+| Guarda anti-downgrade (INV-7) | 2 |
+| Reconferência do pack ativo no cold start (INV-3) | 1 |
+| Guarda de quiescência antes do swap | 3 |
+
+**O que ficou de fora, deliberadamente.** O agendamento por WorkManager para o
+pack (item 15 da Fase 2) e o download dos **assets** do manifest — o PoC baixa e
+ativa o `content.db`, que é o que a triagem consome. A `PackStore` não é lida por
+nenhuma tela ainda: quem consome o pack são as telas dos itens 10–13. O laço
+está fechado por um teste que abre o pack recém-instalado com o `sqlite3` real e
+carrega o `RuleModel` — o mesmo caminho que o gate usa.
+
+**Uma decisão de custo registrada:** o `PackStore` reconfere o SHA-256 do pack
+ativo a cada abertura, porque o pack semente tem 160 KB e o custo é irrelevante.
+Se os packs crescerem para dezenas de MB com áudio embarcado, isso sai do
+caminho crítico do boot — é exatamente o erro que o marcador `.verificado` do
+modelo SLM corrigiu, e a lição está anotada no código.
 
 ### Fase 2 — App (CAP-01…13)
 10. Casca: tema, GoRouter, i18n pt/es, `speech/`.

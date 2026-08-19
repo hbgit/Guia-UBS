@@ -29,10 +29,9 @@ Item 8
 
 * [TODO] O que continua sem verificação: o job do WorkManager disparando de fato — confirmei o registro e as restrições, mas não esperei uma janela periódica real (frequência de 6 h). E o picker OTG não foi testado com um pendrive físico.
 
-[TODO] Resolver antes de ir para o item 9
+* [TODO] O `PackStore` reconfere o SHA-256 do pack ativo a cada abertura. Hoje custa nada (160 KB), mas se o pack crescer com áudio embarcado isso tem de sair do caminho crítico do boot — é o mesmo erro que o marcador `.verificado` do modelo corrigiu.
 
-* 
-
+Item 10
 
 ---
 

@@ -34,6 +34,12 @@ function sha256File(path: string): { sha256: string; bytes: number } {
  */
 const SIGNATURE_PLACEHOLDER = { alg: 'Ed25519', keyId: 'pending', value: 'pending' } as const;
 
+function buildDate(): string {
+  const epoch = process.env.SOURCE_DATE_EPOCH;
+  const when = epoch && /^\d+$/.test(epoch) ? new Date(Number(epoch) * 1000) : new Date();
+  return when.toISOString().slice(0, 10);
+}
+
 /**
  * Nomeia o pack pelo hash do conteudo. E isso que permite `immutable` no cache
  * da borda: dois conteudos diferentes nunca compartilham URL (stack.md 4.2).
@@ -54,7 +60,9 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
       bytes: a.bytes,
     })),
     minAppBuild: input.minAppBuild,
-    publishedAt: new Date().toISOString().slice(0, 10),
+    // Mesma convencao do `built_at` do pack: `SOURCE_DATE_EPOCH` torna o
+    // manifest — e portanto a assinatura — reproduzivel byte a byte.
+    publishedAt: buildDate(),
   };
 
   const privateKey = createPrivateKey(readFileSync(input.privateKeyPath, 'utf8'));

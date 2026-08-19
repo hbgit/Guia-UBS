@@ -54,6 +54,28 @@ function readSeedFiles(repoRoot: string): { name: string; sql: string }[] {
     .map((name) => ({ name, sql: readFileSync(join(seedDir, name), 'utf8') }));
 }
 
+/**
+ * Carimbo de tempo do pack, honrando `SOURCE_DATE_EPOCH`.
+ *
+ * O pack e distribuido por URL enderecada pelo proprio hash
+ * (`pack-<sha256>.db`), e o app so re-baixa quando o hash muda. Com o relogio
+ * de parede aqui dentro, DUAS builds do mesmo conteudo produzem hashes
+ * diferentes — e cada republicacao sem mudanca de conteudo obriga a frota
+ * inteira a re-baixar o pack por uma linha de metadado. Num posto rural isso e
+ * a diferenca entre atualizar e nao atualizar.
+ *
+ * `SOURCE_DATE_EPOCH` e a convencao do reproducible-builds.org, a mesma que o
+ * F-Droid usa (stack.md 9). Definida, o build vira deterministico; ausente,
+ * cai no relogio como antes.
+ */
+function buildTimestamp(): string {
+  const epoch = process.env.SOURCE_DATE_EPOCH;
+  if (epoch && /^\d+$/.test(epoch)) {
+    return new Date(Number(epoch) * 1000).toISOString();
+  }
+  return new Date().toISOString();
+}
+
 export function buildPack(options: BuildOptions): BuildResult {
   const { repoRoot, outDir } = options;
   mkdirSync(outDir, { recursive: true });
@@ -111,7 +133,7 @@ export function buildPack(options: BuildOptions): BuildResult {
       options.packVersion,
       options.schemaVersion,
       options.municipality,
-      new Date().toISOString(),
+      buildTimestamp(),
       options.defaultOutcomeId,
       options.sourceCommit,
     );
