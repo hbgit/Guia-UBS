@@ -27,6 +27,9 @@ Future<Directory> modelsDirectory() => _subdirectory('models');
 /// espec sem quebrar nenhum teste de host.
 Future<Directory> packsDirectory() => _subdirectory('packs');
 
+/// Raiz do armazenamento interno do app.
+Future<Directory> appSupportDirectory() => getApplicationSupportDirectory();
+
 Future<Directory> _subdirectory(String name) async {
   final support = await getApplicationSupportDirectory();
   final dir = Directory('${support.path}/$name');

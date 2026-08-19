@@ -253,16 +253,32 @@ Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado
 | Railway (PaaS) | Compose + systemd (Coolify opcional) | — / Apache-2.0 | Deploy = `docker compose up -d` via Ansible |
 | SST v3 (sobre nuvens pagas) | Ansible playbook | GPL-3.0 | IaC vira provisionamento de 1 VPS |
 
-**Dependências novas do app (Fase 1, item 9):**
+**Dependências novas do app:**
 
-| Pacote | Uso | Licença |
-|---|---|---|
-| `cryptography` (Dart) | **Só `verify`** da assinatura Ed25519 do manifest no device | Apache-2.0 |
+| Pacote | Uso | Licença | Item |
+|---|---|---|---|
+| `cryptography` (Dart) | **Só `verify`** da assinatura Ed25519 do manifest no device | Apache-2.0 | 9 |
+| `go_router` | Navegação declarativa; a árvore de rotas é o que torna CAP-02 verificável | BSD-3 | 10 |
+| `flutter_riverpod` | Estado da UI (decisão da §1). Fixado no 2.x — ver nota abaixo | MIT | 10 |
+| `flutter_localizations` + `intl` | i18n pt/es (RF-01) via `gen-l10n` | BSD-3 | 10 |
+| `flutter_tts` | TTS pelo engine do SO (RF-06). Módulo folha: falha não propaga | MIT | 10 |
 
-Implementação em Dart puro, sem biblioteca nativa adicional no APK: o mesmo
+`cryptography` é Dart puro, sem biblioteca nativa adicional no APK: o mesmo
 código roda no host e no aparelho, e a suíte que confere a interoperabilidade
-com o assinador em Node executa em CI sem emulador. O app **nunca assina** —
-a chave privada não existe do lado do dispositivo, por construção.
+com o assinador em Node executa em CI sem emulador. O app **nunca assina** — a
+chave privada não existe do lado do dispositivo, por construção.
+
+**Riverpod fixado no 2.x.** O 3.x resolve, mas só subindo 31 pacotes junto por
+causa das restrições atuais. Trocar de major na casca — antes de existir tela
+que use o estado — pagaria a migração duas vezes; a hora de reavaliar é no item
+12, quando a triagem for escrita. O sabor com `riverpod_generator` + `freezed`
+que a §1 nomeia também entra ali, onde os estados de união exaustiva pagam pelo
+gerador; na casca, providers escritos à mão bastam para um enum e um objeto de voz.
+
+**Custo medido no APK.** A casca (item 10) levou o release arm64-v8a de
+**21,1 MB para 23,8 MB**, com `libllama` e o shim nativo dentro. O orçamento do
+[ADR-003](#10-registro-de-decisões-arquiteturais-adr) é de 50–80 MB para o APK base — sobra
+folga confortável.
 
 **Notas de licenciamento e opções (sem mudança de default):**
 

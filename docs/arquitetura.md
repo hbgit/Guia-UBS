@@ -466,13 +466,107 @@ caminho crítico do boot — é exatamente o erro que o marcador `.verificado` d
 modelo SLM corrigiu, e a lição está anotada no código.
 
 ### Fase 2 — App (CAP-01…13)
-10. Casca: tema, GoRouter, i18n pt/es, `speech/`.
+10. Casca: tema, GoRouter, i18n pt/es, `speech/`. ✅
 11. `content/` (repositórios RO) + `prefs/` (Drift).
 12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado.
 13. Encaminhamento, fluxo, documentos.
 14. `privacy/` (CAP-13) + `telemetry/` com allowlist.
 15. `sync/` endurecido: backoff+jitter, circuit breaker, guard de quiescência.
 **Saída:** APK com jornadas verde/vermelha/sync passando em device farm.
+
+#### 5.3 Resultado do item 10 — casca do app (2026-08-19)
+
+Tema, roteador, i18n pt/es e `speech/`, com a mesma tática dos itens anteriores:
+**quando o requisito é uma propriedade da estrutura, a estrutura vira dado e o
+teste a percorre.** O mapa de rotas
+([`app_routes.dart`](../app/lib/ui/app_routes.dart)) é uma lista de descritores;
+`buildGubsRouter` só a dobra num `GoRouter`. Profundidade, dead-ends e o alcance
+da exceção da INV-8 saem de travessias dessa lista.
+
+| Peça | Arquivo | Papel |
+|---|---|---|
+| Semântica de cor | `ui/theme/gubs_colors.dart` | `ThemeExtension`; acesso por **severidade**, não por nome de cor |
+| Tema | `ui/theme/gubs_theme.dart` | Alvo de 64 dp no `ButtonStyle` padrão, não em cada tela |
+| Métricas | `ui/theme/gubs_metrics.dart` | Números da RNF-06 nomeados, para poderem ser verificados |
+| Mapa de rotas | `ui/app_routes.dart` + `ui/app_router.dart` | Dado + a dobra que vira `GoRouter` |
+| Portões | `ui/router_provider.dart` | `gubsRedirect` é função pura — idioma e INV-8 |
+| Casca | `ui/shell/` | Bottom nav de 3 abas; moldura com voltar garantido |
+| i18n | `lib/l10n/*.arb` | **Só a casca.** Conteúdo clínico vem do `content.db` assinado |
+| Voz | `speech/speaker.dart` | Folha: não lança, não espera, não bloqueia |
+| Preferência | `prefs/locale_store.dart` | Porta que o item 11 reimplementa sobre Drift |
+
+**Três defeitos de acessibilidade encontrados por medição, não por revisão
+visual.** Os dois primeiros estavam na paleta que o protótipo já usava:
+
+| Defeito | Medido | Correção |
+|---|---|---|
+| Verde e vermelho do tema claro com a **mesma luminância** (razão **1,01**) — para quem tem deficiência de visão de cores vermelho-verde, cartão de rotina e de emergência eram a mesma cor | 1,01:1 entre si | `red` de `#CE3A3A` para `#9E2626` (razão 1,55; e vermelho mais escuro também lê como mais urgente) |
+| Âmbar abaixo do mínimo de 3:1 para componente de interface | 2,91:1 sobre o fundo | `amber` de `#B98A2F` para `#8F651A` |
+| Branco sobre o vermelho **claro** do tema escuro | 3,21:1 | `onRed`/`onAmber` viraram tokens; `forSeverity` deixou de escrever `Colors.white` |
+
+As três correções foram propagadas para [`design.html`](design.html), que é a
+referência visual.
+
+**Um quarto defeito, este só visível no aparelho.** O rótulo do botão principal
+apareceu com **1,94:1** no tema escuro — quase ilegível. Causa: todo estilo de
+`Theme.of(context).textTheme` **já vem colorido** com `ColorScheme.onSurface`, e
+cor explícita num `TextStyle` vence o `foregroundColor` do botão que o contém. O
+teste de paleta não podia pegar: `ink`×`green` não é um par que a paleta preveja
+— foi o widget que o inventou.
+
+A lição virou um segundo teste, `rendered_contrast_test.dart`, que lê a cor do
+texto **já pintado** (`RenderParagraph`) em vez das constantes. Verificar a
+paleta prova que as cores escolhidas são boas; só verificar o renderizado prova
+que são elas que chegam à tela.
+
+**Dois defeitos de layout com a fonte ampliada** — ampliar a fonte é a primeira
+coisa que faz quem tem presbiopia sem óculos, parte relevante do público. Os
+ladrilhos da inicial tinham proporção fixa e estouravam em 2×; o nome do idioma
+saía pela borda em tela estreita. Corrigidos com altura intrínseca e `Flexible`,
+e cobertos por testes em 1×, 1,3×, 1,6× e 2× nos dois temas.
+
+**Um dead-end que só o aparelho mostrou.** A tela de triagem apareceu sem botão
+voltar. `context.canPop()` responde *"existe algo empilhado"*, que não é a
+mesma pergunta que *"existe para onde voltar"*: os ladrilhos navegam com `go`,
+que substitui em vez de empilhar. O teste passava porque usava `push` — ele
+exercitava um caminho que o app não percorre. Agora o destino do voltar vem do
+**manifesto** (`parentPath`), não do histórico, e o teste chega às telas por
+deep link, que é o pior caso.
+
+**A exceção da INV-8 foi reduzida ao tamanho que o ADR-003 autorizou.** A
+implementação anterior travava o app inteiro até o modelo baixar; o ADR autoriza
+travar *"a tela principal de atendimento clínico"*. Agora o portão fecha apenas
+as rotas marcadas com `requiresModel` — a triagem. "Onde ir", "Documentos",
+o fluxo da UBS e, principalmente, **a tela de emergência** seguem abertos sem
+modelo nenhum, porque são conteúdo estático assinado que não precisa de
+inferência. O primeiro acesso continua abrindo no setup, para a apresentação de
+valor e o consentimento acontecerem.
+
+**Verificação em aparelho** (Motorola Edge 40 Neo, APK release arm64): seleção de
+idioma, persistência entre reinstalações, app inteiro em espanhol, as três abas,
+os quatro ladrilhos, o voltar, e zero erro em `logcat`. APK de **23,8 MB**
+(era 21,1 MB) — bem dentro dos 50–80 MB do ADR-003.
+
+**Sabotagem.** Seis proteções desligadas uma a uma; cinco foram pegas de
+imediato. A sexta — baixar `minTouchTarget` de 64 para 48 — **não foi**, porque o
+teste comparava o widget contra a mesma constante que a sabotagem alterou. Um
+teste circular. Corrigido ancorando as constantes nos números da RNF-06.
+
+| Proteção desligada | Testes que falharam |
+|---|---|
+| Emergência passa a exigir o modelo | 4 |
+| Portão trava tudo, não só a triagem | 1 |
+| Vermelho volta ao tom que confunde com o verde | 1 |
+| Ladrilhos voltam a ter altura fixa | 4 |
+| TTS perde o timeout da sondagem | 1 (suíte trava, como esperado) |
+| Alvo de toque cai para 48 dp | 0 → **1**, depois de corrigir a circularidade |
+
+**O que ficou de fora.** As telas de triagem (item 12) e as de conteúdo estático
+(item 13) são placeholders — mas os **caminhos já existem**, para que a estrutura
+seja testável desde agora. Uma rota que só nasce junto com a tela nunca é testada
+contra a estrutura. Também ficou para depois o `riverpod_generator` + `freezed`
+(item 12, onde os estados de união exaustiva pagam pelo gerador) e a persistência
+em Drift (item 11, que reimplementa a porta `LocaleStore`).
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only.

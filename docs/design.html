@@ -12,12 +12,21 @@
     --green-deep:#0C5F44;
     --green-soft:#E3F2EB;
     --on-green:#FFFFFF;
-    --red:#CE3A3A;
-    --red-deep:#A82B2B;
+    /* Vermelho e ambar escurecidos em 2026-08-19 por reprovacao no teste de
+       contraste do app (app/test/ui/theme/contrast_test.dart):
+       - #CE3A3A tinha razao 1,01 contra o verde #12805C, ou seja, MESMA
+         luminancia: para quem tem deficiencia de visao de cores vermelho-verde,
+         cartao de rotina e cartao de emergencia eram a mesma cor.
+       - #B98A2F dava 2,91:1 contra o fundo, abaixo do minimo de 3:1 para
+         componente de interface (WCAG 2.2 AA). */
+    --red:#9E2626;
+    --red-deep:#7A1B1B;
     --red-soft:#FBE9E9;
+    --on-red:#FFFFFF;
     --blue:#2F6DA8;
     --blue-soft:#E7F0F8;
-    --amberish:#B98A2F;
+    --amberish:#8F651A;
+    --on-amber:#F4F8F5;
     --shadow:0 1px 2px rgba(23,37,31,.06),0 8px 24px rgba(23,37,31,.10);
     --shadow-lg:0 2px 6px rgba(23,37,31,.08),0 18px 48px rgba(23,37,31,.16);
     --focus:#2F6DA8;
@@ -37,9 +46,11 @@
       --red:#E36A6A;
       --red-deep:#F0918F;
       --red-soft:#3A1D1D;
+      --on-red:#0E1613;
       --blue:#6BA6DC;
       --blue-soft:#16293A;
       --amberish:#D9B25F;
+      --on-amber:#0E1613;
       --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
       --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 18px 48px rgba(0,0,0,.55);
       --focus:#6BA6DC;
@@ -59,9 +70,11 @@
     --red:#E36A6A;
     --red-deep:#F0918F;
     --red-soft:#3A1D1D;
+    --on-red:#0E1613;
     --blue:#6BA6DC;
     --blue-soft:#16293A;
     --amberish:#D9B25F;
+    --on-amber:#0E1613;
     --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.45);
     --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 18px 48px rgba(0,0,0,.55);
     --focus:#6BA6DC;
@@ -251,8 +264,8 @@
   }
   .speakbtn:active{transform:scale(.94)}
   .speakbtn .ic{width:24px;height:24px}
-  .result.ok .speakbtn{background:var(--green);color:var(--green-soft)}
-  .result.danger .speakbtn{background:var(--red);color:var(--red-soft)}
+  .result.ok .speakbtn{background:var(--green);color:var(--on-green)}
+  .result.danger .speakbtn{background:var(--red);color:var(--on-red)}
   .speakbtn.playing::before{
     content:"";position:absolute;inset:-6px;border-radius:999px;
     border:2px solid currentColor;opacity:.5;

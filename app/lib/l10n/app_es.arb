@@ -1,0 +1,38 @@
+{
+  "@@locale": "es",
+
+  "appTitle": "Guia UBS",
+  "offlineBadge": "100% sin internet",
+
+  "languageQuestion": "Toca tu idioma",
+  "languagePortuguese": "Português",
+  "languageSpanish": "Español",
+  "languageChange": "Cambiar idioma",
+
+  "navHome": "Inicio",
+  "navWhereTo": "Adónde ir",
+  "navDocuments": "Documentos",
+
+  "homeQuestion": "¿Cómo estás?",
+  "homeHint": "Toca una opción para empezar",
+  "homeStartTriage": "Tengo síntomas",
+  "homeWhereTo": "¿Adónde ir?",
+  "homeDocuments": "Documentos",
+  "homeHowItWorks": "Cómo funciona la UBS",
+  "homeEmergency": "Emergencia",
+
+  "actionBack": "Volver",
+  "actionHome": "Inicio",
+  "actionContinue": "Continuar",
+  "actionListen": "Escuchar explicación",
+  "actionStopListening": "Detener el audio",
+
+  "whereToTitle": "¿Adónde ir?",
+  "documentsTitle": "¿Qué llevar?",
+  "flowTitle": "En la UBS es así",
+  "emergencyTitle": "Busca emergencia ahora",
+  "privacyTitle": "Tus datos",
+
+  "screenUnderConstruction": "Esta pantalla llega pronto",
+  "contentUnavailable": "Contenido aún no disponible"
+}

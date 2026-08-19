@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # i18n pt/es (RF-01). As strings AQUI sao so a casca do app; todo conteudo
+  # clinico vem do content.db assinado, nunca de ARB (RF-07/08/09).
+  flutter_localizations:
+    sdk: flutter
   meta: ^1.16.0
   # Conversão de string para a fronteira FFI do shim do llama.cpp.
   ffi: ^2.1.4
@@ -35,6 +39,23 @@ dependencies:
   file_picker: ^12.0.0
   # Agendamento em segundo plano do download do modelo (WorkManager no Android).
   workmanager: ^0.10.0
+  # Navegacao declarativa: a arvore de rotas e a prova de "profundidade <= 4,
+  # zero dead-ends" (CAP-02) — um teste consegue percorre-la.
+  go_router: ^17.5.0
+  # TTS pelo engine do SO. Modulo FOLHA: falha nunca propaga (INV-8). ROMs
+  # cortadas sem engine sao um risco previsto (A3) — o app fica so visual.
+  flutter_tts: ^4.2.5
+  # Exigido pelo gen-l10n do Flutter.
+  intl: ^0.20.2
+  # Estado da UI (stack.md 1). Aqui usamos providers escritos a mao; o sabor
+  # com codegen + freezed entra no item 12, onde a triagem tem estados que
+  # realmente se beneficiam de union exaustiva.
+  #
+  # Fixado no 2.x: o 3.x resolve, mas so subindo 31 pacotes junto por causa das
+  # restricoes atuais. Trocar de major na CASCA, antes de existir tela que use
+  # o estado, seria pagar a migracao duas vezes — a hora de reavaliar e no
+  # item 12, quando a triagem for escrita.
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
@@ -56,3 +77,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Gera as classes de i18n a partir de lib/l10n/*.arb (ver l10n.yaml).
+  generate: true

@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Classes de i18n geradas a partir de lib/l10n/*.arb. Sao reproduzidas por
+# `flutter pub get` (flutter: generate: true), entao versiona-las so criaria
+# conflito de merge em arquivo que ninguem edita.
+lib/l10n/app_localizations*.dart

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado do repositório
 
-Projeto em **fase de especificação** — ainda não há código-fonte, build ou testes. Todo o conteúdo vive em `docs/` (em **português**; mantenha novos documentos em pt-BR). O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica para orientar populações rurais, imigrantes e pessoas de baixo letramento sobre serviços do SUS, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
+Projeto **em implementação**. A documentação vive em `docs/` (em **português**; mantenha novos documentos em pt-BR) e continua sendo a fonte de verdade. O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), `native/llama_shim/` (C) e `infra/`. O andamento por item está em `docs/arquitetura.md` §Roadmap; as medições e decisões de cada item entregue ficam nas subseções §5.x do mesmo arquivo. O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica para orientar populações rurais, imigrantes e pessoas de baixo letramento sobre serviços do SUS, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
 
 ## Hierarquia documental (ordem de precedência)
 
@@ -38,8 +38,34 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 
 ## Convenções de design (UI)
 
-Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = informação**. Alvos de toque ≥ 64 dp, máx. 8 elementos por tela, navegação linear com voltar/casa sempre visíveis, zero texto obrigatório (todo conteúdo essencial tem ícone + áudio pt/es). O padrão de referência está implementado em `docs/design.html` (tokens de tema claro/escuro incluídos).
+Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = informação**. Alvos de toque ≥ 64 dp, máx. 8 elementos por tela, navegação linear com voltar/casa sempre visíveis, zero texto obrigatório (todo conteúdo essencial tem ícone + áudio pt/es). O protótipo visual está em `docs/design.html`; a implementação normativa é `app/lib/ui/theme/`.
+
+- **Peça a cor pela SEVERIDADE, não pelo nome.** `GubsColors.forSeverity(...)` devolve o par certo; escolher entre `green` e `red` na hora do layout é o caminho para um cartão de emergência pintado de verde.
+- **Dentro de botão colorido, informe a cor do texto explicitamente** (`onGreen`/`onRed`/`onAmber`). Os estilos de `Theme.of(context).textTheme` já vêm coloridos com `onSurface`, e essa cor vence o `foregroundColor` do botão — armadilha documentada em `app/lib/ui/theme/gubs_theme.dart`.
+- **O mapa de rotas é dado** (`app/lib/ui/app_routes.dart`): profundidade, dead-ends e o alcance da exceção da INV-8 são verificados percorrendo a lista, não lendo builders.
+- Strings de casca vivem em `app/lib/l10n/*.arb`; **conteúdo clínico vem do `content.db` assinado**, nunca de ARB.
 
 ## Comandos
 
-Ainda não há build/teste/lint — o scaffolding (app Flutter, `cms/`, `packer/`) será criado nos milestones M3–M4. Quando existir, o ponto de partida é o compose de stack.md §7 (`docker compose up -d` para o plano de controle; `docker compose run --rm packer` para gerar packs).
+```sh
+# App Flutter (rodar de dentro de app/)
+flutter pub get                 # tambem GERA as classes de i18n a partir de lib/l10n/*.arb
+flutter analyze --fatal-infos   # o CI usa --fatal-infos; info vira erro
+flutter test                    # suite completa
+flutter test test/triage/       # so um diretorio
+flutter test --plain-name "trecho do nome do teste"
+flutter build apk --release --target-platform=android-arm64
+
+# Plano de controle (rodar da raiz)
+npm test                        # contract + packer
+SOURCE_DATE_EPOCH=1787097600 PACK_SIGNING_KEY_PATH=contract/keys/dev-k1.pem \
+  PACK_VERSION=1 npm run pack:build     # gera packer/out/{content.db,manifest.json}
+npm run contract:check          # codegen fora de sincronia = build vermelho
+docker compose -f infra/compose.yaml config --quiet
+```
+
+**`SOURCE_DATE_EPOCH` no packer não é opcional quando o hash importa.** Sem ele o `built_at` recebe o relógio de parede e duas builds do mesmo conteúdo produzem `content.db` diferentes — o que invalida as fixtures de teste e, em produção, faria a frota re-baixar o pack a cada republicação.
+
+**Armadilha do `flutter build apk --release` logo após um build debug:** falha com *"package dev.flutter.plugins.integration_test does not exist"*. Apagar `android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java` resolve; ele é regerado.
+
+**Verificação em aparelho** (o `adb` vive em `~/Android/Sdk/platform-tools`): vários defeitos deste projeto só apareceram no aparelho — estouro de layout em paisagem, re-hash de 806 MB a cada boot, contraste de 1,94:1 no botão principal, tela sem botão voltar. Sempre que a mudança for de UI ou de I/O, instale e olhe.

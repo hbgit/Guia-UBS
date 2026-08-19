@@ -1,0 +1,12 @@
+# Geracao das classes de i18n (RF-01).
+#
+# IMPORTANTE: os ARB carregam SOMENTE a casca do app — rotulos de navegacao,
+# titulos de tela, acoes. Todo conteudo clinico (cartoes, orientacoes, nomes de
+# sintoma) vem do `content.db` assinado, porque conteudo clinico precisa passar
+# por dupla revisao e assinatura Ed25519 antes de chegar ao usuario (RF-07/08/09
+# e INV-4). String clinica que aparecer aqui e conteudo que escapou da revisao.
+arb-dir: lib/l10n
+template-arb-file: app_pt.arb
+output-localization-file: app_localizations.dart
+output-class: L
+nullable-getter: false
