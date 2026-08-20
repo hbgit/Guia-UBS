@@ -20,20 +20,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// Níveis de severidade do `routing_outcome`, na ordem que o pack usa.
-///
-/// Duplicar aqui os inteiros do banco seria criar uma segunda fonte de verdade;
-/// por isso a conversão é explícita e única, em [GubsColors.forSeverity].
-enum GubsSeverity {
-  /// Rotina: procurar a UBS. Verde.
-  routine,
-
-  /// Atenção: procurar atendimento hoje/amanhã, sem emergência. Âmbar.
-  attention,
-
-  /// Emergência: UPA, hospital ou 192. Vermelho.
-  emergency,
-}
+import '../../triage/domain/severity.dart';
 
 @immutable
 class GubsColors extends ThemeExtension<GubsColors> {
@@ -117,18 +104,16 @@ class GubsColors extends ThemeExtension<GubsColors> {
           (accent: red, background: redSoft, onAccent: onRed),
       };
 
-  /// Converte `routing_outcome.severity_level` do pack.
-  ///
-  /// **Fail-safe para cima:** nível desconhecido vira [GubsSeverity.emergency].
-  /// Um pack novo com um nível que este binário não conhece pintaria de verde
-  /// se o padrão fosse rotina — e a INV-1 diz que, na dúvida, o conservador é
-  /// tratar como emergência. Aqui isso custa um cartão vermelho a mais; o
-  /// contrário custaria um encaminhamento errado.
-  static GubsSeverity forSeverityLevel(int level) => switch (level) {
-        <= 1 => GubsSeverity.routine,
-        2 => GubsSeverity.attention,
-        _ => GubsSeverity.emergency,
-      };
+  // A conversão de `routing_outcome.severity_level` para [GubsSeverity] NÃO
+  // mora aqui, de propósito — ver `severityFor` em
+  // `triage/domain/severity.dart`.
+  //
+  // Uma versão anterior deste arquivo tinha um `forSeverityLevel(int)` com
+  // limiares fixos (`<= 1` rotina, `2` atenção, resto emergência). O pack real
+  // usa a escala 10/100, então TODO resultado de rotina caía no `resto` e era
+  // pintado de vermelho, com "Ligue 192" embaixo. A UI havia inventado uma
+  // escala; a escala pertence ao conteúdo, que é revisado clinicamente e pode
+  // mudar de pack para pack.
 
   @override
   GubsColors copyWith({

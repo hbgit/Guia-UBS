@@ -91,7 +91,7 @@ void main() {
 
       expect(
         gated,
-        unorderedEquals(['/triagem', '/triagem/sintomas', '/triagem/resultado']),
+        unorderedEquals(['/triagem', '/triagem/resultado']),
         reason: 'a trava do 1º acesso vale para a tela clínica, e só ela',
       );
     });

@@ -14,6 +14,8 @@ import 'home/home_screen.dart';
 import 'language/language_screen.dart';
 import 'placeholder_screen.dart';
 import 'setup/setup_screen.dart';
+import 'triage/composition_screen.dart';
+import 'triage/result_screen.dart';
 import 'shell/app_shell.dart';
 import 'theme/gubs_colors.dart';
 
@@ -43,38 +45,23 @@ final List<GubsRouteSpec> gubsRoutes = [
     tab: GubsTab.home,
     builder: (context, state) => const HomeScreen(),
   ),
+  // Os tres passos da composicao moram numa rota so: a FSM-A permanece em
+  // S1_COMPOSING durante os tres, e dar uma rota a cada passo criaria estados
+  // de navegacao que a maquina clinica nao reconhece — voltar pelo botao do
+  // Android pularia para um passo sem a composicao correspondente.
   GubsRouteSpec(
     path: '/triagem',
     name: Routes.triageBody,
     tab: GubsTab.home,
     requiresModel: true,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).homeStartTriage,
-      icon: Icons.accessibility_new,
-      accent: context.gubs.green,
-    ),
-  ),
-  GubsRouteSpec(
-    path: '/triagem/sintomas',
-    name: Routes.triageSymptoms,
-    tab: GubsTab.home,
-    requiresModel: true,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).homeStartTriage,
-      icon: Icons.healing,
-      accent: context.gubs.green,
-    ),
+    builder: (context, state) => const CompositionScreen(),
   ),
   GubsRouteSpec(
     path: '/triagem/resultado',
     name: Routes.triageResult,
     tab: GubsTab.home,
     requiresModel: true,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).homeStartTriage,
-      icon: Icons.assignment_turned_in,
-      accent: context.gubs.green,
-    ),
+    builder: (context, state) => const ResultScreen(),
   ),
   GubsRouteSpec(
     path: '/emergencia',

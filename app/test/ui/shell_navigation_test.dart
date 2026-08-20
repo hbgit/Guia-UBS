@@ -13,6 +13,7 @@ import 'package:guia_ubs/l10n/app_localizations.dart';
 import 'package:guia_ubs/prefs/locale_store.dart';
 import 'package:guia_ubs/ui/app_router.dart';
 import 'package:guia_ubs/ui/app_routes.dart';
+import 'package:guia_ubs/content/data/content_repository.dart';
 import 'package:guia_ubs/ui/app_scope.dart';
 import 'package:guia_ubs/ui/theme/gubs_theme.dart';
 
@@ -20,6 +21,7 @@ Future<void> pumpApp(
   WidgetTester tester, {
   String initialLocation = '/',
   AppLocale locale = AppLocale.pt,
+  ContentRepository? content,
 }) async {
   final router = buildGubsRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
@@ -28,6 +30,7 @@ Future<void> pumpApp(
     ProviderScope(
       overrides: [
         localeStoreProvider.overrideWithValue(MemoryLocaleStore(locale)),
+        contentProvider.overrideWithValue(content),
       ],
       child: MaterialApp.router(
         theme: gubsLightTheme,
@@ -112,6 +115,11 @@ void main() {
     for (final spec in gubsRoutes.where(
       (r) => r.insideShell && r.parentPath != null,
     )) {
+      // O resultado sem sessão é o caso especial coberto pelo teste seguinte:
+      // ele não desenha seta, ele MANDA a pessoa para a inicial — que é a
+      // saída certa para uma tela cujo conteúdo já não existe.
+      if (spec.path == '/triagem/resultado') continue;
+
       await pumpApp(tester, initialLocation: spec.path);
 
       expect(
@@ -122,14 +130,21 @@ void main() {
     }
   });
 
+  testWidgets('resultado sem sessão devolve à inicial, não a uma tela vazia',
+      (tester) async {
+    // Acontece de verdade: o Android restaura a pilha depois de matar o
+    // processo, e a sessão — que só vive em memória (INV-2) — não volta com
+    // ela. Uma tela de resultado em branco seria o pior dead-end do app.
+    await pumpApp(tester, initialLocation: '/triagem/resultado');
+
+    expect(find.text('Como você está?'), findsOneWidget);
+  });
+
   testWidgets('o voltar leva ao pai declarado no manifesto', (tester) async {
-    await pumpApp(tester, initialLocation: '/triagem/sintomas');
+    // Deep link direto na triagem: sem pilha, o destino do voltar só pode vir
+    // do manifesto.
+    await pumpApp(tester, initialLocation: '/triagem');
 
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
-
-    // `/triagem/sintomas` volta para `/triagem`, e de lá para a inicial.
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 

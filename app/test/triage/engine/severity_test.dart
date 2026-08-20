@@ -98,4 +98,75 @@ void main() {
       expect(escalated.matchedRuleId, _routineGate.matchedRuleId);
     });
   });
+
+  group('classe visual vem da escala DO PACK', () {
+    // Aqui morava um defeito real: a conversão tinha limiares fixos em Dart
+    // (`<= 1` rotina, `2` atenção, resto emergência). O pack semente usa 10 e
+    // 100, então TODO resultado de rotina caía no `resto` e era pintado de
+    // vermelho, com "Ligue 192" embaixo — a mensagem oposta à correta, para
+    // quem depende da cor por não ler o texto.
+    RuleModel modelWith(Map<String, int> levels) => RuleModel(
+          rules: const [],
+          outcomes: {
+            for (final e in levels.entries)
+              e.key: RoutingOutcome(id: e.key, severityLevel: e.value),
+          },
+          defaultOutcomeId: levels.keys.first,
+        );
+
+    test('escala 10/100 do pack semente classifica certo', () {
+      final model = modelWith({'ROUTINE_UBS': 10, 'EMERGENCY': 100});
+
+      expect(severityFor(10, model), GubsSeverity.routine);
+      expect(severityFor(100, model), GubsSeverity.emergency);
+    });
+
+    test('escala 1/2/3 classifica certo — sem limiar em Dart', () {
+      // A mesma função serve a um pack com outra escala. Era isto que os
+      // limiares fixos impediam.
+      final model = modelWith({'A': 1, 'B': 2, 'C': 3});
+
+      expect(severityFor(1, model), GubsSeverity.routine);
+      expect(severityFor(2, model), GubsSeverity.attention);
+      expect(severityFor(3, model), GubsSeverity.emergency);
+    });
+
+    test('o nível intermediário vira atenção, não emergência', () {
+      final model = modelWith({'R': 10, 'M': 50, 'E': 100});
+
+      expect(severityFor(50, model), GubsSeverity.attention);
+    });
+
+    test('acima do máximo do pack ainda é emergência', () {
+      final model = modelWith({'R': 10, 'E': 100});
+
+      expect(severityFor(999, model), GubsSeverity.emergency);
+    });
+
+    test('abaixo do mínimo é rotina', () {
+      final model = modelWith({'R': 10, 'E': 100});
+
+      expect(severityFor(0, model), GubsSeverity.routine);
+    });
+
+    test('pack sem desfechos vira EMERGÊNCIA — fail-safe para cima', () {
+      // Na dúvida, o conservador é mandar procurar atendimento: custa um
+      // cartão vermelho a mais, e o contrário custa um encaminhamento errado.
+      final degenerate = RuleModel(
+        rules: const [],
+        outcomes: const {},
+        defaultOutcomeId: 'X',
+      );
+
+      expect(severityFor(10, degenerate), GubsSeverity.emergency);
+    });
+
+    test('pack com um único desfecho não inventa emergência', () {
+      // Máximo e mínimo coincidem: o nível é o extremo inferior, mas também o
+      // superior. A regra de emergência ganha, o que é o lado seguro.
+      final model = modelWith({'ONLY': 42});
+
+      expect(severityFor(42, model), GubsSeverity.emergency);
+    });
+  });
 }

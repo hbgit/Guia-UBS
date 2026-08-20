@@ -31,6 +31,7 @@ import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
 import 'ui/app_scope.dart';
 import 'ui/router_provider.dart';
+import 'ui/triage/triage_controller.dart';
 import 'ui/theme/gubs_theme.dart';
 
 Future<void> main() async {
@@ -73,6 +74,10 @@ Future<void> main() async {
         preferencesProvider.overrideWithValue(preferences),
         localeStoreProvider.overrideWithValue(preferences),
         activeContentProvider.overrideWithValue(content),
+        // O motor SLM entra quando existir modelo provisionado. Enquanto for
+        // `null`, a triagem roda pelo `RuleOnlyEngine` — que e o degrau
+        // seguinte da escada do RF-12, nao um erro.
+        triageEngineProvider.overrideWithValue(null),
         speakerProvider.overrideWithValue(SystemSpeaker()),
         localModelPickerProvider.overrideWithValue(pickModelFromStorage),
         provisioningProvider.overrideWithValue(provisioning),

@@ -1,22 +1,23 @@
 {
   "@@locale": "pt",
-
   "appTitle": "Guia UBS",
-  "@appTitle": {"description": "Nome do app. Nao traduzir."},
-
+  "@appTitle": {
+    "description": "Nome do app. Nao traduzir."
+  },
   "offlineBadge": "100% offline",
-  "@offlineBadge": {"description": "Selo no topo: o app nao precisa de internet."},
-
+  "@offlineBadge": {
+    "description": "Selo no topo: o app nao precisa de internet."
+  },
   "languageQuestion": "Toque no seu idioma",
-  "@languageQuestion": {"description": "Primeira tela. Aparece nos DOIS idiomas ao mesmo tempo, entao precisa ser curta."},
+  "@languageQuestion": {
+    "description": "Primeira tela. Aparece nos DOIS idiomas ao mesmo tempo, entao precisa ser curta."
+  },
   "languagePortuguese": "Português",
   "languageSpanish": "Español",
   "languageChange": "Trocar idioma",
-
   "navHome": "Início",
   "navWhereTo": "Onde ir",
   "navDocuments": "Documentos",
-
   "homeQuestion": "Como você está?",
   "homeHint": "Toque em uma opção para começar",
   "homeStartTriage": "Estou com sintomas",
@@ -24,22 +25,42 @@
   "homeDocuments": "Documentos",
   "homeHowItWorks": "Como funciona a UBS",
   "homeEmergency": "Emergência",
-
   "actionBack": "Voltar",
   "actionHome": "Início",
   "actionContinue": "Continuar",
   "actionListen": "Ouvir explicação",
   "actionStopListening": "Parar o áudio",
-
   "whereToTitle": "Onde ir?",
   "documentsTitle": "O que levar?",
   "flowTitle": "Na UBS é assim",
   "emergencyTitle": "Procure emergência agora",
   "privacyTitle": "Seus dados",
-
   "screenUnderConstruction": "Esta tela chega em breve",
-  "@screenUnderConstruction": {"description": "Marcador temporario das telas dos itens 12-13. Sai antes do piloto."},
-
+  "@screenUnderConstruction": {
+    "description": "Marcador temporario das telas dos itens 12-13. Sai antes do piloto."
+  },
   "contentUnavailable": "Conteúdo ainda não disponível",
-  "@contentUnavailable": {"description": "Mostrado quando o pack de conteudo ainda nao foi instalado."}
+  "@contentUnavailable": {
+    "description": "Mostrado quando o pack de conteudo ainda nao foi instalado."
+  },
+  "triageWhereQuestion": "Onde dói ou incomoda?",
+  "triageWhatQuestion": "O que você sente?",
+  "triageHowQuestion": "Como está?",
+  "triageTapHint": "Toque na parte do corpo",
+  "triageMultiHint": "Pode tocar em mais de um",
+  "triageSeeGuidance": "Ver orientação",
+  "triageSelectedCount": "{count} de {max} escolhidos",
+  "@triageSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "resultDegradedNote": "Orientação feita só com as regras do posto",
+  "resultEmergencyCall": "Ligue 192",
+  "resultNext": "Voltar ao início"
 }

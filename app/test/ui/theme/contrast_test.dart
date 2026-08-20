@@ -14,6 +14,7 @@ library;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:guia_ubs/triage/domain/severity.dart';
 import 'package:guia_ubs/ui/theme/gubs_colors.dart';
 
 import '../../support/wcag.dart';

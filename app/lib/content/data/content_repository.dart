@@ -21,7 +21,9 @@ library;
 
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../triage/domain/routing_rule.dart';
 import '../domain/content_models.dart';
+import 'pack_rule_source.dart';
 
 /// Idioma base do pack. É o que sempre existe.
 const String basePackLanguage = 'pt';
@@ -297,6 +299,17 @@ class ContentRepository {
         ),
       )
       .toList();
+
+  // -------------------------------------------------------------------------
+  // Regras (gate + RuleOnlyEngine)
+  // -------------------------------------------------------------------------
+
+  /// Modelo de encaminhamento do pack ativo.
+  ///
+  /// Delega a `loadRuleModel`, que já existia e é usado pelo gate e pela suite
+  /// golden. Expor aqui evita que a UI precise conhecer duas portas de leitura
+  /// do mesmo arquivo.
+  RuleModel ruleModel() => loadRuleModel(_db);
 
   // -------------------------------------------------------------------------
   // Assets

@@ -85,12 +85,44 @@ Item 11 [FEITO]
 
 * [TODO] Não verifiquei o `user.db` em disco no aparelho: build release não permite `run-as`. O que verifiquei foi o comportamento — idioma migrado, persistido e relido entre reinícios.
 
-
 Item 12 [FEITO]
+* FSM-A pela mesma tática dos itens 9 e 10: matriz pura, driver separado. Aqui isso vale mais, porque as propriedades que precisam ser verdadeiras são clínicas — e "nenhum caminho leva red flag à inferência" é afirmação sobre o GRAFO. Seis propriedades desse tipo viraram testes que percorrem todos os pares (estado, evento).
+
+* O pior defeito do projeto até agora, e o teste de widget que o pegou: a conversão de `severity_level` para cor tinha limiares fixos em Dart (`<=1` rotina, `2` atenção, resto emergência). O pack real usa 10 e 100. Resultado: TODO cartão de rotina saía VERMELHO, com "Ligue 192" embaixo. Para quem depende da cor por não ler o texto, é a mensagem oposta à correta, na tela mais crítica do app.
+
+* A causa não foi um número errado — foi a UI ter inventado uma escala. `severity_level` é definido pelo conteúdo, que passa por revisão clínica e pode mudar de pack para pack. Agora `severityFor(level, model)` deriva os extremos dos desfechos do próprio pack, os mesmos que o gate lê. Zero limiar clínico em Dart. Anotei a armadilha no CLAUDE.md.
+
+* De quebra, movi o enum `GubsSeverity` do tema para o domínio da triagem. A regra de dependência da espec §2.2 é `ui → triage`, e eu tinha invertido; além disso, severidade morando dentro da paleta convida a decidir severidade a partir de cor, que é o contrário do que a INV-1 quer.
+
+* Composição em três passos (`body_part` → `symptom` → `modifier`), mas UMA rota só. A FSM permanece em S1_COMPOSING nos três: compor é um estado só, e passo é apresentação. Dar rota a cada passo criaria estados de navegação que a máquina clínica não reconhece — o voltar do Android pularia para um passo sem a composição correspondente.
+
+* Seleção comunicada por quatro canais ao mesmo tempo: fundo, borda grossa, marca de conferido e negrito. Cor sozinha exclui quem tem deficiência de visão de cores; texto sozinho exclui quem não lê. Este app não pode escolher um dos dois.
+
+* Acrescentei `removeToken`, que não está na matriz da espec. A matriz descreve a máquina, não a edição da composição: retirar um ícone tocado por engano mantém o estado em S1 e nenhuma guarda muda. Sem isso, errar um toque obrigaria a recomeçar — e recomeçar é caro para quem não lê.
+
+* Sabotagem: 7 proteções desligadas, 6 pegas de primeira. A que escapou: nada cobria o mapeamento `icon_ref` → ícone. Numa interface iconográfica, ícone que some remove a opção inteira. Agora tem teste exigindo que todo token do pack tenha ícone próprio E que ícones da mesma família sejam distintos entre si — dois sintomas com o mesmo desenho são, para esse usuário, o mesmo botão.
+
+* Verificado no aparelho com o pack real empurrado para o sandbox (build debug, porque release não permite `run-as`): `peito+dor+muito forte` → cartão VERMELHO com "Llama al 192", sem aviso de degradação (red flag não é degradação, é o caminho previsto); `garganta+dor` → cartão VERDE com o aviso. E o TTS FALOU — "Utterance ID has started" no logcat. Fecha o TODO que ficou do item 10.
+
+* [PENDENTE — decisão de conteúdo] A convenção de "máx. 8 elementos por tela" casa com `body_part` (8) e `modifier` (6), mas `symptom` tem 12 e a grade rola. Resolver exige ou um subconjunto de sintomas por parte do corpo (precisa de tabela de associação no pack, que não existe) ou reduzir a ontologia. As duas são decisão clínica com dupla revisão, não coisa que eu deva escolher no código. Fica para a revisão do piloto.
+
+* [TODO] O `triageEngineProvider` está fixo em `null`, então a triagem roda sempre pelo `RuleOnlyEngine`. Ligar o `LlamaEngine` ao modelo provisionado é o que falta para o caminho S3 existir em produção — S3 está testado com motor de mentira, incluindo timeout, exceção e travamento.
+
+* 302 → 370 testes.
+
+
+Item 12 [FEITO] << Checkout
 * Dívida do item 10 paga: setupCompleted e o override de dados móveis viviam na memória do processo. Quem escolhia "usar sem a IA assistente" revia a apresentação de valor a cada abertura; um posto sem Wi-Fi voltava a recusar o download depois de o administrador já ter autorizado.
 * [TODO] Não verificado: a tela de privacidade (CAP-13/LGPD-RF03) não existe — wipe() está implementado e testado, mas nenhuma tela o aciona; é o item 14. Nenhuma tela lê os repositórios de conteúdo ainda (itens 12–13). E não inspecionei o user.db em disco no aparelho: build release não permite run-as — verifiquei o comportamento, não o arquivo.
 
+
+Analisar:
+* O pior defeito do projeto até agora, achado pelo teste de widget. A conversão de severity_level para cor tinha limiares fixos em Dart (<=1 rotina, 2 atenção, resto emergência). O pack real usa 10 e 100 — então todo cartão de rotina saía vermelho, com "Ligue 192" embaixo. Para quem depende da cor por não ler o texto, é a mensagem oposta à correta, na tela mais crítica do app.
+* Pendente, e é decisão de conteúdo, não minha: a convenção de "máx. 8 elementos por tela" casa com body_part (8) e modifier (6), mas symptom tem 12 e a grade rola. Resolver exige subconjunto de sintomas por parte do corpo (precisa de tabela de associação que o pack não tem) ou redução da ontologia — ambas com dupla revisão clínica.
+* triageEngineProvider está fixo em null, então a triagem roda sempre pelo RuleOnlyEngine. Ligar o LlamaEngine ao modelo provisionado é o que falta para o caminho S3 existir em produção; S3 está testado com motor de mentira (timeout, exceção, travamento), não com o real.
+
 * Item 13 [TODO]
+
 
 ---
 

@@ -40,6 +40,7 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 
 Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = informação**. Alvos de toque ≥ 64 dp, máx. 8 elementos por tela, navegação linear com voltar/casa sempre visíveis, zero texto obrigatório (todo conteúdo essencial tem ícone + áudio pt/es). O protótipo visual está em `docs/design.html`; a implementação normativa é `app/lib/ui/theme/`.
 
+- **A escala de `severity_level` pertence ao PACK, não ao binário.** O pacote semente usa 10 (rotina) e 100 (emergência); outro município pode publicar outra escala. Use `severityFor(level, model)`, que deriva os extremos dos desfechos do próprio pack. Limiares fixos em Dart já causaram o pior defeito visual do projeto: todo resultado de rotina pintado de vermelho com "Ligue 192" embaixo.
 - **Peça a cor pela SEVERIDADE, não pelo nome.** `GubsColors.forSeverity(...)` devolve o par certo; escolher entre `green` e `red` na hora do layout é o caminho para um cartão de emergência pintado de verde.
 - **Dentro de botão colorido, informe a cor do texto explicitamente** (`onGreen`/`onRed`/`onAmber`). Os estilos de `Theme.of(context).textTheme` já vêm coloridos com `onSurface`, e essa cor vence o `foregroundColor` do botão — armadilha documentada em `app/lib/ui/theme/gubs_theme.dart`.
 - **O mapa de rotas é dado** (`app/lib/ui/app_routes.dart`): profundidade, dead-ends e o alcance da exceção da INV-8 são verificados percorrendo a lista, não lendo builders.

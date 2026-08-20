@@ -468,7 +468,7 @@ modelo SLM corrigiu, e a lição está anotada no código.
 ### Fase 2 — App (CAP-01…13)
 10. Casca: tema, GoRouter, i18n pt/es, `speech/`. ✅
 11. `content/` (repositórios RO) + `prefs/` (Drift). ✅
-12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado.
+12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado. ✅
 13. Encaminhamento, fluxo, documentos.
 14. `privacy/` (CAP-13) + `telemetry/` com allowlist.
 15. `sync/` endurecido: backoff+jitter, circuit breaker, guard de quiescência.
@@ -635,6 +635,74 @@ ser inofensivo no dia em que acontecer.**
 Em checkout limpo, pular `dart run build_runner build` produz ~35 erros de
 análise sem relação com o código escrito — por isso o passo entrou no CI, antes
 do `flutter analyze`.
+
+#### 5.5 Resultado do item 12 — FSM-A e as telas clínicas (2026-08-19)
+
+A FSM-A seguiu a tática dos itens 9 e 10: matriz da [espec.md §4.1] transcrita
+em `triage/orchestrator/triage_fsm.dart`, pura, e um driver
+(`triage_session.dart`) que faz relógio, gate e motor. Aqui a separação vale
+mais que nos itens anteriores, porque as propriedades que precisam ser
+verdadeiras nesta máquina são **clínicas** — e propriedades do grafo só são
+verificáveis quando o grafo é dado:
+
+| Propriedade | Como é verificada |
+|---|---|
+| Red flag nunca chega à inferência | Percorre todos os estados × `GateDone(redFlag: true)` |
+| Só S2 consulta o modelo | Percorre todos os pares (estado, evento) |
+| Todo caminho ao resultado passa pelo gate | S0 e S1 não alcançam S5 por evento nenhum |
+| Falha do gate sempre termina em `E1` | `GateFailed` de qualquer estado |
+| Nenhum estado vivo é poço | Todo estado ≠ S0 tem transição de saída |
+| Todo cartão dispara áudio | Toda transição para S5/E1 contém `speakResult` |
+
+**Um defeito sério, achado pelo teste de widget.** A conversão de
+`severity_level` para classe visual tinha limiares fixos em Dart (`<= 1` rotina,
+`2` atenção, resto emergência). **O pack real usa a escala 10/100** — então todo
+resultado de rotina caía no `resto` e era pintado de **vermelho, com "Ligue 192"
+embaixo**. Para quem depende da cor por não ler o texto, isso é a mensagem
+oposta à correta, no lugar mais crítico do app.
+
+A causa não foi um número errado: foi a UI ter **inventado uma escala**.
+`severity_level` é definido pelo conteúdo, que é revisado clinicamente e pode
+mudar de pack para pack. A correção move a classificação para
+`severityFor(level, model)`, que deriva os extremos dos desfechos do próprio
+pack — os mesmos que o gate lê. Nenhum limiar clínico sobrou em Dart.
+
+De quebra, o enum `GubsSeverity` saiu do tema e foi para o domínio da triagem: a
+regra de dependência da espec §2.2 é `ui → triage`, e severidade dentro da
+paleta convidava a decidir severidade a partir de cor.
+
+**Composição em três passos**, correspondendo aos `kind` da ontologia
+(`body_part`, `symptom`, `modifier`). A FSM permanece em `S1_COMPOSING` nos
+três: compor é um estado só, e os passos são apresentação. Uma rota por passo
+criaria estados de navegação que a máquina clínica não reconhece — o botão
+voltar do Android pularia para um passo sem a composição correspondente.
+
+**Redundância de canal na seleção.** Ícone selecionado muda por quatro canais
+simultâneos: cor de fundo, espessura da borda, marca de conferido e negrito.
+Cor sozinha exclui quem tem deficiência de visão de cores; texto sozinho exclui
+quem não lê. Este app não pode escolher um dos dois.
+
+**Verificado no aparelho** (Motorola Edge 40 Neo, pack real no sandbox):
+composição nos três passos em espanhol; `peito + dor + muito forte` →
+**cartão vermelho** com "Llama al 192" e sem aviso de degradação (red flag não é
+degradação, é o caminho previsto); `garganta + dor` → **cartão verde** com o
+aviso de degradação (motor ausente ⇒ S4). **O TTS falou de verdade** —
+`Utterance ID has started` no logcat, fechando o TODO que o item 10 deixou. Zero
+erros de runtime.
+
+**Sabotagem: 7 proteções desligadas, 7 pegas.** A sétima só passou a ser coberta
+depois: nenhum teste cobria o mapeamento `icon_ref` → ícone, e numa interface
+iconográfica um ícone que some remove a opção inteira de quem não lê o rótulo.
+Agora há teste que exige que todo token do pack real tenha ícone próprio, e que
+ícones dentro de uma mesma família sejam distintos entre si — dois sintomas com
+o mesmo desenho são, para esse usuário, o mesmo botão.
+
+**Uma tensão de produto registrada, não resolvida em código.** A convenção de
+"máximo 8 elementos por tela" (CLAUDE.md) casa com `body_part` (8) e `modifier`
+(6), mas `symptom` tem **12** e a grade rola. Resolver de verdade exige um dos
+dois, e ambos são decisão de conteúdo com dupla revisão clínica: subconjunto de
+sintomas por parte do corpo (exige tabela de associação no pack, que hoje não
+existe) ou redução da ontologia. Fica anotado para a revisão clínica do piloto.
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only.

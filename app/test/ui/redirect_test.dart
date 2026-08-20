@@ -71,7 +71,7 @@ void main() {
     });
 
     test('a triagem, sim, fica travada enquanto o modelo não está pronto', () {
-      for (final path in ['/triagem', '/triagem/sintomas', '/triagem/resultado']) {
+      for (final path in ['/triagem', '/triagem/resultado']) {
         expect(redirect(path, stage: SetupStage.blocked), setupGatePath);
       }
     });

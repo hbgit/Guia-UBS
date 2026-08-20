@@ -17,6 +17,23 @@ import 'package:meta/meta.dart';
 import '../engine/triage_engine.dart';
 import 'routing_rule.dart';
 
+/// Classe clínica de um desfecho, usada para escolher ícone, cor e ênfase.
+///
+/// Vive no domínio da triagem, e não no tema: é uma classificação clínica que
+/// a UI CONSOME. A regra de dependência da espec §2.2 é `ui → triage`, nunca o
+/// contrário — e um enum de severidade dentro da paleta convidaria a decidir
+/// severidade a partir de cor, que é a inversão exata que a INV-1 proíbe.
+enum GubsSeverity {
+  /// Rotina: procurar a UBS. Verde.
+  routine,
+
+  /// Entre rotina e emergência: procurar atendimento sem urgência máxima.
+  attention,
+
+  /// Emergência: UPA, hospital ou 192. Vermelho.
+  emergency,
+}
+
 /// De onde veio o desfecho final apresentado ao usuário.
 enum TriageSource {
   /// Gate determinístico decidiu sozinho (red flag ou modelo sem opinião).
@@ -90,4 +107,38 @@ TriageResult mergeVerdict(
     degraded: degraded,
     matchedRuleId: gate.matchedRuleId,
   );
+}
+
+/// Classe visual de um `severity_level`, **relativa à escala do pack**.
+///
+/// ===========================================================================
+/// CÓDIGO CRÍTICO DE SEGURANÇA DO PACIENTE
+/// ===========================================================================
+///
+/// `severity_level` é um inteiro definido pelo CONTEÚDO, não pelo binário: o
+/// pack semente usa 10 para rotina e 100 para emergência, e um município pode
+/// publicar outra escala amanhã. Limiares fixos em Dart são, portanto, uma
+/// segunda fonte de verdade sobre severidade clínica — e a primeira versão
+/// desta conversão tinha exatamente isso, o que fazia todo resultado de rotina
+/// aparecer vermelho, com "Ligue 192" embaixo.
+///
+/// Aqui os extremos vêm dos desfechos do próprio pack, os mesmos que o gate lê:
+///
+/// * `level >= max` → emergência (é a definição de red flag em [isRedFlag]);
+/// * `level <= min` → rotina;
+/// * entre os dois → atenção.
+///
+/// **Fail-safe para cima:** um pack degenerado, sem desfechos, devolve
+/// emergência. Na dúvida, o conservador é mandar procurar atendimento — custa
+/// um cartão vermelho a mais; o contrário custa um encaminhamento errado.
+GubsSeverity severityFor(int level, RuleModel model) {
+  if (model.outcomes.isEmpty) return GubsSeverity.emergency;
+
+  final levels = model.outcomes.values.map((o) => o.severityLevel);
+  final max = levels.reduce((a, b) => a > b ? a : b);
+  final min = levels.reduce((a, b) => a < b ? a : b);
+
+  if (level >= max) return GubsSeverity.emergency;
+  if (level <= min) return GubsSeverity.routine;
+  return GubsSeverity.attention;
 }

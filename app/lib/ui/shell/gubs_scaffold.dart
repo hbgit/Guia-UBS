@@ -41,6 +41,7 @@ class GubsScaffold extends StatelessWidget {
     this.subtitle,
     this.onListen,
     this.accent,
+    this.onBack,
     super.key,
   });
 
@@ -54,11 +55,18 @@ class GubsScaffold extends StatelessWidget {
   /// Cor semântica desta tela. `null` usa a de informação (azul).
   final Color? accent;
 
+  /// Ação do botão voltar. `null` usa o destino do manifesto de rotas.
+  ///
+  /// A composição precisa disto: o voltar dela recua um PASSO, e só sai da
+  /// triagem no primeiro. Sem o gancho, sair no meio exigiria "casa" e a
+  /// composição inteira se perderia sem aviso.
+  final VoidCallback? onBack;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.gubs;
     final l = L.of(context);
-    final back = _backTarget(context);
+    final back = onBack ?? _backTarget(context);
 
     return Scaffold(
       body: SafeArea(

@@ -97,7 +97,6 @@ abstract final class Routes {
   static const setup = 'setup';
   static const home = 'home';
   static const triageBody = 'triageBody';
-  static const triageSymptoms = 'triageSymptoms';
   static const triageResult = 'triageResult';
   static const emergency = 'emergency';
   static const flow = 'flow';
