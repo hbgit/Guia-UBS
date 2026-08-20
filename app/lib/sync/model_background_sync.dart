@@ -20,16 +20,14 @@ import 'model_catalog.dart';
 import 'model_downloader.dart';
 import 'model_sync_scheduler.dart';
 
-/// Ponto de entrada do isolate de background.
+/// Executa a tarefa de download do modelo.
 ///
-/// `@pragma('vm:entry-point')` é obrigatório: sem ele o compilador AOT remove
-/// esta função do binário de release, e o trabalho agendado falha em produção
-/// enquanto continua funcionando em debug.
-@pragma('vm:entry-point')
-void modelSyncCallbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    if (task != modelSyncTaskName) return true;
-
+/// Não é o dispatcher: o WorkManager tem UM ponto de entrada, em
+/// `background_sync.dart`, que roteia as tarefas. Ver o comentário de lá para
+/// o defeito que essa separação corrigiu.
+///
+/// Devolve `false` para pedir reagendamento com backoff.
+Future<bool> runModelSyncTask() async {
     final dir = await modelsDirectory();
     final downloader = ModelDownloader(
       artifact: activeModel,
@@ -53,7 +51,6 @@ void modelSyncCallbackDispatcher() {
     } finally {
       downloader.close();
     }
-  });
 }
 
 /// Traduz a política do projeto para as restrições do WorkManager.
@@ -92,6 +89,3 @@ Future<void> scheduleModelSync({
 Future<void> cancelModelSync() =>
     Workmanager().cancelByUniqueName(modelSyncTaskName);
 
-/// Inicializa o WorkManager. Deve ser chamado uma vez, no `main`.
-Future<void> initModelBackgroundSync() =>
-    Workmanager().initialize(modelSyncCallbackDispatcher);

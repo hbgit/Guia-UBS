@@ -471,7 +471,7 @@ modelo SLM corrigiu, e a lição está anotada no código.
 12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado. ✅
 13. Encaminhamento, fluxo, documentos. ✅
 14. `privacy/` (CAP-13) + `telemetry/` com allowlist. ✅
-15. `sync/` endurecido: backoff+jitter, circuit breaker, guard de quiescência.
+15. `sync/` endurecido: backoff+jitter, circuit breaker, guard de quiescência. ✅
 **Saída:** APK com jornadas verde/vermelha/sync passando em device farm.
 
 #### 5.3 Resultado do item 10 — casca do app (2026-08-19)
@@ -817,6 +817,66 @@ está escrita no teste, não implícita.
 filtrando só na saída, desligar sem apagar o já contado, apagar virando ação de
 um toque, `wipe` deixando o idioma para trás, e preferência nova invisível na
 tela.
+
+#### 5.8 Resultado do item 15 — sync endurecido (2026-08-19)
+
+O item 9 entregou a FSM-B correta. Este item corrigiu o fato de que **dois dos
+seus freios não existiam no aparelho**, só no código.
+
+**O circuito e o backoff viviam em memória.** O WorkManager executa o trabalho
+num **isolate novo a cada disparo**: um isolate recém-criado nasce com o
+circuito fechado e sem backoff pendente. O freio funcionava em teste e no app
+aberto, e nunca em produção — uma frota sem rede voltaria a bater no servidor a
+cada janela, com o circuito "aberto" em memórias que já morreram.
+
+Agora o estado vive em disco, ao lado do ETag e das blacklists (mesmo arquivo,
+mesma vida útil, longe da superfície auditável do `user.db`). E o circuito
+deixou de ser um booleano *"aberto até a próxima janela"* para virar um
+**instante** *"fechado a partir de"* — um processo que acabou de nascer não sabe
+em que janela está, mas sabe que horas são.
+
+**Um furo que o teste de persistência revelou.** Restaurar o estado do disco não
+bastava: um processo novo nasce em `p0Steady`, e a linha B1 só consulta o
+circuito — o backoff é guarda da linha B14, que sai de `f1Retryable`. Cada
+reinício pulava o backoff e ia direto à rede. A correção restaura também a
+**posição** da máquina: se há falhas registradas, ela estava em F1 quando o
+processo morreu.
+
+**O guard de quiescência tinha o que proteger e não tinha o que consultar.** Era
+um callback que ninguém fornecia. Agora ele pergunta ao controlador de triagem
+se a FSM-A está em `S0_IDLE`, que é o que a linha B11 exige. E adiar não conta
+como falha: se contasse, cinco triagens seguidas abririam o circuito e o
+aparelho pararia de sincronizar **justamente por estar sendo usado**.
+
+**O erro de projeto mais silencioso do item.** `Workmanager().initialize()`
+aceita **uma** função, que recebe todas as tarefas. Havia dois dispatchers — um
+para o modelo, outro para o pack — e só o do modelo era registrado. O do pack
+existia, compilava, tinha comentário explicando seu papel, e nunca seria
+chamado: a tarefa de conteúdo caía no `if (task != modelSyncTaskName) return
+true` do outro e era silenciosamente marcada como concluída. O sync estaria
+agendado e nunca aconteceria; nada falharia e nenhum log apareceria. Hoje há um
+único ponto de entrada que roteia as tarefas.
+
+**Política do pack ≠ política do modelo.** O modelo exige rede não tarifada; o
+pack, não. São ~800 MB baixados uma vez contra centenas de KB que carregam
+correção clínica revisada — um posto sem Wi-Fi não pode ficar meses com
+orientação desatualizada porque a política de um arquivo mil vezes maior foi
+aplicada a ele.
+
+**Duas sabotagens escaparam, e uma delas apontou código morto.** Desligar o teto
+do backoff não quebrou teste nenhum: com orçamento de 5 falhas, `n` nunca passa
+de 4 e `2^4` são 16 segundos — o teto **não binda com os parâmetros de hoje**.
+Ele ficou, porque `2^11` já passa de meia hora e `2^16` passa de 18 horas, e um
+freio que nunca solta é indistinguível de um app que parou de sincronizar; mas
+agora o cálculo é uma função pura, testada fora da faixa alcançável. A outra
+sabotagem — remover o jitter — também passava, porque jitter é propriedade da
+frota e não de um aparelho; virou teste sobre a dispersão entre sementes.
+
+**Verificado no aparelho:** os dois trabalhos periódicos coexistem com
+restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW`
+(pack) —, período de 6 h, zero erros de runtime.
+
+**Sabotagem: 7 proteções, 7 pegas** depois de fechar as duas lacunas acima.
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only.

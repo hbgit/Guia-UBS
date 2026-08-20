@@ -28,6 +28,7 @@ import 'pack_manifest.dart';
 import 'pack_store.dart';
 import 'resumable_downloader.dart';
 import 'sync_fsm.dart';
+import 'sync_retry_state.dart';
 
 /// Relatório de um ciclo. Serve ao teste e ao log local — **nunca à tela**:
 /// sync é invisível para o usuário (INV-8).
@@ -109,27 +110,18 @@ class SyncService {
   /// Versão recusada mais alta — usada para decidir a saída de F2 (linha B16).
   int _rejectedVersion = 0;
 
-  int _failures = 0;
-  bool _circuitOpen = false;
-  DateTime? _nextAttemptAt;
+  /// Estado de retentativa do ciclo corrente, lido do disco no início de cada
+  /// `runCycle`. Ver `sync_retry_state.dart` para por que ele não pode viver
+  /// só aqui.
+  SyncRetryState _retry = SyncRetryState.clean;
 
   SyncState get state => _state;
 
-  /// Circuito aberto até a próxima janela do agendador.
-  bool get circuitOpen => _circuitOpen;
+  /// Circuito aberto agora.
+  bool get circuitOpen => !_retry.circuitClosedAt(_now());
 
-  /// Abre uma janela do agendador.
-  ///
-  /// O circuito é um freio de curta duração, não punição permanente: a linha
-  /// B15 diz "até a próxima janela do WorkManager", e é este método que marca
-  /// essa fronteira. Um ciclo isolado NÃO a marca — se marcasse, o orçamento
-  /// de 5 falhas nunca se esgotaria, porque cada tentativa recomeçaria a
-  /// contagem e o aparelho ficaria tentando a rede indefinidamente.
-  void beginWindow() {
-    _circuitOpen = false;
-    _failures = 0;
-    _nextAttemptAt = null;
-  }
+  /// Estado de retentativa como está em memória neste instante.
+  SyncRetryState get retryState => _retry;
 
   /// Executa um ciclo completo. **Nunca lança** — falha de sync jamais pode
   /// derrubar o app (INV-8).
@@ -137,12 +129,26 @@ class SyncService {
     _rules.clear();
 
     try {
+      _retry = await store.readRetryState();
+
+      // Restaura a POSIÇÃO da máquina a partir do estado persistido.
+      //
+      // Um processo novo nasce em `p0Steady`, onde a linha B1 só consulta o
+      // circuito — o backoff é guarda da linha B14, que sai de `f1Retryable`.
+      // Sem isto, cada reinício pularia o backoff e iria direto à rede, o que
+      // é exatamente o caso comum: o WorkManager cria um isolate por disparo.
+      // Se há falhas registradas, a máquina estava em F1 quando o processo
+      // morreu, e é de lá que ela deve continuar.
+      if (_state == SyncState.p0Steady && _retry.failures > 0) {
+        _state = SyncState.f1Retryable;
+      }
+
       return await _cycle();
     } on Object catch (error) {
       // Qualquer exceção não prevista degrada para retentável: o pack ativo
       // continua intacto e o usuário não percebe nada.
       _state = SyncState.f1Retryable;
-      _registerFailure();
+      await _registerFailure();
       return _report('exceção não prevista: $error');
     }
   }
@@ -156,17 +162,23 @@ class SyncService {
         return _attemptSwap();
 
       case SyncState.p0Steady:
-        if (!_fire(OnConnectivity(circuitClosed: !_circuitOpen))) {
-          return _report('circuito aberto');
+        if (!_fire(OnConnectivity(circuitClosed: _retry.circuitClosedAt(_now())))) {
+          return _report('circuito aberto até ${_retry.circuitOpenUntil}');
         }
 
       case SyncState.f1Retryable:
-        final elapsed =
-            _nextAttemptAt == null || !_now().isBefore(_nextAttemptAt!);
+        final now = _now();
         if (!_fire(
-          OnConnectivity(circuitClosed: !_circuitOpen, backoffElapsed: elapsed),
+          OnConnectivity(
+            circuitClosed: _retry.circuitClosedAt(now),
+            backoffElapsed: _retry.backoffElapsedAt(now),
+          ),
         )) {
-          return _report('backoff ainda não decorreu');
+          return _report(
+            _retry.circuitClosedAt(now)
+                ? 'backoff ainda não decorreu'
+                : 'circuito aberto',
+          );
         }
 
       case SyncState.f2Rejected:
@@ -201,7 +213,7 @@ class SyncService {
       response = await _get(etag);
     } on Object catch (error) {
       _fire(const NetworkFailure());
-      _registerFailure();
+      await _registerFailure();
       return _report('manifest inacessível: $error');
     }
 
@@ -213,7 +225,7 @@ class SyncService {
     }
     if (response.body == null) {
       _fire(const NetworkFailure());
-      _registerFailure();
+      await _registerFailure();
       return _report('HTTP ${response.status} no manifest');
     }
 
@@ -325,7 +337,7 @@ class SyncService {
     switch (outcome) {
       case DownloadInterrupted(:final reason):
         _fire(const DownloadWindowClosed());
-        _registerFailure();
+        await _registerFailure();
         // O ETag NÃO é gravado aqui: com download em voo, um 304 no próximo
         // ciclo esconderia o manifest que precisamos para retomar. O que
         // identifica a retomada é o `.parcial` nomeado pelo hash do pack, que
@@ -349,7 +361,7 @@ class SyncService {
         // 4xx no artefato: manifest autêntico, publicação quebrada. Não vai
         // para a blacklist — o hash é legítimo e o operador pode consertar.
         _fire(const DownloadWindowClosed());
-        _registerFailure();
+        await _registerFailure();
         return _report('artefato indisponível: $reason');
 
       case DownloadCompleted():
@@ -389,8 +401,10 @@ class SyncService {
 
     _staged = null;
     _pendingEtag = null;
-    _failures = 0;
-    _nextAttemptAt = null;
+    // Ciclo bem-sucedido zera o freio: o próximo problema recomeça do backoff
+    // mínimo, e não de onde uma falha antiga tinha parado.
+    _retry = SyncRetryState.clean;
+    await store.clearRetryState();
     return _report(
       'pack v${manifest.packVersion} ativo',
       committedVersion: manifest.packVersion,
@@ -438,22 +452,27 @@ class SyncService {
     return true;
   }
 
-  /// Conta a falha e agenda a próxima tentativa com backoff exponencial e
-  /// jitter. Esgotado o orçamento, abre o circuito (linha B15).
-  void _registerFailure() {
-    _failures++;
-    if (_failures >= maxFailuresPerWindow) {
+  /// Conta a falha, agenda a próxima tentativa e **persiste** o resultado.
+  ///
+  /// Persistir é o que faz o freio existir de verdade: o WorkManager executa
+  /// num isolate novo a cada disparo, e um freio em memória morre junto com o
+  /// isolate que o criou.
+  Future<void> _registerFailure() async {
+    final failures = _retry.failures + 1;
+
+    if (failures >= maxFailuresPerWindow) {
       _fire(const RetryBudgetExhausted());
-      _circuitOpen = true;
-      _failures = 0;
+      _retry = SyncRetryState(circuitOpenUntil: _now().add(circuitCooldown));
+      await store.saveRetryState(_retry);
       return;
     }
-    // Jitter em [0,5, 1,5): sem ele, uma frota inteira que perdeu a rede ao
-    // mesmo tempo volta ao mesmo tempo, e o servidor de conteúdo — que é um
-    // VPS único, sem CDN — recebe o pico exatamente quando se recupera.
-    final base = pow(2, _failures).toDouble();
-    final seconds = base * (0.5 + _random.nextDouble());
-    _nextAttemptAt = _now().add(Duration(milliseconds: (seconds * 1000).round()));
+
+    _retry = SyncRetryState(
+      failures: failures,
+      nextAttemptAt: _now().add(backoffDelay(failures, _random)),
+      circuitOpenUntil: _retry.circuitOpenUntil,
+    );
+    await store.saveRetryState(_retry);
   }
 
   SyncReport _report(String detail, {int? committedVersion}) => SyncReport(

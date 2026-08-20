@@ -20,6 +20,10 @@ import '../prefs/preferences_repository.dart';
 import '../speech/speaker.dart';
 import '../telemetry/telemetry_recorder.dart';
 import '../sync/model_provisioning.dart';
+import '../sync/pack_background_sync.dart';
+import '../sync/sync_service.dart';
+import '../triage/orchestrator/triage_fsm.dart';
+import 'triage/triage_controller.dart';
 
 /// Onde o idioma é persistido. Sobrescrito no `main` e nos testes.
 final localeStoreProvider = Provider<LocaleStore>(
@@ -130,14 +134,23 @@ final activeContentProvider = Provider<ActiveContent>(
   (ref) => throw UnimplementedError('activeContentProvider precisa de override'),
 );
 
+/// Contador de trocas de pack.
+///
+/// `ActiveContent` é um objeto mutável: recarregá-lo depois de um commit não
+/// avisa ninguém. Sem este contador, a troca de conteúdo só apareceria na
+/// próxima abertura do app — o `swap` da FSM-B teria acontecido e a tela
+/// continuaria mostrando a versão antiga.
+final contentRevisionProvider = StateProvider<int>((ref) => 0);
+
 /// Leitura do conteúdo, ou `null` enquanto não houver pack instalado.
 ///
 /// As telas tratam `null` como "conteúdo ainda não disponível" e seguem
 /// navegáveis: sem pack, o app não tem o que mostrar, mas continua de pé
 /// (INV-8).
-final contentProvider = Provider<ContentRepository?>(
-  (ref) => ref.watch(activeContentProvider).repository,
-);
+final contentProvider = Provider<ContentRepository?>((ref) {
+  ref.watch(contentRevisionProvider);
+  return ref.watch(activeContentProvider).repository;
+});
 
 /// Código de idioma para as consultas ao pack.
 ///
@@ -215,3 +228,39 @@ final telemetryProvider = Provider<TelemetryRecorder>(
     isEnabled: () => ref.read(telemetryConsentProvider),
   ),
 );
+
+// ---------------------------------------------------------------------------
+// Sync de conteúdo (FSM-B) em primeiro plano
+// ---------------------------------------------------------------------------
+
+/// Ciclo de sync com o guard de quiescência LIGADO na FSM-A de verdade.
+///
+/// No item 9 a quiescência era um callback que ninguém fornecia — a proteção
+/// existia na máquina e não tinha o que consultar. Aqui ela pergunta ao
+/// controlador de triagem se há sessão viva, que é o que a linha B11 exige.
+final packSyncProvider = Provider<SyncService>((ref) {
+  final service = SyncService(
+    manifestUrl: Uri.parse(packManifestUrl),
+    store: ref.watch(activeContentProvider).store,
+    quiescence: () =>
+        ref.read(triageControllerProvider).state == TriageState.s0Idle,
+  );
+  ref.onDispose(service.close);
+  return service;
+});
+
+/// Roda um ciclo e, se houve troca, reabre o conteúdo para as telas.
+///
+/// É a ação "reabre conexões" da linha B11 chegando até a UI. **Nunca lança:**
+/// falha de sync não pode aparecer para o usuário (INV-8).
+Future<void> runPackSyncCycle(WidgetRef ref) async {
+  try {
+    final report = await ref.read(packSyncProvider).runCycle();
+    if (!report.committed) return;
+
+    await ref.read(activeContentProvider).reload();
+    ref.read(contentRevisionProvider.notifier).state++;
+  } on Object {
+    // Sync é invisível: nem sucesso nem falha viram tela.
+  }
+}

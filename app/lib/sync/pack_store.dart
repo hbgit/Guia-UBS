@@ -27,6 +27,7 @@ import 'package:meta/meta.dart';
 
 import 'manifest_verifier.dart';
 import 'pack_manifest.dart';
+import 'sync_retry_state.dart';
 
 /// Nome do manifest ativo. O `.novo` é o arquivo temporário que vira este por
 /// rename — nunca é lido por ninguém.
@@ -218,6 +219,28 @@ class PackStore {
       (await _rejected('rejectedManifests')).contains(digest);
 
   Future<void> rejectManifest(String digest) => _reject('rejectedManifests', digest);
+
+  // -------------------------------------------------------------------------
+  // Retentativa: backoff e circuito
+  // -------------------------------------------------------------------------
+
+  /// Estado de retentativa. Fica no MESMO arquivo do ETag e das blacklists:
+  /// é bookkeeping de sync, não dado do usuário, e não tem por que atravessar
+  /// a superfície auditável do `user.db`.
+  Future<SyncRetryState> readRetryState() async =>
+      SyncRetryState.fromJson((await _readState())['retry']);
+
+  Future<void> saveRetryState(SyncRetryState retry) async {
+    final state = await _readState();
+    state['retry'] = retry.toJson();
+    await _writeState(state);
+  }
+
+  Future<void> clearRetryState() async {
+    final state = await _readState();
+    state.remove('retry');
+    await _writeState(state);
+  }
 }
 
 /// SHA-256 hex de um arquivo, em streaming.

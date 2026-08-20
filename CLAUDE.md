@@ -46,6 +46,12 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **O mapa de rotas é dado** (`app/lib/ui/app_routes.dart`): profundidade, dead-ends e o alcance da exceção da INV-8 são verificados percorrendo a lista, não lendo builders.
 - Strings de casca vivem em `app/lib/l10n/*.arb`; **conteúdo clínico vem do `content.db` assinado**, nunca de ARB.
 
+## Background e sync
+
+- **Um único `callbackDispatcher`** (`app/lib/sync/background_sync.dart`). `Workmanager().initialize()` aceita uma função, que recebe TODAS as tarefas; dois dispatchers significam que só um roda e o outro é silenciosamente descartado.
+- **Freio de sync é estado em disco, não em memória** (`app/lib/sync/sync_retry_state.dart`). O WorkManager cria um isolate por disparo — backoff e circuito guardados em campos de instância não existem em produção. O circuito é um *instante* ("fechado a partir de"), não um booleano.
+- **Adiar a troca por triagem em curso não é falha.** Se contasse no circuito, o app pararia de sincronizar justamente por estar sendo usado.
+
 ## Dados no aparelho
 
 - **`content.db` é somente leitura, e isso é estrutural** (`app/lib/content/`). O app nunca escreve conteúdo: ele troca o arquivo inteiro quando o sync commita (FSM-B). Um caminho de escrita ali seria um caminho para orientação não revisada chegar ao usuário sem assinatura (INV-4). O pack é aberto em `OpenMode.readOnly` e há teste que confirma que o `UPDATE` falha.

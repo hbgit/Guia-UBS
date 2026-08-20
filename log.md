@@ -158,12 +158,39 @@ Item 14 [FEITO]
 
 * 390 → 417 testes. APK 24,7 → 24,8 MB.
 
+Item 15 [FEITO]
+* O item 9 entregou a FSM-B certa. Este item corrigiu o fato de que DOIS dos freios dela não existiam no aparelho — só no código.
+
+* Circuito e backoff viviam em memória. O WorkManager executa num ISOLATE NOVO a cada disparo: um isolate recém-criado nasce com o circuito fechado e sem backoff pendente. O freio funcionava em teste e no app aberto, e nunca em produção. Uma frota sem rede voltaria a bater no servidor a cada janela, com o circuito "aberto" em memórias que já morreram.
+
+* Agora o estado é disco, no mesmo arquivo do ETag e das blacklists — bookkeeping de sync, não dado do usuário, então longe do user.db. E o circuito deixou de ser booleano ("aberto até a próxima janela") para virar INSTANTE ("fechado a partir de"): um processo que acabou de nascer não sabe em que janela está, mas sabe que horas são.
+
+* Persistir não bastou, e o teste mostrou: processo novo nasce em p0Steady, e a linha B1 só consulta o circuito — o backoff é guarda da B14, que sai de f1Retryable. Cada reinício pulava o backoff e ia direto à rede. Agora restauro também a POSIÇÃO da máquina: se há falhas registradas, ela estava em F1 quando o processo morreu.
+
+* O guard de quiescência tinha o que proteger e não tinha o que consultar — era um callback que ninguém fornecia. Agora pergunta ao controlador de triagem se a FSM-A está em S0_IDLE. E adiar NÃO conta como falha: se contasse, cinco triagens seguidas abririam o circuito e o aparelho pararia de sincronizar justamente por estar sendo usado.
+
+* O erro mais silencioso do item: `Workmanager().initialize()` aceita UMA função, que recebe todas as tarefas. Eu tinha dois dispatchers e só o do modelo era registrado. O do pack existia, compilava, tinha comentário explicando seu papel, e nunca seria chamado — a tarefa de conteúdo caía no `if (task != modelSyncTaskName) return true` do outro e era marcada como concluída. O sync estaria agendado e nunca aconteceria; nada falharia, nenhum log apareceria. Achei isso olhando o dumpsys do aparelho, não em teste.
+
+* Política do pack ≠ do modelo: o modelo exige Wi-Fi, o pack não. São ~800 MB baixados uma vez contra centenas de KB que carregam correção clínica — um posto sem Wi-Fi não pode ficar meses com orientação velha porque a política de um arquivo mil vezes maior foi aplicada a ele.
+
+* Sabotagem: 7 proteções, 5 pegas de primeira. As duas que escaparam valem nota. Desligar o teto do backoff não quebrou nada porque, com orçamento de 5 falhas, `n` nunca passa de 4 e `2^4` são 16 segundos — o teto é código morto com os parâmetros de hoje. Mantive (2^11 já passa de meia hora; um freio que nunca solta é indistinguível de app que parou de sincronizar) mas virou função pura testada fora da faixa alcançável. E remover o jitter também passava, porque jitter é propriedade da FROTA, não de um aparelho — virou teste sobre a dispersão entre sementes.
+
+* Também corrigi um comentário meu que exagerava: eu tinha escrito que `2^n` "vira dias por volta da décima falha". São 17 minutos. O teste me obrigou a olhar o número.
+
+* Verificado no aparelho: os dois trabalhos periódicos coexistem com restrições distintas — NET BATNOTLOW STORENOTLOW (modelo) e NET BATNOTLOW (pack) —, período de 6h, zero erros de runtime.
+
+* [TODO] Não esperei uma janela periódica real disparar (6h). O que verifiquei foi o REGISTRO e as restrições; a execução do ciclo em background continua sem prova de campo.
+
+* [TODO] `packManifestUrl` aponta para o MinIO local por padrão. Precisa de `--dart-define` no build de produção, como as chaves de assinatura.
+
+* 417 → 438 testes.
+
 
 Item 12 [FEITO] << Checkout
 * Dívida do item 10 paga: setupCompleted e o override de dados móveis viviam na memória do processo. Quem escolhia "usar sem a IA assistente" revia a apresentação de valor a cada abertura; um posto sem Wi-Fi voltava a recusar o download depois de o administrador já ter autorizado.
 * [TODO] Não verificado: a tela de privacidade (CAP-13/LGPD-RF03) não existe — wipe() está implementado e testado, mas nenhuma tela o aciona; é o item 14. Nenhuma tela lê os repositórios de conteúdo ainda (itens 12–13). E não inspecionei o user.db em disco no aparelho: build release não permite run-as — verifiquei o comportamento, não o arquivo.
 
-Item 15 [TODO]
+## FASE 3 [TODO]
 
 ---
 

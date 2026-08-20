@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/sync/manifest_verifier.dart';
 import 'package:guia_ubs/sync/pack_signing_keys.dart';
 import 'package:guia_ubs/sync/pack_store.dart';
+import 'package:guia_ubs/sync/sync_retry_state.dart';
 import 'package:guia_ubs/sync/sync_fsm.dart';
 import 'package:guia_ubs/sync/sync_service.dart';
 
@@ -444,13 +445,12 @@ void main() {
       expect(await store.loadActive(), isNull);
     });
 
-    test('cinco falhas na mesma janela abrem o circuito', () async {
+    test('cinco falhas seguidas abrem o circuito', () async {
       origin.manifestStatus = 503;
-      service.beginWindow();
 
       for (var i = 0; i < 5; i++) {
         await service.runCycle();
-        advance(const Duration(minutes: 5)); // backoff decorrido
+        advance(const Duration(minutes: 45)); // backoff decorrido
       }
 
       expect(service.circuitOpen, isTrue);
@@ -461,16 +461,28 @@ void main() {
       final blocked = await service.runCycle();
       expect(blocked.rules, isEmpty);
       expect(origin.manifestRequests, requests);
-
-      // A janela seguinte do agendador solta o freio.
-      service.beginWindow();
-      expect(service.circuitOpen, isFalse);
     });
 
-    test('o backoff impede martelar o servidor dentro da mesma janela',
-        () async {
+    test('o circuito solta sozinho depois do período de espera', () async {
+      // "Até a próxima janela do WorkManager" virou um INSTANTE, e não um
+      // booleano: um isolate recém-nascido não sabe em que janela está, mas
+      // sabe que horas são.
       origin.manifestStatus = 503;
-      service.beginWindow();
+      for (var i = 0; i < 5; i++) {
+        await service.runCycle();
+        advance(const Duration(minutes: 45));
+      }
+      expect(service.circuitOpen, isTrue);
+
+      advance(circuitCooldown + const Duration(minutes: 1));
+
+      expect(service.circuitOpen, isFalse);
+      origin.manifestStatus = null;
+      expect((await service.runCycle()).committedVersion, 1);
+    });
+
+    test('o backoff impede martelar o servidor', () async {
+      origin.manifestStatus = 503;
       await service.runCycle();
       final requests = origin.manifestRequests;
 
@@ -478,6 +490,78 @@ void main() {
 
       expect(tooSoon.detail, contains('backoff'));
       expect(origin.manifestRequests, requests);
+    });
+
+    test('o backoff tem teto — o aparelho nunca desiste para sempre', () async {
+      // Sem teto, `2^n` passa de dias na décima falha, e um freio que nunca
+      // solta é indistinguível de um app que parou de sincronizar.
+      origin.manifestStatus = 503;
+
+      for (var i = 0; i < 4; i++) {
+        await service.runCycle();
+        advance(const Duration(hours: 1));
+      }
+
+      final retry = service.retryState;
+      expect(retry.nextAttemptAt, isNotNull);
+      expect(
+        retry.nextAttemptAt!.difference(clock),
+        lessThanOrEqualTo(maxBackoff),
+      );
+    });
+
+    test('o freio SOBREVIVE ao processo — é o que o WorkManager exige',
+        () async {
+      // O item 9 guardava isto em memória. O WorkManager executa num isolate
+      // NOVO a cada disparo, então um freio em memória morre junto com o
+      // isolate que o criou: o circuito existia no código e não existia no
+      // aparelho.
+      origin.manifestStatus = 503;
+      for (var i = 0; i < 5; i++) {
+        await service.runCycle();
+        advance(const Duration(minutes: 45));
+      }
+      expect(service.circuitOpen, isTrue);
+
+      // Processo novo, mesmo diretório.
+      service.close();
+      service = build();
+
+      final requests = origin.manifestRequests;
+      final blocked = await service.runCycle();
+
+      expect(blocked.rules, isEmpty, reason: 'o circuito não sobreviveu');
+      expect(origin.manifestRequests, requests);
+      expect(service.circuitOpen, isTrue);
+    });
+
+    test('o backoff também sobrevive ao processo', () async {
+      origin.manifestStatus = 503;
+      await service.runCycle();
+
+      service.close();
+      service = build();
+      final requests = origin.manifestRequests;
+
+      final tooSoon = await service.runCycle();
+
+      expect(tooSoon.detail, contains('backoff'));
+      expect(origin.manifestRequests, requests);
+    });
+
+    test('um ciclo bem-sucedido zera o freio', () async {
+      origin.manifestStatus = 503;
+      await service.runCycle();
+      expect(service.retryState.failures, 1);
+
+      origin.manifestStatus = null;
+      advance(const Duration(minutes: 45));
+      await service.runCycle();
+
+      expect(service.retryState.failures, 0);
+      expect(service.retryState.nextAttemptAt, isNull);
+      // E o disco também: o próximo problema recomeça do backoff mínimo.
+      expect((await store.readRetryState()).failures, 0);
     });
 
     test('pack ativo sobrevive a servidor indisponível', () async {
@@ -537,6 +621,61 @@ void main() {
       store.packFile(packV1Hash).writeAsBytesSync(utf8.encode('outro banco'));
 
       expect(await store.loadActive(), isNull);
+    });
+  });
+
+  group('guard de quiescência (linha B11)', () {
+    test('a troca espera a triagem terminar, e não perde o download', () async {
+      idle = false;
+
+      final deferred = await service.runCycle();
+      expect(deferred.state, SyncState.p4Staged);
+      expect(await store.loadActive(), isNull);
+
+      idle = true;
+      final committed = await service.runCycle();
+
+      expect(committed.committedVersion, 1);
+      expect(
+        origin.packRequests,
+        1,
+        reason: 'o ciclo adiado não pode re-baixar o que já verificou',
+      );
+    });
+
+    test('adiar não conta como falha — a triagem não é problema de rede',
+        () async {
+      // Se o adiamento entrasse no contador do circuito, cinco triagens
+      // seguidas abririam o circuito e o aparelho pararia de sincronizar
+      // justamente por estar sendo usado.
+      idle = false;
+
+      for (var i = 0; i < 6; i++) {
+        await service.runCycle();
+      }
+
+      expect(service.retryState.failures, 0);
+      expect(service.circuitOpen, isFalse);
+      expect((await store.readRetryState()).failures, 0);
+    });
+
+    test('o adiamento sobrevive ao processo sem re-baixar', () async {
+      idle = false;
+      await service.runCycle();
+      final requests = origin.packRequests;
+
+      // Processo novo: o staging está em disco, nomeado pelo hash.
+      service.close();
+      service = build();
+      idle = true;
+      final committed = await service.runCycle();
+
+      expect(committed.committedVersion, 1);
+      expect(
+        origin.packRequests,
+        requests,
+        reason: 'o artefato verificado já estava em disco',
+      );
     });
   });
 

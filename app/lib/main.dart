@@ -25,10 +25,12 @@ import 'prefs/preferences_repository.dart';
 import 'prefs/user_database_connection.dart';
 import 'speech/speaker.dart';
 import 'sync/pack_store.dart';
+import 'sync/background_sync.dart';
 import 'sync/model_background_sync.dart';
 import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
+import 'sync/pack_background_sync.dart';
 import 'ui/app_scope.dart';
 import 'ui/router_provider.dart';
 import 'ui/triage/triage_controller.dart';
@@ -40,9 +42,13 @@ Future<void> main() async {
   // Falha aqui não pode impedir o app de abrir: sem agendador, o modelo só é
   // baixado em primeiro plano — degradação, não impedimento (INV-8).
   try {
-    await initModelBackgroundSync();
+    await initBackgroundSync();
+    // O sync de conteúdo (FSM-B) também roda em background: o usuário nunca
+    // pede um sync, então ele precisa acontecer sem ninguém abrir o app.
+    await schedulePackSync();
   } on Object {
-    // Segue sem sync em background.
+    // Segue sem sync em background. O ciclo de primeiro plano ainda roda ao
+    // voltar do segundo plano, e o pack ativo continua servindo conteúdo.
   }
 
   final support = await appSupportDirectory();
@@ -131,10 +137,12 @@ class GuiaUbsApp extends ConsumerStatefulWidget {
   ConsumerState<GuiaUbsApp> createState() => _GuiaUbsAppState();
 }
 
-class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp> {
+class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Idioma persistido, se houver — é o que decide entre abrir na tela de
     // seleção ou direto no app.
     ref.read(localeControllerProvider.notifier).restore();
@@ -164,6 +172,25 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp> {
           break;
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Um ciclo de sync ao voltar para o primeiro plano.
+  ///
+  /// Complementa o trabalho periódico, não o substitui: em aparelho que fica
+  /// dias sem rede, a janela do WorkManager pode não encontrar conectividade, e
+  /// abrir o app costuma coincidir com estar num lugar que tem Wi-Fi. O freio
+  /// persistido impede que isso vire uma batida no servidor a cada abertura.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      runPackSyncCycle(ref).ignore();
+    }
   }
 
   @override
