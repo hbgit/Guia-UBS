@@ -45,11 +45,18 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **O mapa de rotas é dado** (`app/lib/ui/app_routes.dart`): profundidade, dead-ends e o alcance da exceção da INV-8 são verificados percorrendo a lista, não lendo builders.
 - Strings de casca vivem em `app/lib/l10n/*.arb`; **conteúdo clínico vem do `content.db` assinado**, nunca de ARB.
 
+## Dados no aparelho
+
+- **`content.db` é somente leitura, e isso é estrutural** (`app/lib/content/`). O app nunca escreve conteúdo: ele troca o arquivo inteiro quando o sync commita (FSM-B). Um caminho de escrita ali seria um caminho para orientação não revisada chegar ao usuário sem assinatura (INV-4). O pack é aberto em `OpenMode.readOnly` e há teste que confirma que o `UPDATE` falha.
+- **Falta de tradução recua para `pt`, não some com o item.** O packer bloqueia publicação com tradução faltando, então recuo no aparelho é defeito — mas sumir com "Onde ir" de quem precisa é pior que mostrá-lo em português para um hispanofalante. O recuo é sinalizado em `Localized.isFallback`.
+- **O esquema do `user.db` é a superfície auditável da LGPD** (`app/lib/prefs/user_database.dart`). Colunas **tipadas**, nunca chave-valor: as colunas são a resposta a "o que este app guarda sobre a pessoa", e `test/prefs/lgpd_surface_test.dart` as enumera. Coluna nova reprova o build até ser justificada contra a INV-2 e a LGPD-RF13. Sintoma é dado sensível de saúde e **não** é persistido — a sequência morre em memória.
+
 ## Comandos
 
 ```sh
 # App Flutter (rodar de dentro de app/)
 flutter pub get                 # tambem GERA as classes de i18n a partir de lib/l10n/*.arb
+dart run build_runner build     # GERA os *.g.dart do Drift (user.db) — sem isso, analyze reprova
 flutter analyze --fatal-infos   # o CI usa --fatal-infos; info vira erro
 flutter test                    # suite completa
 flutter test test/triage/       # so um diretorio
@@ -63,6 +70,8 @@ SOURCE_DATE_EPOCH=1787097600 PACK_SIGNING_KEY_PATH=contract/keys/dev-k1.pem \
 npm run contract:check          # codegen fora de sincronia = build vermelho
 docker compose -f infra/compose.yaml config --quiet
 ```
+
+**Código gerado não é versionado.** `lib/l10n/app_localizations*.dart` (i18n) e `**/*.g.dart` (Drift) estão no `.gitignore`. O i18n sai do próprio `flutter pub get`; o Drift exige `dart run build_runner build`. Em checkout limpo, pular esse comando produz ~35 erros de análise que não têm nada a ver com o código escrito.
 
 **`SOURCE_DATE_EPOCH` no packer não é opcional quando o hash importa.** Sem ele o `built_at` recebe o relógio de parede e duas builds do mesmo conteúdo produzem `content.db` diferentes — o que invalida as fixtures de teste e, em produção, faria a frota re-baixar o pack a cada republicação.
 

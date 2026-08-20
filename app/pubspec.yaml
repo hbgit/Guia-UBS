@@ -56,6 +56,12 @@ dependencies:
   # o estado, seria pagar a migracao duas vezes — a hora de reavaliar e no
   # item 12, quando a triagem for escrita.
   flutter_riverpod: ^2.6.1
+  # user.db — preferencias do aparelho (stack.md §2). NAO guarda dado clinico:
+  # a sequencia de sintomas morre em memoria (INV-2 / LGPD-RF13). O esquema usa
+  # colunas TIPADAS de proposito, e nao chave-valor: as colunas sao a lista
+  # exaustiva do que o app persiste, e um teste as enumera. Com chave-valor,
+  # "o que guardamos sobre o usuario" deixaria de ser verificavel estaticamente.
+  drift: ^2.31.0
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +80,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Lê a suite golden clínica nos testes (mesmo arquivo que o packer usa).
   yaml: ^3.1.2
+  # Codegen do Drift. Os arquivos .g.dart nao sao versionados — ver .gitignore.
+  drift_dev: ^2.31.0
+  build_runner: ^2.15.1
 
 flutter:
   uses-material-design: true

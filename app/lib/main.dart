@@ -18,10 +18,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'content/data/active_content.dart';
 import 'core/app_paths.dart';
 import 'l10n/app_localizations.dart';
-import 'prefs/locale_store.dart';
+import 'prefs/preferences_repository.dart';
+import 'prefs/user_database_connection.dart';
 import 'speech/speaker.dart';
+import 'sync/pack_store.dart';
 import 'sync/model_background_sync.dart';
 import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
@@ -41,23 +44,38 @@ Future<void> main() async {
     // Segue sem sync em background.
   }
 
-  final localeStore = FileLocaleStore(
-    File('${(await appSupportDirectory()).path}/locale.json'),
-  );
+  final support = await appSupportDirectory();
+
+  // `user.db` (item 11) substitui o `locale.json` do item 10. A migração traz
+  // o idioma já escolhido: trocar de armazenamento sem ela faria todo aparelho
+  // em uso voltar a perguntar o idioma.
+  final preferences = PreferencesRepository(await openUserDatabase());
+  await preferences.migrateFromFile(File('${support.path}/locale.json'));
+
+  // Pack de conteúdo. Abrir aqui, e não na primeira tela, faz um pack
+  // corrompido virar "conteúdo indisponível" antes de qualquer navegação.
+  final content = ActiveContent(PackStore(await packsDirectory()));
+  await content.reload();
+
+  // Override de dados móveis: decisão do administrador do posto, tomada uma
+  // vez e válida até ser desfeita. Antes do `user.db` ela se perdia a cada
+  // fechamento do app — e um posto sem Wi-Fi voltava a recusar o download.
+  final stored = await preferences.readAll();
+  final provisioning = ModelProvisioning(
+    artifact: activeModel,
+    destinationDirectory: modelsDirectory,
+    networkClass: currentNetworkClass,
+  )..allowMeteredNetworks = stored.allowMeteredDownload;
 
   runApp(
     ProviderScope(
       overrides: [
-        localeStoreProvider.overrideWithValue(localeStore),
+        preferencesProvider.overrideWithValue(preferences),
+        localeStoreProvider.overrideWithValue(preferences),
+        activeContentProvider.overrideWithValue(content),
         speakerProvider.overrideWithValue(SystemSpeaker()),
         localModelPickerProvider.overrideWithValue(pickModelFromStorage),
-        provisioningProvider.overrideWithValue(
-          ModelProvisioning(
-            artifact: activeModel,
-            destinationDirectory: modelsDirectory,
-            networkClass: currentNetworkClass,
-          ),
-        ),
+        provisioningProvider.overrideWithValue(provisioning),
       ],
       child: const GuiaUbsApp(),
     ),
@@ -115,11 +133,18 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp> {
     // Idioma persistido, se houver — é o que decide entre abrir na tela de
     // seleção ou direto no app.
     ref.read(localeControllerProvider.notifier).restore();
+    ref.read(setupCompletedProvider.notifier).restore();
 
     // O agendador só interessa enquanto falta modelo. Quando o provisionamento
     // conclui, cancelamos: manter um job periódico para baixar algo que já
     // existe é gasto de bateria sem contrapartida.
     ref.read(provisioningProvider).states.listen((state) {
+      // Sair do estado de bloqueio — concluindo ou desistindo — encerra o
+      // First-Time Setup para sempre. Persistir aqui, e não na tela, garante
+      // que a decisão sobreviva a um fechamento do app no instante seguinte.
+      if (!state.blocksClinicalScreen) {
+        ref.read(setupCompletedProvider.notifier).markCompleted();
+      }
       switch (state.stage) {
         case SetupStage.ready:
           cancelModelSync().ignore();

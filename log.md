@@ -60,6 +60,38 @@ Item 10 [FEITO]
 
 * [TODO] Não verifiquei o TTS falando de verdade no aparelho: o `speech/` está testado contra engine de mentira (incluindo ROM sem engine e engine que não responde), mas nenhuma tela ainda tem botão de áudio para acionar. Isso vem com o item 12.
 
+Item 11 [FEITO]
+* Duas camadas de dados com regras opostas, e é a oposição que importa. `content/` SÓ LÊ um arquivo que chega assinado de fora; `prefs/` é o único lugar do aparelho onde o app escreve — e por isso é a superfície que a LGPD audita.
+
+* O `content.db` abre em `OpenMode.readOnly` e tem teste que confirma que um UPDATE lança. Não é convenção: a INV-4 diz que conteúdo clínico só entra por pack assinado com dupla revisão, e um caminho de escrita no device seria um caminho para orientação não revisada chegar ao usuário sem passar pela assinatura.
+
+* Decisão sobre idioma faltando: RECUAR para pt, não sumir com o item. O packer já bloqueia publicação com tradução faltando, então recuo no aparelho é defeito — mas sumir com "Onde ir" de quem precisa é pior que mostrá-lo em português para um hispanofalante. O ícone continua certo e as duas línguas são próximas. O recuo fica sinalizado em `Localized.isFallback` para telemetria agregada contar o defeito, nunca para a tela.
+
+* O esquema do `user.db` usa colunas TIPADAS e não chave-valor, de propósito. Uma tabela (chave, valor) aceitaria qualquer coisa que qualquer código futuro gravasse, e "o que este app guarda sobre a pessoa?" deixaria de ter resposta estática. Com colunas declaradas, as colunas SÃO a resposta, e um teste as enumera: coluna nova reprova o build até ser justificada contra a INV-2 e a LGPD-RF13. Custa uma migração por preferência; compra a capacidade de PROVAR o que não guardamos. São quatro, todas escolha de operação do app: idioma, telemetria agregada, override de dados móveis, setup concluído.
+
+* Ganhei uma segunda barreira contra a corrida S1 sem escrever código para isso. O desenho do item 9 (packs nomeados pelo hash, commit por rename do manifest) significa que remover o arquivo antigo não invalida descritor já aberto no POSIX — uma leitura em voo termina no pack anterior íntegro em vez de ver arquivo trocado por baixo. Tem teste que abre o v1, instala o v2, remove o v1 e confirma que a leitura antiga ainda responde v1. O guard de quiescência continua valendo; agora são duas barreiras independentes.
+
+* Paguei a dívida do item 10: `setupCompleted` e o override de dados móveis viviam na memória do processo. Quem escolhia "usar sem a IA assistente" revia a apresentação de valor a cada abertura, e um posto sem Wi-Fi voltava a recusar o download depois de o administrador já ter autorizado.
+
+* Migração do `locale.json` do item 10 para o banco, com regra de não sobrescrever escolha mais recente e apagar o arquivo ao terminar. Verificada no aparelho: instalei por cima do app anterior e ele abriu direto em espanhol, sem repetir a tela de idioma. Cold start 1149 ms.
+
+* Sabotagem: 6 proteções desligadas, 6 pegas. Mas a sabotagem revelou um risco que eu mesmo tinha criado: o teste que prova "escrever no pack é impossível" rodava contra a fixture VERSIONADA. Quando removi o `readOnly`, o UPDATE passou e corrompeu o arquivo compartilhado, derrubando 10 testes de sync sem relação com o assunto. Um teste que prova "isto não pode acontecer" precisa ser inofensivo no dia em que acontecer — agora ele opera sobre cópia descartável.
+
+* Codegen do Drift entrou no build. Os .g.dart não são versionados, e em checkout limpo pular `dart run build_runner build` produz ~35 erros de análise sem relação com o código escrito. Passo adicionado ao CI antes do analyze, e verificado apagando os gerados e refazendo o caminho.
+
+* 302 testes. APK 23,8 → 24,3 MB.
+
+* [TODO] A tela de privacidade (CAP-13 / LGPD-RF03) ainda não existe — o `wipe()` está implementado e testado, mas nenhuma tela o aciona. É o item 14. Também não há tela lendo os repositórios de conteúdo ainda; isso são os itens 12 e 13.
+
+* [TODO] Não verifiquei o `user.db` em disco no aparelho: build release não permite `run-as`. O que verifiquei foi o comportamento — idioma migrado, persistido e relido entre reinícios.
+
+
+Item 12 [FEITO]
+* Dívida do item 10 paga: setupCompleted e o override de dados móveis viviam na memória do processo. Quem escolhia "usar sem a IA assistente" revia a apresentação de valor a cada abertura; um posto sem Wi-Fi voltava a recusar o download depois de o administrador já ter autorizado.
+* [TODO] Não verificado: a tela de privacidade (CAP-13/LGPD-RF03) não existe — wipe() está implementado e testado, mas nenhuma tela o aciona; é o item 14. Nenhuma tela lê os repositórios de conteúdo ainda (itens 12–13). E não inspecionei o user.db em disco no aparelho: build release não permite run-as — verifiquei o comportamento, não o arquivo.
+
+* Item 13 [TODO]
+
 ---
 
 # Fluxo do SLM

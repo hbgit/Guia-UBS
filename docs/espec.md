@@ -24,7 +24,7 @@
 | RF-04 | Gate determinístico de red flags avaliado ANTES de qualquer inferência | Função pura e total sobre o domínio de tokens; 100% dos casos da tabela `red_flag_rules` → `EMERGENCY`; suite golden com pass criteria 100% (zero falso negativo tolerado) |
 | RF-05 | Inferência SLM local para casos não red-flag | p95 **entre 3 s e 5 s** em device mínimo (≥ 4 GB RAM) — [ADR-003](stack.md); contexto máximo de **512–1024 tokens por atendimento**; timeout hard de 5 s dispara RF-12; prompt determinístico (decodificação gulosa, temperatura 0) |
 | RF-06 | Resposta multimodal: cartão visual + TTS | Áudio no idioma ativo; renderização do cartão independe do TTS (falha de TTS ⇒ resposta apenas visual, nunca bloqueio) |
-| RF-07 | Guia de encaminhamento UBS vs. UPA/Hospital | Conteúdo 100% oriundo do `content.db` ativo; navegável offline |
+| RF-07 | Guia de encaminhamento UBS vs. UPA/Hospital | Conteúdo 100% oriundo do `content.db` ativo (aberto **somente leitura**); navegável offline |
 | RF-08 | Orientador de documentação por serviço | Idem RF-07; imagens dos documentos embarcadas no pack |
 | RF-09 | Fluxograma de atendimento da unidade | Cartões sequenciais ordenados por `step_order`; idem RF-07 |
 | RF-10 | Sincronização de oportunidade em background | Agendada via WorkManager (`NetworkType.connected`); download retomável (HTTP Range + ETag); manifest + delta operáveis em janela de 30 s |
@@ -509,5 +509,13 @@ stateDiagram-v2
 | Crescimento do prompt/contexto do SLM com novas features | Estouro de latência p95 em devices de entrada | Orçamento fixo de tokens por feature (budget no CI de eval); RAG local só recupera o top-k do `content.db` |
 
 ---
+
+> **Política de idioma na leitura do pack.** O packer bloqueia a publicação de
+> pack com tradução faltando em qualquer idioma suportado, então ausência de
+> tradução no aparelho indica pack corrompido ou idioma que o pack não conhece.
+> Nesse caso o app **recua para `pt` e sinaliza o recuo**, em vez de omitir o
+> item: sumir com "Onde ir" de quem precisa é pior que mostrá-lo em português
+> para um hispanofalante — o ícone permanece correto, e as duas línguas são
+> próximas. O sinal alimenta telemetria agregada, nunca a tela.
 
 *Rastreabilidade completa: FSM-A cobre RF-01…RF-06 e RF-12; FSM-B cobre RF-10…RF-11; RF-07…RF-09 são fluxos estáticos de leitura sob INV-3/INV-8. Critérios de aceitação herdam as métricas de sucesso do MVP (brainstorm §Métricas).*

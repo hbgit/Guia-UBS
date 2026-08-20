@@ -467,7 +467,7 @@ modelo SLM corrigiu, e a lição está anotada no código.
 
 ### Fase 2 — App (CAP-01…13)
 10. Casca: tema, GoRouter, i18n pt/es, `speech/`. ✅
-11. `content/` (repositórios RO) + `prefs/` (Drift).
+11. `content/` (repositórios RO) + `prefs/` (Drift). ✅
 12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado.
 13. Encaminhamento, fluxo, documentos.
 14. `privacy/` (CAP-13) + `telemetry/` com allowlist.
@@ -567,6 +567,74 @@ seja testável desde agora. Uma rota que só nasce junto com a tela nunca é tes
 contra a estrutura. Também ficou para depois o `riverpod_generator` + `freezed`
 (item 12, onde os estados de união exaustiva pagam pelo gerador) e a persistência
 em Drift (item 11, que reimplementa a porta `LocaleStore`).
+
+#### 5.4 Resultado do item 11 — `content/` + `prefs/` (2026-08-19)
+
+Duas camadas de dados com regras opostas, e é a oposição que importa:
+`content/` **só lê** um arquivo que chega assinado de fora; `prefs/` é o único
+lugar do aparelho onde o app escreve, e por isso é a superfície que a LGPD
+audita.
+
+| Camada | Arquivo | Regra |
+|---|---|---|
+| Conteúdo | `content/data/content_repository.dart` | Somente leitura, sobre pack já verificado (INV-3/INV-4) |
+| Conexão ativa | `content/data/active_content.dart` | Abre o pack do `PackStore`, reabre no swap, `null` quando não há pack |
+| Preferências | `prefs/user_database.dart` (Drift) | Colunas tipadas, linha única, sem dado clínico |
+| Migração | `prefs/preferences_repository.dart` | Traz o `locale.json` do item 10 e o apaga |
+
+**`content.db` somente leitura não é convenção, é impedimento.** O pacote abre
+em `OpenMode.readOnly` e há teste que confirma que um `UPDATE` lança. A razão é
+a INV-4: conteúdo clínico só entra por pack assinado com dupla revisão, e um
+caminho de escrita no device seria um caminho para orientação não revisada
+chegar ao usuário sem passar pela assinatura.
+
+**Falta de tradução recua, não some.** O packer bloqueia publicação com tradução
+faltando, então recuo no aparelho indica pack corrompido ou idioma que o pack
+não conhece. Ainda assim o repositório recua para `pt` em vez de omitir o item:
+sumir com "Onde ir" de quem precisa é pior que mostrá-lo em português para um
+hispanofalante — o ícone segue correto e as duas línguas são próximas. O recuo
+fica sinalizado em `Localized.isFallback`, disponível para telemetria agregada
+contar o defeito.
+
+**O esquema do `user.db` é a resposta a "o que este app guarda sobre a pessoa".**
+Colunas tipadas e não chave-valor, deliberadamente: uma tabela `(chave, valor)`
+aceitaria qualquer coisa que qualquer código futuro gravasse, e a pergunta
+deixaria de ter resposta estática. Com colunas declaradas, `lgpd_surface_test`
+as enumera e reprova acréscimo não revisado. As quatro são escolhas de operação
+do app — idioma, telemetria agregada, override de dados móveis, setup concluído
+— e nenhuma identifica ninguém nem descreve saúde. Sintoma é dado sensível
+(art. 5º II) e não é persistido: a sequência morre em memória (INV-2,
+LGPD-RF13).
+
+**Uma corrida a menos, de graça.** A análise S1 da [espec.md §4.4](espec.md)
+elimina o swap-durante-leitura pelo guard de quiescência. O desenho do item 9 —
+packs nomeados pelo hash, commit por rename do manifest — acrescenta uma segunda
+barreira independente: no POSIX, remover o arquivo antigo não invalida descritor
+já aberto, então uma leitura em voo termina no pack anterior íntegro em vez de
+ver um arquivo trocado por baixo. Há teste que abre o pack v1, instala o v2,
+remove o v1 e confirma que a leitura antiga continua respondendo v1.
+
+**Dívida do item 10 paga.** A escolha "usar sem a IA assistente" vivia na
+memória do processo: quem a tomava revia a apresentação de valor a cada abertura
+do app, como se a decisão nunca tivesse sido tomada. Agora `setupCompleted` e o
+override de dados móveis moram no `user.db`.
+
+**Sabotagem.** Seis proteções desligadas, todas pegas: coluna de sintoma no
+`user.db` (2 testes), `wipe` que não zera o idioma (2), pack aberto para escrita
+(1), tradução faltando que some com o item (4), pack ativo servido sem conferir
+assinatura (4), `setupCompleted` de volta à memória (4).
+
+**Um risco que a própria sabotagem revelou.** O teste que prova "escrever no
+pack é impossível" rodava contra a fixture versionada. Quando a sabotagem
+removeu o `readOnly`, o `UPDATE` passou — e corrompeu o arquivo compartilhado,
+derrubando 10 testes de sync sem relação com o assunto. O teste agora opera
+sobre cópia descartável: **um teste que prova "isto não pode acontecer" precisa
+ser inofensivo no dia em que acontecer.**
+
+**Codegen entrou no build.** O Drift gera `*.g.dart`, que não são versionados.
+Em checkout limpo, pular `dart run build_runner build` produz ~35 erros de
+análise sem relação com o código escrito — por isso o passo entrou no CI, antes
+do `flutter analyze`.
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only.

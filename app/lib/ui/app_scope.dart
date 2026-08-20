@@ -13,7 +13,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:io';
 
+import '../content/data/active_content.dart';
+import '../content/data/content_repository.dart';
 import '../prefs/locale_store.dart';
+import '../prefs/preferences_repository.dart';
 import '../speech/speaker.dart';
 import '../sync/model_provisioning.dart';
 
@@ -103,3 +106,68 @@ final setupStateProvider = StreamProvider<SetupState>((ref) {
   final provisioning = ref.watch(provisioningProvider);
   return provisioning.states;
 });
+
+// ---------------------------------------------------------------------------
+// Preferências (user.db)
+// ---------------------------------------------------------------------------
+
+/// Repositório de preferências. Sobrescrito no `main` e nos testes.
+///
+/// É a MESMA instância que `localeStoreProvider` entrega como [LocaleStore]:
+/// duas fontes para a mesma preferência sairiam de sincronia no primeiro
+/// caminho que atualizasse só uma delas.
+final preferencesProvider = Provider<PreferencesRepository>(
+  (ref) => throw UnimplementedError('preferencesProvider precisa de override'),
+);
+
+// ---------------------------------------------------------------------------
+// Conteúdo (content.db)
+// ---------------------------------------------------------------------------
+
+/// Pack ativo aberto. Sobrescrito no `main` e nos testes.
+final activeContentProvider = Provider<ActiveContent>(
+  (ref) => throw UnimplementedError('activeContentProvider precisa de override'),
+);
+
+/// Leitura do conteúdo, ou `null` enquanto não houver pack instalado.
+///
+/// As telas tratam `null` como "conteúdo ainda não disponível" e seguem
+/// navegáveis: sem pack, o app não tem o que mostrar, mas continua de pé
+/// (INV-8).
+final contentProvider = Provider<ContentRepository?>(
+  (ref) => ref.watch(activeContentProvider).repository,
+);
+
+/// Código de idioma para as consultas ao pack.
+///
+/// Deriva do mesmo estado que a interface e a voz. Se o conteúdo lesse um
+/// idioma próprio, a tela poderia mostrar cartão em português com rótulo de
+/// botão em espanhol.
+final contentLanguageProvider = Provider<String>(
+  (ref) => (ref.watch(localeControllerProvider) ?? AppLocale.pt).code,
+);
+
+/// O usuário já passou pelo First-Time Setup, persistido no `user.db`.
+///
+/// Sem isto, quem escolheu "usar sem a IA assistente" reveria a apresentação de
+/// valor a cada abertura do app — a decisão vivia só na memória do processo.
+class SetupCompletedController extends StateNotifier<bool> {
+  SetupCompletedController(this._preferences) : super(false);
+
+  final PreferencesRepository _preferences;
+
+  Future<void> restore() async => state = (await _preferences.readAll()).setupCompleted;
+
+  void markCompleted() {
+    if (state) return;
+    state = true;
+    unawaited(
+      _preferences.setSetupCompleted(completed: true).catchError((Object _) {}),
+    );
+  }
+}
+
+final setupCompletedProvider =
+    StateNotifierProvider<SetupCompletedController, bool>(
+  (ref) => SetupCompletedController(ref.watch(preferencesProvider)),
+);

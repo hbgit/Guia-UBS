@@ -14,13 +14,13 @@ String? redirect(
   String location, {
   AppLocale? locale = AppLocale.pt,
   SetupStage stage = SetupStage.ready,
-  bool visited = true,
+  bool completed = true,
 }) =>
     gubsRedirect(
       location: location,
       locale: locale,
       setupStage: stage,
-      setupVisited: visited,
+      setupCompleted: completed,
     );
 
 void main() {
@@ -41,9 +41,16 @@ void main() {
   });
 
   group('portão do modelo — exceção única da INV-8 (ADR-003)', () {
+    test('setup já concluído não reabre a apresentação de valor', () {
+      // A dívida que o item 11 paga: antes, `setupCompleted` vivia na memória
+      // do processo, e quem escolheu "usar sem a IA assistente" revia a
+      // apresentação de valor a cada abertura do app.
+      expect(redirect('/', stage: SetupStage.blocked), isNull);
+    });
+
     test('primeiro acesso abre no setup, para a apresentação de valor', () {
       expect(
-        redirect('/', stage: SetupStage.awaitingConsent, visited: false),
+        redirect('/', stage: SetupStage.awaitingConsent, completed: false),
         setupGatePath,
       );
     });
@@ -101,7 +108,7 @@ void main() {
       // Mostrar consentimento de download de 1 GB em português para quem só
       // fala espanhol é pedir um "sim" que não é informado.
       expect(
-        redirect('/', locale: null, stage: SetupStage.awaitingConsent, visited: false),
+        redirect('/', locale: null, stage: SetupStage.awaitingConsent, completed: false),
         languageGatePath,
       );
     });
@@ -119,17 +126,17 @@ void main() {
     ]) {
       for (final locale in [null, AppLocale.pt]) {
         for (final stage in SetupStage.values) {
-          for (final visited in [true, false]) {
+          for (final completed in [true, false]) {
             final target = redirect(
               path,
               locale: locale,
               stage: stage,
-              visited: visited,
+              completed: completed,
             );
             expect(
               target,
               isNot(path),
-              reason: '$path com ${locale?.code}/${stage.name}/$visited',
+              reason: '$path com ${locale?.code}/${stage.name}/$completed',
             );
           }
         }

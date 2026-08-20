@@ -31,6 +31,12 @@ jobs:
 
       - run: flutter pub get
 
+      # Os .g.dart do Drift nao sao versionados. Sem este passo, `flutter
+      # analyze` reprova por arquivo ausente antes de olhar uma linha de codigo.
+      # (O i18n e gerado pelo proprio `pub get`, via `flutter: generate: true`.)
+      - name: Codegen (Drift)
+        run: dart run build_runner build
+
       - name: Analise estatica
         run: flutter analyze --fatal-infos
 
@@ -66,6 +72,8 @@ jobs:
 
       - run: npm ci
       - run: flutter pub get
+        working-directory: app
+      - run: dart run build_runner build
         working-directory: app
 
       - name: Assinar pack com chave efemera e verificar em Dart

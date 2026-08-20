@@ -45,7 +45,7 @@ String? gubsRedirect({
   required String location,
   required AppLocale? locale,
   required SetupStage setupStage,
-  required bool setupVisited,
+  required bool setupCompleted,
 }) {
   if (locale == null) {
     return location == languageGatePath ? null : languageGatePath;
@@ -61,8 +61,12 @@ String? gubsRedirect({
     return blocking ? null : '/';
   }
 
-  // Primeira passagem: mostra a apresentação de valor e o pedido de consentimento.
-  if (blocking && !setupVisited) return setupGatePath;
+  // Primeira passagem: mostra a apresentação de valor e o pedido de
+  // consentimento. `setupCompleted` vem do `user.db` (item 11), não da memória
+  // do processo: antes disso, quem escolhia "usar sem a IA assistente" via a
+  // apresentação de valor de novo a cada abertura do app, como se a decisão
+  // nunca tivesse sido tomada.
+  if (blocking && !setupCompleted) return setupGatePath;
 
   final spec = gubsRoutes.where((r) => r.path == location).firstOrNull;
   if (blocking && (spec?.requiresModel ?? false)) return setupGatePath;
@@ -78,10 +82,9 @@ final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.onDispose(refresh.dispose);
 
-  var visitedSetup = false;
-
   ref.listen(localeControllerProvider, (_, _) => refresh.value++);
   ref.listen(setupStateProvider, (_, _) => refresh.value++);
+  ref.listen(setupCompletedProvider, (_, _) => refresh.value++);
 
   return buildGubsRouter(
     initialLocation: '/',
@@ -89,12 +92,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (location) {
       final stage = ref.read(setupStateProvider).valueOrNull?.stage ??
           SetupStage.checking;
-      if (location == setupGatePath) visitedSetup = true;
       return gubsRedirect(
         location: location,
         locale: ref.read(localeControllerProvider),
         setupStage: stage,
-        setupVisited: visitedSetup,
+        setupCompleted: ref.read(setupCompletedProvider),
       );
     },
   );
