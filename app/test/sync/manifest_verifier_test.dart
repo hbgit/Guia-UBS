@@ -39,7 +39,7 @@ void main() {
       expect(manifest.packVersion, 1);
       expect(manifest.keyId, 'k1');
       expect(manifest.pack.sha256,
-          '9caef05966911d720c6ad1e5e49704a39b2f5697f3b42002b3b9da1caf20609d');
+          '204477cedcc9a0260bc8f4dcfedc6aa52cf341e8483eef9eb5b2a0545af1b32e');
       expect(manifest.assets, hasLength(47));
       expect(manifest.isSchemaSupported, isTrue);
     });

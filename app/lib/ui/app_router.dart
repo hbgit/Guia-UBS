@@ -13,11 +13,14 @@ import 'app_routes.dart';
 import 'home/home_screen.dart';
 import 'language/language_screen.dart';
 import 'placeholder_screen.dart';
+import 'content/documents_screen.dart';
+import 'content/emergency_screen.dart';
+import 'content/flow_screen.dart';
+import 'content/where_to_screen.dart';
 import 'setup/setup_screen.dart';
 import 'triage/composition_screen.dart';
 import 'triage/result_screen.dart';
 import 'shell/app_shell.dart';
-import 'theme/gubs_colors.dart';
 
 /// Todas as telas do app.
 ///
@@ -67,21 +70,13 @@ final List<GubsRouteSpec> gubsRoutes = [
     path: '/emergencia',
     name: Routes.emergency,
     tab: GubsTab.home,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).emergencyTitle,
-      icon: Icons.emergency,
-      accent: context.gubs.red,
-    ),
+    builder: (context, state) => const EmergencyScreen(),
   ),
   GubsRouteSpec(
     path: '/fluxo',
     name: Routes.flow,
     tab: GubsTab.home,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).flowTitle,
-      icon: Icons.list_alt,
-      accent: context.gubs.green,
-    ),
+    builder: (context, state) => const FlowScreen(),
   ),
   GubsRouteSpec(
     path: '/privacidade',
@@ -96,19 +91,13 @@ final List<GubsRouteSpec> gubsRoutes = [
     path: '/onde-ir',
     name: Routes.whereTo,
     tab: GubsTab.whereTo,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).whereToTitle,
-      icon: Icons.place,
-    ),
+    builder: (context, state) => const WhereToScreen(),
   ),
   GubsRouteSpec(
     path: '/documentos',
     name: Routes.documents,
     tab: GubsTab.documents,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).documentsTitle,
-      icon: Icons.badge,
-    ),
+    builder: (context, state) => const DocumentsScreen(),
   ),
 ];
 

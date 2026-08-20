@@ -3,8 +3,8 @@
   "packVersion": 2,
   "municipality": "0000000",
   "pack": {
-    "url": "packs/pack-8757cfaf3cb7.db",
-    "sha256": "8757cfaf3cb760b4e0649175cda917b0cd34bc2d58a1d446a30669b106977623",
+    "url": "packs/pack-6a3a078f2e24.db",
+    "sha256": "6a3a078f2e246a637d1259922e11db4a63e86f7c6147a196dbf2f47582b4c235",
     "bytes": 163840
   },
   "assets": [
@@ -296,6 +296,6 @@
   "signature": {
     "alg": "Ed25519",
     "keyId": "k1",
-    "value": "emBHSH/jXHrDYtuq+Xz9z3hZMzYqSC7bEjRkkJgyBk1wPh5gLzVKTwgYSrFgYzWnTNfoG6U0EaveGz/ZlHEaDw=="
+    "value": "OlHp0Rq1S657p703nc1/7dGn8oxEqZHOs/aa9HUvRVu+up+egSsK7hG8nsmfREtVwDusiNK7RnKpj7fexUO6Dw=="
   }
 }

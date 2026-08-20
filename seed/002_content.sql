@@ -5,10 +5,16 @@
 -- azul = informacao. A cor carrega significado e nao pode ser trocada por estilo.
 
 -- --- Locais de atendimento -------------------------------------------------
-INSERT INTO venue (id, icon_ref, color_token) VALUES
-('UBS',      'icon.ubs',      'green'),
-('UPA',      'icon.upa',      'red'),
-('HOSPITAL', 'icon.hospital', 'red');
+-- A ORDEM AQUI E CURADORIA CLINICA, nao arrumacao.
+--
+-- A UBS vem primeiro porque o proposito da tela "Onde ir" e encaminhar para a
+-- atencao basica quem nao precisa de pronto-socorro; liderar com o hospital
+-- ensinaria o contrario. Antes desta coluna a ordenacao era por `id`, ou seja,
+-- alfabetica — e HOSPITAL aparecia no topo.
+INSERT INTO venue (id, icon_ref, color_token, sort_order) VALUES
+('UBS',      'icon.ubs',      'green', 10),
+('UPA',      'icon.upa',      'red',   20),
+('HOSPITAL', 'icon.hospital', 'red',   30);
 
 INSERT INTO venue_translation (venue_id, lang, label, audio_ref) VALUES
 ('UBS','pt','UBS — posto de saúde',NULL),   ('UBS','es','UBS — centro de salud',NULL),

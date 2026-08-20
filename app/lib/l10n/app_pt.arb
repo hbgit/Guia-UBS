@@ -62,5 +62,20 @@
   },
   "resultDegradedNote": "Orientação feita só com as regras do posto",
   "resultEmergencyCall": "Ligue 192",
-  "resultNext": "Voltar ao início"
+  "resultNext": "Voltar ao início",
+  "whereToHint": "Cada lugar cuida de uma coisa",
+  "whereToServices": "Atende",
+  "documentsHint": "Escolha o atendimento",
+  "documentsRequired": "Obrigatório",
+  "documentsOptional": "Ajuda, mas não impede",
+  "flowHint": "Passo a passo do atendimento",
+  "flowStepNumber": "Passo {n}",
+  "@flowStepNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "emergencyHint": "Procure agora um destes lugares"
 }

@@ -469,7 +469,7 @@ modelo SLM corrigiu, e a lição está anotada no código.
 10. Casca: tema, GoRouter, i18n pt/es, `speech/`. ✅
 11. `content/` (repositórios RO) + `prefs/` (Drift). ✅
 12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado. ✅
-13. Encaminhamento, fluxo, documentos.
+13. Encaminhamento, fluxo, documentos. ✅
 14. `privacy/` (CAP-13) + `telemetry/` com allowlist.
 15. `sync/` endurecido: backoff+jitter, circuit breaker, guard de quiescência.
 **Saída:** APK com jornadas verde/vermelha/sync passando em device farm.
@@ -703,6 +703,63 @@ o mesmo desenho são, para esse usuário, o mesmo botão.
 dois, e ambos são decisão de conteúdo com dupla revisão clínica: subconjunto de
 sintomas por parte do corpo (exige tabela de associação no pack, que hoje não
 existe) ou redução da ontologia. Fica anotado para a revisão clínica do piloto.
+
+#### 5.6 Resultado do item 13 — telas estáticas (2026-08-19)
+
+Quatro telas — "Onde ir" (RF-07), "O que levar" (RF-08), "Como funciona"
+(RF-09) e emergência — inteiramente alimentadas pelo `content.db`. São o **piso
+da escada de degradação**: não usam modelo, não esperam sync, não consultam
+rede. Verificadas no aparelho com **os rádios desligados e sem modelo
+provisionado**, que é a condição em que elas mais importam.
+
+**Duas falhas que só o aparelho mostrou**, ambas na tela mais usada:
+
+1. **Todo serviço aparecia com um "?".** O mapa `icon_ref → ícone` cobria só os
+   tokens de sintoma; serviços, documentos e passos do fluxo ficaram de fora. O
+   teste que eu havia escrito no item 12 percorria `symptomTokens`, então
+   passava. A pergunta certa não era *"os tokens têm ícone?"* e sim *"tudo que o
+   pack manda desenhar tem ícone?"* — o teste agora percorre `SELECT ref FROM
+   asset WHERE ref LIKE 'icon.%'`.
+2. **A tela liderava com "Hospital".** `venue` não tinha `sort_order`, então a
+   ordenação era por `id` — alfabética. A tela cujo propósito é encaminhar para
+   a atenção básica quem não precisa de pronto-socorro abria com o hospital no
+   topo.
+
+A segunda correção atravessou a stack, e esse é o ponto: **qual local aparece
+primeiro é curadoria de conteúdo, não `ORDER BY` do binário.** Foi acrescentada
+uma coluna `sort_order` em `venue` no contrato Drizzle, migração
+`0001_content.sql` gerada por drizzle-kit, valores no `seed/` com o porquê
+escrito ali, e o repositório passou a ordenar por ela. Agora um município pode
+republicar a ordem sem tocar no app.
+
+**Tradução de cor sem chute perigoso.** O pack diz `green`/`red`/`blue` — nomes
+semânticos — e o binário converte. Token desconhecido vira **azul**, nunca verde
+nem vermelho: chutar verde diria "pode esperar", chutar vermelho diria "corra", e
+azul diz "isto é informação", que é a única coisa verdadeira sobre um token que o
+binário não entende.
+
+**Sem rolagem horizontal nos seletores.** A primeira versão do seletor de
+atendimento era uma régua rolante, e o último item ficava fora da tela. Para este
+público, conteúdo fora da tela é conteúdo que não existe — ninguém arrasta de
+lado atrás de algo cuja existência não foi anunciada. Virou `Wrap`, e há teste
+que reprova se qualquer opção passar da borda.
+
+**O 192 não é botão.** Número em destaque com ícone de telefone, sem ação de
+toque: discagem a partir de um toque acidental ocupa a linha do SAMU. A decisão
+de ligar é da pessoa.
+
+**Sabotagem: 7 proteções desligadas.** Seis pegas de imediato. A sétima — o 192
+virar botão — **passou ilesa**, e o motivo é instrutivo: o teste usava
+`find.byType(ButtonStyleButton)`, e `find.byType` compara o tipo **exato**, então
+jamais casaria com um `TextButton`. O teste era estruturalmente incapaz de
+falhar. Corrigido com `find.byWidgetPredicate`, e a sabotagem passou a ser pega.
+
+**Uma string que não deveria existir no app.** Escrevi "sem documento você ainda
+é atendido" em ARB e retirei: é afirmação sobre **direito do usuário do SUS**,
+não rótulo de casca. Se aparecer, tem de vir do pack, com dupla revisão
+(INV-4). Fica registrado como conteúdo que o pack deveria carregar — a tela de
+documentos ganharia muito com ele, e o público que mais precisa dessa informação
+é exatamente o que o app atende.
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only.

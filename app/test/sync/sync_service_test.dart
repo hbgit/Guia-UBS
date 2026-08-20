@@ -152,10 +152,10 @@ void main() {
 
   // Constantes tiradas dos fixtures. Sao estaveis porque o packer honra
   // SOURCE_DATE_EPOCH — ver test/fixtures/sync/README.md.
-  const packV1Url = 'packs/pack-9caef0596691.db';
-  const packV2Url = 'packs/pack-8757cfaf3cb7.db';
+  const packV1Url = 'packs/pack-204477cedcc9.db';
+  const packV2Url = 'packs/pack-6a3a078f2e24.db';
   const packV1Hash =
-      '9caef05966911d720c6ad1e5e49704a39b2f5697f3b42002b3b9da1caf20609d';
+      '204477cedcc9a0260bc8f4dcfedc6aa52cf341e8483eef9eb5b2a0545af1b32e';
 
   SyncService build({ManifestVerifier verifier = const ManifestVerifier(keys: _devKeys)}) =>
       SyncService(

@@ -110,10 +110,35 @@ Item 12 [FEITO]
 
 * 302 → 370 testes.
 
+Item 13 [FEITO]
+* Quatro telas alimentadas 100% pelo content.db: Onde ir, O que levar, Como funciona e emergência. São o piso da escada de degradação, e verifiquei no aparelho exatamente na condição em que elas importam — rádios DESLIGADOS e sem modelo provisionado.
+
+* Duas falhas que só o aparelho mostrou, ambas na tela mais usada. A primeira: todo serviço aparecia com um "?" porque o mapa `icon_ref → ícone` cobria só tokens de sintoma. O teste que escrevi no item 12 percorria `symptomTokens`, então passava tranquilo. A pergunta certa não era "os tokens têm ícone?", era "tudo que o pack manda desenhar tem ícone?" — agora ele percorre a tabela `asset` inteira.
+
+* A segunda: a tela liderava com HOSPITAL. `venue` não tinha `sort_order`, então ordenava por id, alfabeticamente. A tela cujo propósito é encaminhar para a atenção básica quem não precisa de pronto-socorro abria com o hospital no topo.
+
+* Corrigi atravessando a stack, e é esse o ponto: qual local aparece primeiro é CURADORIA DE CONTEÚDO, não `ORDER BY` do binário. Coluna `sort_order` no contrato Drizzle, migração 0001 gerada por drizzle-kit, valores no seed com o porquê escrito ali, repositório ordenando por ela. Agora um município republica a ordem sem tocar no app. Fixtures regeneradas e hashes atualizados nos testes de sync.
+
+* Tradução de cor sem chute perigoso: o pack diz green/red/blue e o binário converte. Token desconhecido vira AZUL, nunca verde nem vermelho — chutar verde diria "pode esperar", chutar vermelho diria "corra", e azul diz "isto é informação", que é a única coisa verdadeira sobre um token que eu não entendo.
+
+* Tirei a rolagem horizontal dos seletores. Na primeira versão o último atendimento ficava fora da tela, e para este público conteúdo fora da tela é conteúdo que não existe: ninguém arrasta de lado atrás de algo cuja existência não foi anunciada. Virou Wrap, com teste que reprova se qualquer opção passar da borda.
+
+* Sabotagem: 7 proteções, 6 pegas. A sétima passou ilesa e o motivo é o melhor achado do item — meu teste do "192 não é botão" usava `find.byType(ButtonStyleButton)`, e `find.byType` compara tipo EXATO, então nunca casaria com um TextButton. O teste era estruturalmente incapaz de falhar. Troquei por `find.byWidgetPredicate` e a sabotagem passou a ser pega. Vale revisar outros `byType` com tipos-base em testes futuros.
+
+* Escrevi "sem documento você ainda é atendido" num ARB e RETIREI. É afirmação sobre direito do usuário do SUS, não rótulo de casca — se aparecer, tem de vir do pack com dupla revisão (INV-4). Fica anotado como conteúdo que o pack deveria carregar: a tela de documentos ganharia muito, e quem mais precisa dessa informação é exatamente quem o app atende.
+
+* [TODO] Os ícones ainda são do Material, mapeados por `icon_ref`. Os SVG reais viajam dentro do pack como assets, mas extrair e renderizar assets é Fase 4 — junto com os áudios Opus, que hoje são substituídos por TTS lendo o texto.
+
+* 370 → 390 testes. APK 24,5 → 24,7 MB.
+
 
 Item 12 [FEITO] << Checkout
 * Dívida do item 10 paga: setupCompleted e o override de dados móveis viviam na memória do processo. Quem escolhia "usar sem a IA assistente" revia a apresentação de valor a cada abertura; um posto sem Wi-Fi voltava a recusar o download depois de o administrador já ter autorizado.
 * [TODO] Não verificado: a tela de privacidade (CAP-13/LGPD-RF03) não existe — wipe() está implementado e testado, mas nenhuma tela o aciona; é o item 14. Nenhuma tela lê os repositórios de conteúdo ainda (itens 12–13). E não inspecionei o user.db em disco no aparelho: build release não permite run-as — verifiquei o comportamento, não o arquivo.
+
+Item 14 [TODO]
+
+---
 
 
 Analisar:

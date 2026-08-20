@@ -180,16 +180,21 @@ class ContentRepository {
   // Locais, serviços, documentos, fluxo (RF-07/08/09)
   // -------------------------------------------------------------------------
 
+  /// Locais na ordem que o PACK publicou (`sort_order`).
+  ///
+  /// Ordenar por `id` seria alfabético, e alfabético punha HOSPITAL no topo da
+  /// tela cujo propósito é encaminhar para a UBS quem não precisa de
+  /// pronto-socorro. Qual local vem primeiro é curadoria de conteúdo.
   List<Venue> venues({String lang = basePackLanguage}) => _db
       .select(
         '''
-        SELECT v.id, v.icon_ref, v.color_token,
+        SELECT v.id, v.icon_ref, v.color_token, v.sort_order,
                tr.label AS label, tr.audio_ref AS audio_ref,
                base.label AS base_label
         FROM venue v
         LEFT JOIN venue_translation tr ON tr.venue_id = v.id AND tr.lang = ?
         LEFT JOIN venue_translation base ON base.venue_id = v.id AND base.lang = ?
-        ORDER BY v.id
+        ORDER BY v.sort_order, v.id
         ''',
         [lang, basePackLanguage],
       )

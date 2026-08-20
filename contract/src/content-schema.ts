@@ -123,6 +123,16 @@ export const venue = sqliteTable('venue', {
   id: text('id', { enum: VENUES }).primaryKey(),
   iconRef: text('icon_ref').notNull().references(() => asset.ref),
   colorToken: text('color_token', { enum: COLOR_TOKENS }).notNull(),
+  /**
+   * Ordem de exibicao na tela "Onde ir".
+   *
+   * Existe porque a alternativa — ordenar por `id` — e alfabetica, e punha
+   * HOSPITAL no topo da tela cujo proposito e justamente encaminhar para a UBS
+   * quem nao precisa de pronto-socorro. Qual local aparece primeiro e curadoria
+   * de conteudo, revisavel e republicavel; nao pode ser um `ORDER BY` escolhido
+   * pelo binario.
+   */
+  sortOrder: integer('sort_order').notNull().default(0),
 });
 
 export const venueTranslation = sqliteTable(

@@ -37,5 +37,13 @@
   "triageSelectedCount": "{count} de {max} elegidos",
   "resultDegradedNote": "Orientación hecha solo con las reglas del puesto",
   "resultEmergencyCall": "Llama al 192",
-  "resultNext": "Volver al inicio"
+  "resultNext": "Volver al inicio",
+  "whereToHint": "Cada lugar atiende una cosa",
+  "whereToServices": "Atiende",
+  "documentsHint": "Elige la atención",
+  "documentsRequired": "Obligatorio",
+  "documentsOptional": "Ayuda, pero no impide",
+  "flowHint": "Paso a paso de la atención",
+  "flowStepNumber": "Paso {n}",
+  "emergencyHint": "Busca ahora uno de estos lugares"
 }

@@ -1,0 +1,1210 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "5159fa6e-ffca-4eea-b59e-aaef6dfbc0f6",
+  "prevId": "02f89a99-925a-4ae4-82f4-9bccc0a0f461",
+  "tables": {
+    "asset": {
+      "name": "asset",
+      "columns": {
+        "ref": {
+          "name": "ref",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "card": {
+      "name": "card",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_ref": {
+          "name": "icon_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "color_token": {
+          "name": "color_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "card_icon_ref_asset_ref_fk": {
+          "name": "card_icon_ref_asset_ref_fk",
+          "tableFrom": "card",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "icon_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "card_translation": {
+      "name": "card_translation",
+      "columns": {
+        "card_id": {
+          "name": "card_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lang": {
+          "name": "lang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "audio_ref": {
+          "name": "audio_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "card_translation_card_id_card_id_fk": {
+          "name": "card_translation_card_id_card_id_fk",
+          "tableFrom": "card_translation",
+          "tableTo": "card",
+          "columnsFrom": [
+            "card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "card_translation_audio_ref_asset_ref_fk": {
+          "name": "card_translation_audio_ref_asset_ref_fk",
+          "tableFrom": "card_translation",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "audio_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "card_translation_card_id_lang_pk": {
+          "columns": [
+            "card_id",
+            "lang"
+          ],
+          "name": "card_translation_card_id_lang_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "document": {
+      "name": "document",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_ref": {
+          "name": "icon_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "image_ref": {
+          "name": "image_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "document_icon_ref_asset_ref_fk": {
+          "name": "document_icon_ref_asset_ref_fk",
+          "tableFrom": "document",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "icon_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "document_image_ref_asset_ref_fk": {
+          "name": "document_image_ref_asset_ref_fk",
+          "tableFrom": "document",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "image_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "document_translation": {
+      "name": "document_translation",
+      "columns": {
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lang": {
+          "name": "lang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hint": {
+          "name": "hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "audio_ref": {
+          "name": "audio_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "document_translation_document_id_document_id_fk": {
+          "name": "document_translation_document_id_document_id_fk",
+          "tableFrom": "document_translation",
+          "tableTo": "document",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "document_translation_audio_ref_asset_ref_fk": {
+          "name": "document_translation_audio_ref_asset_ref_fk",
+          "tableFrom": "document_translation",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "audio_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "document_translation_document_id_lang_pk": {
+          "columns": [
+            "document_id",
+            "lang"
+          ],
+          "name": "document_translation_document_id_lang_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "flow_step": {
+      "name": "flow_step",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "venue_id": {
+          "name": "venue_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "step_order": {
+          "name": "step_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_ref": {
+          "name": "icon_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "flow_step_venue_id_venue_id_fk": {
+          "name": "flow_step_venue_id_venue_id_fk",
+          "tableFrom": "flow_step",
+          "tableTo": "venue",
+          "columnsFrom": [
+            "venue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "flow_step_icon_ref_asset_ref_fk": {
+          "name": "flow_step_icon_ref_asset_ref_fk",
+          "tableFrom": "flow_step",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "icon_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "flow_step_translation": {
+      "name": "flow_step_translation",
+      "columns": {
+        "step_id": {
+          "name": "step_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lang": {
+          "name": "lang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "audio_ref": {
+          "name": "audio_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "flow_step_translation_step_id_flow_step_id_fk": {
+          "name": "flow_step_translation_step_id_flow_step_id_fk",
+          "tableFrom": "flow_step_translation",
+          "tableTo": "flow_step",
+          "columnsFrom": [
+            "step_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "flow_step_translation_audio_ref_asset_ref_fk": {
+          "name": "flow_step_translation_audio_ref_asset_ref_fk",
+          "tableFrom": "flow_step_translation",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "audio_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "flow_step_translation_step_id_lang_pk": {
+          "columns": [
+            "step_id",
+            "lang"
+          ],
+          "name": "flow_step_translation_step_id_lang_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "pack_meta": {
+      "name": "pack_meta",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pack_version": {
+          "name": "pack_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "schema_version": {
+          "name": "schema_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "municipality_code": {
+          "name": "municipality_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "built_at": {
+          "name": "built_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "default_outcome_id": {
+          "name": "default_outcome_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_commit": {
+          "name": "source_commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "routing_outcome": {
+      "name": "routing_outcome",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "severity_level": {
+          "name": "severity_level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "card_id": {
+          "name": "card_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "venue_id": {
+          "name": "venue_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "routing_outcome_card_id_card_id_fk": {
+          "name": "routing_outcome_card_id_card_id_fk",
+          "tableFrom": "routing_outcome",
+          "tableTo": "card",
+          "columnsFrom": [
+            "card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "routing_outcome_venue_id_venue_id_fk": {
+          "name": "routing_outcome_venue_id_venue_id_fk",
+          "tableFrom": "routing_outcome",
+          "tableTo": "venue",
+          "columnsFrom": [
+            "venue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "routing_rule": {
+      "name": "routing_rule",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "outcome_id": {
+          "name": "outcome_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "clinical_source": {
+          "name": "clinical_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "routing_rule_outcome_id_routing_outcome_id_fk": {
+          "name": "routing_rule_outcome_id_routing_outcome_id_fk",
+          "tableFrom": "routing_rule",
+          "tableTo": "routing_outcome",
+          "columnsFrom": [
+            "outcome_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "routing_rule_term": {
+      "name": "routing_rule_term",
+      "columns": {
+        "rule_id": {
+          "name": "rule_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_no": {
+          "name": "group_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_id": {
+          "name": "token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "negated": {
+          "name": "negated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "routing_rule_term_rule_id_routing_rule_id_fk": {
+          "name": "routing_rule_term_rule_id_routing_rule_id_fk",
+          "tableFrom": "routing_rule_term",
+          "tableTo": "routing_rule",
+          "columnsFrom": [
+            "rule_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "routing_rule_term_token_id_symptom_token_id_fk": {
+          "name": "routing_rule_term_token_id_symptom_token_id_fk",
+          "tableFrom": "routing_rule_term",
+          "tableTo": "symptom_token",
+          "columnsFrom": [
+            "token_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "routing_rule_term_rule_id_group_no_token_id_pk": {
+          "columns": [
+            "rule_id",
+            "group_no",
+            "token_id"
+          ],
+          "name": "routing_rule_term_rule_id_group_no_token_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "service": {
+      "name": "service",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "venue_id": {
+          "name": "venue_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_ref": {
+          "name": "icon_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "service_venue_id_venue_id_fk": {
+          "name": "service_venue_id_venue_id_fk",
+          "tableFrom": "service",
+          "tableTo": "venue",
+          "columnsFrom": [
+            "venue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "service_icon_ref_asset_ref_fk": {
+          "name": "service_icon_ref_asset_ref_fk",
+          "tableFrom": "service",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "icon_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "service_document": {
+      "name": "service_document",
+      "columns": {
+        "service_id": {
+          "name": "service_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "required": {
+          "name": "required",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "service_document_service_id_service_id_fk": {
+          "name": "service_document_service_id_service_id_fk",
+          "tableFrom": "service_document",
+          "tableTo": "service",
+          "columnsFrom": [
+            "service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "service_document_document_id_document_id_fk": {
+          "name": "service_document_document_id_document_id_fk",
+          "tableFrom": "service_document",
+          "tableTo": "document",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "service_document_service_id_document_id_pk": {
+          "columns": [
+            "service_id",
+            "document_id"
+          ],
+          "name": "service_document_service_id_document_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "service_translation": {
+      "name": "service_translation",
+      "columns": {
+        "service_id": {
+          "name": "service_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lang": {
+          "name": "lang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "audio_ref": {
+          "name": "audio_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "service_translation_service_id_service_id_fk": {
+          "name": "service_translation_service_id_service_id_fk",
+          "tableFrom": "service_translation",
+          "tableTo": "service",
+          "columnsFrom": [
+            "service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "service_translation_audio_ref_asset_ref_fk": {
+          "name": "service_translation_audio_ref_asset_ref_fk",
+          "tableFrom": "service_translation",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "audio_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "service_translation_service_id_lang_pk": {
+          "columns": [
+            "service_id",
+            "lang"
+          ],
+          "name": "service_translation_service_id_lang_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "symptom_token": {
+      "name": "symptom_token",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_ref": {
+          "name": "icon_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "deprecated": {
+          "name": "deprecated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "symptom_token_icon_ref_asset_ref_fk": {
+          "name": "symptom_token_icon_ref_asset_ref_fk",
+          "tableFrom": "symptom_token",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "icon_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "token_translation": {
+      "name": "token_translation",
+      "columns": {
+        "token_id": {
+          "name": "token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lang": {
+          "name": "lang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "audio_ref": {
+          "name": "audio_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "token_translation_token_id_symptom_token_id_fk": {
+          "name": "token_translation_token_id_symptom_token_id_fk",
+          "tableFrom": "token_translation",
+          "tableTo": "symptom_token",
+          "columnsFrom": [
+            "token_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "token_translation_audio_ref_asset_ref_fk": {
+          "name": "token_translation_audio_ref_asset_ref_fk",
+          "tableFrom": "token_translation",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "audio_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "token_translation_token_id_lang_pk": {
+          "columns": [
+            "token_id",
+            "lang"
+          ],
+          "name": "token_translation_token_id_lang_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "venue": {
+      "name": "venue",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_ref": {
+          "name": "icon_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "color_token": {
+          "name": "color_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "venue_icon_ref_asset_ref_fk": {
+          "name": "venue_icon_ref_asset_ref_fk",
+          "tableFrom": "venue",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "icon_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "venue_translation": {
+      "name": "venue_translation",
+      "columns": {
+        "venue_id": {
+          "name": "venue_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lang": {
+          "name": "lang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "audio_ref": {
+          "name": "audio_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "venue_translation_venue_id_venue_id_fk": {
+          "name": "venue_translation_venue_id_venue_id_fk",
+          "tableFrom": "venue_translation",
+          "tableTo": "venue",
+          "columnsFrom": [
+            "venue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "venue_translation_audio_ref_asset_ref_fk": {
+          "name": "venue_translation_audio_ref_asset_ref_fk",
+          "tableFrom": "venue_translation",
+          "tableTo": "asset",
+          "columnsFrom": [
+            "audio_ref"
+          ],
+          "columnsTo": [
+            "ref"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "venue_translation_venue_id_lang_pk": {
+          "columns": [
+            "venue_id",
+            "lang"
+          ],
+          "name": "venue_translation_venue_id_lang_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

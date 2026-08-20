@@ -47,6 +47,20 @@ const Map<String, IconData> _icons = {
   'icon.pregnant': Icons.pregnant_woman,
   'icon.infant': Icons.child_care,
   'icon.elderly': Icons.elderly,
+  // Serviços
+  'icon.svc.vaccine': Icons.vaccines,
+  'icon.svc.dressing': Icons.healing,
+  'icon.svc.consult': Icons.medical_information,
+  'icon.svc.emergency': Icons.emergency_share,
+  // Documentos
+  'icon.doc.sus': Icons.credit_card,
+  'icon.doc.id': Icons.badge,
+  'icon.doc.address': Icons.home_work,
+  // Passos do fluxo
+  'icon.step.reception': Icons.support_agent,
+  'icon.step.triage': Icons.monitor_heart,
+  'icon.step.consult': Icons.medical_services,
+  'icon.step.pharmacy': Icons.medication,
   // Locais e cartões
   'icon.ubs': Icons.local_hospital,
   'icon.upa': Icons.emergency,
