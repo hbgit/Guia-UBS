@@ -81,8 +81,14 @@ void main() {
       (tester) async {
     // O teto não é estético: acima de oito alvos a tela passa a exigir leitura
     // para ser escaneada, e o público-alvo é definido por não conseguir fazer
-    // essa leitura. A inicial usa exatamente cinco, e a barra de abas soma
-    // três — está no limite, e qualquer acréscimo precisa remover algo.
+    // essa leitura.
+    //
+    // O que conta são as ESCOLHAS — o botão de triagem e os quatro ladrilhos —
+    // mais as três abas. Controles de moldura (voltar, escudo de privacidade,
+    // botão de áudio) não competem pelo escaneamento e não entram no teto; é
+    // por isso que o voltar nunca foi contado. A distinção está declarada aqui
+    // porque, sem ela, a tela de privacidade exigida pela LGPD-RF03 não teria
+    // onde caber.
     await tester.pumpWidget(harness(const HomeScreen()));
     await tester.pumpAndSettle();
 
@@ -91,6 +97,20 @@ void main() {
       ...find.byType(OutlinedButton).evaluate(),
     ];
     expect(buttons.length + gubsTabCount, lessThanOrEqualTo(maxElementsPerScreen));
+  });
+
+  testWidgets('a tela de privacidade é alcançável da inicial (LGPD-RF03)',
+      (tester) async {
+    // Uma tela que a lei exige e que ninguém consegue abrir não cumpre a lei.
+    await tester.pumpWidget(harness(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    final shield = find.byKey(const ValueKey('home-privacy'));
+    expect(shield, findsOneWidget);
+    expect(
+      tester.getSize(shield).shortestSide,
+      greaterThanOrEqualTo(minTouchTarget),
+    );
   });
 
   // Ampliar a fonte é a primeira coisa que faz quem tem presbiopia e não tem

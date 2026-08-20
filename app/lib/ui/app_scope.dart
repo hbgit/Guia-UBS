@@ -18,6 +18,7 @@ import '../content/data/content_repository.dart';
 import '../prefs/locale_store.dart';
 import '../prefs/preferences_repository.dart';
 import '../speech/speaker.dart';
+import '../telemetry/telemetry_recorder.dart';
 import '../sync/model_provisioning.dart';
 
 /// Onde o idioma é persistido. Sobrescrito no `main` e nos testes.
@@ -170,4 +171,47 @@ class SetupCompletedController extends StateNotifier<bool> {
 final setupCompletedProvider =
     StateNotifierProvider<SetupCompletedController, bool>(
   (ref) => SetupCompletedController(ref.watch(preferencesProvider)),
+);
+
+/// Opt-out de telemetria (LGPD-RF03).
+///
+/// Estado **síncrono** e fonte única. A primeira versão tinha dois providers
+/// lendo a mesma preferência do `user.db` — a tela invalidava um e o contador
+/// escutava o outro, e o resultado é o pior defeito possível numa opção de
+/// privacidade: o botão desliga na tela e a coleta continua. Com um estado só,
+/// não há como um deles ficar para trás.
+class TelemetryConsentController extends StateNotifier<bool> {
+  TelemetryConsentController(this._preferences) : super(true);
+
+  final PreferencesRepository _preferences;
+
+  Future<void> restore() async =>
+      state = (await _preferences.readAll()).telemetryEnabled;
+
+  /// Muda a decisão. A UI reflete antes do disco, como na troca de idioma:
+  /// desligar telemetria não pode esperar I/O.
+  void set({required bool enabled}) {
+    state = enabled;
+    unawaited(
+      _preferences
+          .setTelemetryEnabled(enabled: enabled)
+          .catchError((Object _) {}),
+    );
+  }
+}
+
+final telemetryConsentProvider =
+    StateNotifierProvider<TelemetryConsentController, bool>(
+  (ref) => TelemetryConsentController(ref.watch(preferencesProvider)),
+);
+
+/// Contador de telemetria agregada.
+///
+/// Lê o consentimento a CADA registro — desligar na tela de privacidade precisa
+/// fazer efeito no toque seguinte. Ver `telemetry/telemetry_recorder.dart` para
+/// o que este módulo deliberadamente NÃO faz (não envia, não persiste).
+final telemetryProvider = Provider<TelemetryRecorder>(
+  (ref) => TelemetryRecorder(
+    isEnabled: () => ref.read(telemetryConsentProvider),
+  ),
 );

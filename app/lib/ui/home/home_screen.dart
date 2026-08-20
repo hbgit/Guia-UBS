@@ -34,7 +34,40 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: spacing * 2),
+              // Cabeçalho utilitário: selo de offline e acesso à privacidade.
+              //
+              // O escudo NÃO conta contra o teto de oito elementos, e a
+              // distinção importa: o teto existe para limitar as ESCOLHAS que
+              // competem pela atenção de quem escaneia a tela, não os controles
+              // de moldura. O voltar e a barra de abas nunca foram contados
+              // pelo mesmo motivo. E a tela de privacidade precisa existir num
+              // caminho alcançável: é exigência da LGPD-RF03, não um extra.
+              Row(
+                children: [
+                  Icon(Icons.cloud_off, size: 20, color: colors.inkSoft),
+                  const SizedBox(width: spacing * 0.75),
+                  Expanded(
+                    child: Text(
+                      l.offlineBadge,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(color: colors.inkSoft),
+                    ),
+                  ),
+                  IconButton(
+                    key: const ValueKey('home-privacy'),
+                    onPressed: () => context.goNamed(Routes.privacy),
+                    tooltip: l.privacyTitle,
+                    iconSize: 28,
+                    constraints: const BoxConstraints(
+                      minWidth: minTouchTarget,
+                      minHeight: minTouchTarget,
+                    ),
+                    icon: Icon(Icons.shield_outlined, color: colors.blue),
+                  ),
+                ],
+              ),
               Text(
                 l.homeQuestion,
                 textAlign: TextAlign.center,

@@ -131,12 +131,39 @@ Item 13 [FEITO]
 
 * 370 → 390 testes. APK 24,5 → 24,7 MB.
 
+Item 14 [FEITO]
+* A tela de privacidade NÃO escreve à mão o que o app guarda: ela lista uma entrada por preferência do user.db, e tem teste comparando as duas contagens. Pegou na primeira execução — `allow_metered_download` existia no banco e não aparecia na tela. Uma lista redigida à parte envelhece, e o resultado é uma tela que mente para o titular em português claro, com toda a cara de verdade.
+
+* Opt-out zera a COLETA, não só o envio. A LGPD-RF03 fala em zerar envios; zerar a contagem é mais forte — quem desligou não tem nem número em memória a respeito de si. E desligar apaga o que já foi contado: um opt-out que só vale para o futuro deixa em memória exatamente o que a pessoa acabou de recusar.
+
+* O pior defeito do item, e o teste pegou antes da sabotagem: eu tinha DOIS providers lendo o mesmo opt-out do user.db. A tela invalidava um, o contador escutava o outro. Ou seja: o botão desligava na tela e a coleta continuava. É o pior defeito possível numa opção de privacidade. Virou um estado síncrono único.
+
+* A allowlist é fechada por construção — não existe API que aceite String, só a enum MetricKey. Campo novo passa obrigatoriamente pelo diff, que é onde a revisão do encarregado acontece. Teste confere a enum contra o telemetry-schema.json gerado, mesma técnica do manifest.
+
+* O que o módulo de telemetria NÃO faz, de propósito: não transmite (seria uma TERCEIRA chamada de rede, e isso exige ADR — não decisão de passagem enquanto implemento um contador) e não persiste (contador em disco viraria tabela nova no user.db, e sem envio ninguém lê: risco sem benefício). Também não guarda série temporal — `observeMax` guarda o pior caso do dia, porque série por aparelho é justamente o que a LGPD-RF14 quer evitar.
+
+* `kAnonymityMin` está no código como DOCUMENTAÇÃO do contrato, não como regra que o aparelho aplique: k é propriedade do conjunto de aparelhos, e um aparelho sozinho não sabe quantos outros formam sua coorte. Quem recusa lote com k < 20 é o pipeline.
+
+* Na ação destrutiva, a saída é o caminho fácil: "Não apagar" é o botão preenchido e vem primeiro; "Apagar mesmo assim" é texto discreto embaixo. Verificado no aparelho — apaga, confirma na tela, e na reabertura o app volta a perguntar o idioma, que é o sinal visível de que aconteceu.
+
+* Esclareci (não afrouxei) o teto de oito elementos: ele conta ESCOLHAS, não moldura. Voltar, barra de abas e o escudo de privacidade não competem pelo escaneamento — e sem essa distinção a tela exigida pela LGPD-RF03 não teria onde caber na inicial, que já usava as oito posições. A regra está escrita no teste, não implícita.
+
+* Sabotagem: 6 proteções, 6 pegas.
+
+* Apaguei o `placeholder_screen.dart` — todas as rotas têm tela real agora.
+
+* [TODO] O envio de telemetria não existe. Quando existir, precisa de ADR (terceira chamada de rede) e de decidir onde os contadores ficam entre aberturas do app. Hoje eles morrem com o processo, o que é correto enquanto não há consumidor.
+
+* [TODO] Nenhum ponto do app chama o `TelemetryRecorder` ainda. A triagem, o sync e o boot deveriam alimentá-lo (`triage_completed_total`, `sync_success_total`, `session_total`) — é fiação simples, mas não fiz para não espalhar chamadas antes de existir consumidor.
+
+* 390 → 417 testes. APK 24,7 → 24,8 MB.
+
 
 Item 12 [FEITO] << Checkout
 * Dívida do item 10 paga: setupCompleted e o override de dados móveis viviam na memória do processo. Quem escolhia "usar sem a IA assistente" revia a apresentação de valor a cada abertura; um posto sem Wi-Fi voltava a recusar o download depois de o administrador já ter autorizado.
 * [TODO] Não verificado: a tela de privacidade (CAP-13/LGPD-RF03) não existe — wipe() está implementado e testado, mas nenhuma tela o aciona; é o item 14. Nenhuma tela lê os repositórios de conteúdo ainda (itens 12–13). E não inspecionei o user.db em disco no aparelho: build release não permite run-as — verifiquei o comportamento, não o arquivo.
 
-Item 14 [TODO]
+Item 15 [TODO]
 
 ---
 

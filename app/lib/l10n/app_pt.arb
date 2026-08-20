@@ -35,10 +35,6 @@
   "flowTitle": "Na UBS é assim",
   "emergencyTitle": "Procure emergência agora",
   "privacyTitle": "Seus dados",
-  "screenUnderConstruction": "Esta tela chega em breve",
-  "@screenUnderConstruction": {
-    "description": "Marcador temporario das telas dos itens 12-13. Sai antes do piloto."
-  },
   "contentUnavailable": "Conteúdo ainda não disponível",
   "@contentUnavailable": {
     "description": "Mostrado quando o pack de conteudo ainda nao foi instalado."
@@ -77,5 +73,19 @@
       }
     }
   },
-  "emergencyHint": "Procure agora um destes lugares"
+  "emergencyHint": "Procure agora um destes lugares",
+  "privacyHint": "Este aplicativo não guarda o que você sente",
+  "privacyNoticeTitle": "O que fica no aparelho",
+  "privacyNoticeBody": "Os sintomas que você toca somem quando a tela fecha. Nada sai deste aparelho e não existe cadastro.",
+  "privacyStoredLocale": "O idioma que você escolheu",
+  "privacyStoredTelemetry": "Se você aceita ajudar com números de uso",
+  "privacyStoredSetup": "Se o aplicativo já foi preparado",
+  "privacyTelemetryTitle": "Ajudar a melhorar",
+  "privacyTelemetryBody": "Envia só contagens juntas de muitos aparelhos, sem dizer quem é você.",
+  "privacyWipeTitle": "Apagar meus dados",
+  "privacyWipeBody": "Volta tudo ao início. Não dá para desfazer.",
+  "privacyWipeConfirm": "Apagar mesmo assim",
+  "privacyWipeCancel": "Não apagar",
+  "privacyWipeDone": "Tudo apagado",
+  "privacyStoredMetered": "Se o posto liberou baixar por dados móveis"
 }

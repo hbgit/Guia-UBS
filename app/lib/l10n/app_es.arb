@@ -26,7 +26,6 @@
   "flowTitle": "En la UBS es así",
   "emergencyTitle": "Busca emergencia ahora",
   "privacyTitle": "Tus datos",
-  "screenUnderConstruction": "Esta pantalla llega pronto",
   "contentUnavailable": "Contenido aún no disponible",
   "triageWhereQuestion": "¿Dónde te duele o molesta?",
   "triageWhatQuestion": "¿Qué sientes?",
@@ -45,5 +44,19 @@
   "documentsOptional": "Ayuda, pero no impide",
   "flowHint": "Paso a paso de la atención",
   "flowStepNumber": "Paso {n}",
-  "emergencyHint": "Busca ahora uno de estos lugares"
+  "emergencyHint": "Busca ahora uno de estos lugares",
+  "privacyHint": "Esta aplicación no guarda lo que sientes",
+  "privacyNoticeTitle": "Qué queda en el aparato",
+  "privacyNoticeBody": "Los síntomas que tocas desaparecen cuando cierras la pantalla. Nada sale de este aparato y no hay registro.",
+  "privacyStoredLocale": "El idioma que elegiste",
+  "privacyStoredTelemetry": "Si aceptas ayudar con números de uso",
+  "privacyStoredSetup": "Si la aplicación ya fue preparada",
+  "privacyTelemetryTitle": "Ayudar a mejorar",
+  "privacyTelemetryBody": "Envía solo conteos juntos de muchos aparatos, sin decir quién eres.",
+  "privacyWipeTitle": "Borrar mis datos",
+  "privacyWipeBody": "Todo vuelve al inicio. No se puede deshacer.",
+  "privacyWipeConfirm": "Borrar de todos modos",
+  "privacyWipeCancel": "No borrar",
+  "privacyWipeDone": "Todo borrado",
+  "privacyStoredMetered": "Si el puesto permitió descargar con datos móviles"
 }

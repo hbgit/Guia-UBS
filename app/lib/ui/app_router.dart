@@ -8,11 +8,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../l10n/app_localizations.dart';
 import 'app_routes.dart';
 import 'home/home_screen.dart';
 import 'language/language_screen.dart';
-import 'placeholder_screen.dart';
+import 'privacy/privacy_screen.dart';
 import 'content/documents_screen.dart';
 import 'content/emergency_screen.dart';
 import 'content/flow_screen.dart';
@@ -82,10 +81,7 @@ final List<GubsRouteSpec> gubsRoutes = [
     path: '/privacidade',
     name: Routes.privacy,
     tab: GubsTab.home,
-    builder: (context, state) => PlaceholderScreen(
-      title: L.of(context).privacyTitle,
-      icon: Icons.lock,
-    ),
+    builder: (context, state) => const PrivacyScreen(),
   ),
   GubsRouteSpec(
     path: '/onde-ir',

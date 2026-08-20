@@ -139,6 +139,7 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp> {
     // seleção ou direto no app.
     ref.read(localeControllerProvider.notifier).restore();
     ref.read(setupCompletedProvider.notifier).restore();
+    ref.read(telemetryConsentProvider.notifier).restore();
 
     // O agendador só interessa enquanto falta modelo. Quando o provisionamento
     // conclui, cancelamos: manter um job periódico para baixar algo que já

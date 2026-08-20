@@ -470,7 +470,7 @@ modelo SLM corrigiu, e a lição está anotada no código.
 11. `content/` (repositórios RO) + `prefs/` (Drift). ✅
 12. `triage_orchestrator` completo (FSM-A) + telas de composição/resultado. ✅
 13. Encaminhamento, fluxo, documentos. ✅
-14. `privacy/` (CAP-13) + `telemetry/` com allowlist.
+14. `privacy/` (CAP-13) + `telemetry/` com allowlist. ✅
 15. `sync/` endurecido: backoff+jitter, circuit breaker, guard de quiescência.
 **Saída:** APK com jornadas verde/vermelha/sync passando em device farm.
 
@@ -760,6 +760,63 @@ não rótulo de casca. Se aparecer, tem de vir do pack, com dupla revisão
 (INV-4). Fica registrado como conteúdo que o pack deveria carregar — a tela de
 documentos ganharia muito com ele, e o público que mais precisa dessa informação
 é exatamente o que o app atende.
+
+#### 5.7 Resultado do item 14 — privacidade e telemetria (2026-08-19)
+
+**A tela de privacidade não escreve à mão o que o app guarda.** Ela lista uma
+entrada por preferência do `user.db`, e há teste que compara a contagem das duas
+listas. Isso não é zelo: uma lista redigida à parte envelhece, e o resultado é
+uma tela que mente para o titular em português claro, com toda a aparência de
+verdade. O teste pegou na primeira execução — `allow_metered_download` existia no
+banco e não aparecia na tela.
+
+**Opt-out na contagem, não no envio.** A LGPD-RF03 exige que o opt-out zere os
+envios; aqui ele zera a **coleta**, o que é mais forte: quem desligou não tem nem
+número em memória a respeito de si. Desligar também apaga o que já foi contado —
+um opt-out que só vale para o futuro deixaria em memória exatamente o que a
+pessoa acabou de recusar.
+
+**Um defeito que a sabotagem não precisou encontrar, porque o teste encontrou
+primeiro.** A primeira versão tinha *dois* providers lendo o mesmo opt-out do
+`user.db`: a tela invalidava um e o contador escutava o outro. O resultado é o
+pior defeito possível numa opção de privacidade — o botão desliga na tela e a
+coleta continua. Virou um estado síncrono único (`telemetryConsentProvider`).
+
+**A allowlist é fechada por construção.** Não existe API que aceite `String`: só
+`MetricKey`, uma enum. Um campo novo passa obrigatoriamente pelo diff, que é onde
+a revisão do encarregado acontece (LGPD-RF14). Há teste que confere a enum contra
+o `telemetry-schema.json` gerado pelo contrato — mesma técnica do manifest, mesmo
+risco de as duas listas divergirem em silêncio.
+
+**O que o módulo de telemetria deliberadamente NÃO faz**, e por quê:
+
+| Ausência | Motivo |
+|---|---|
+| Não transmite | O app faz **duas** chamadas de rede (manifest/pack e modelo). Uma terceira exige ADR, não uma decisão de passagem |
+| Não persiste | Contador em disco viraria tabela nova no `user.db`, onde `lgpd_surface_test` obriga a justificar cada coluna. Sem envio, ninguém lê — persistir seria risco sem benefício |
+| Não guarda série temporal | `observeMax` guarda o pior caso do dia. A série por aparelho é justamente o que a LGPD-RF14 quer evitar; o percentil real é da coorte, calculado no pipeline |
+
+O `kAnonymityMin` vive no código como **documentação do contrato**, não como
+regra que o aparelho aplique: k é propriedade do conjunto de aparelhos, e um
+aparelho sozinho não sabe quantos outros compõem sua coorte. Quem recusa lote com
+k < 20 é o pipeline.
+
+**A ação destrutiva tem a saída como caminho fácil.** "Apagar meus dados" abre uma
+confirmação em que *"Não apagar"* é o botão preenchido e vem primeiro, e
+*"Apagar mesmo assim"* é texto discreto embaixo. Verificado no aparelho: o
+apagamento confirma na tela e, na reabertura, o app volta a perguntar o idioma —
+que é o sinal visível de que aconteceu de fato.
+
+**Uma convenção esclarecida, não afrouxada.** O teto de oito elementos por tela
+conta **escolhas**, não moldura. Voltar, barra de abas e o escudo de privacidade
+não competem pelo escaneamento — e sem essa distinção a tela exigida pela
+LGPD-RF03 não teria onde caber na inicial, que já usava as oito posições. A regra
+está escrita no teste, não implícita.
+
+**Sabotagem: 6 proteções desligadas, 6 pegas** — chave fora do contrato, opt-out
+filtrando só na saída, desligar sem apagar o já contado, apagar virando ação de
+um toque, `wipe` deixando o idioma para trás, e preferência nova invisível na
+tela.
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only.

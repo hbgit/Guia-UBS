@@ -50,6 +50,8 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 
 - **`content.db` é somente leitura, e isso é estrutural** (`app/lib/content/`). O app nunca escreve conteúdo: ele troca o arquivo inteiro quando o sync commita (FSM-B). Um caminho de escrita ali seria um caminho para orientação não revisada chegar ao usuário sem assinatura (INV-4). O pack é aberto em `OpenMode.readOnly` e há teste que confirma que o `UPDATE` falha.
 - **Falta de tradução recua para `pt`, não some com o item.** O packer bloqueia publicação com tradução faltando, então recuo no aparelho é defeito — mas sumir com "Onde ir" de quem precisa é pior que mostrá-lo em português para um hispanofalante. O recuo é sinalizado em `Localized.isFallback`.
+- **A tela de privacidade lista o que o `user.db` guarda, e há teste que compara as duas listas** (`app/test/ui/privacy/`). Preferência nova sem entrada na tela reprova: uma lista redigida à parte envelhece e passa a mentir para o titular.
+- **Telemetria: a allowlist é uma enum, nunca uma `String`** (`app/lib/telemetry/metric_key.dart`), conferida contra `contract/telemetry-schema.json`. O módulo **não envia e não persiste** — enviar seria uma terceira chamada de rede (exige ADR) e persistir viraria coluna nova no `user.db`. O opt-out zera a COLETA, não só o envio.
 - **O esquema do `user.db` é a superfície auditável da LGPD** (`app/lib/prefs/user_database.dart`). Colunas **tipadas**, nunca chave-valor: as colunas são a resposta a "o que este app guarda sobre a pessoa", e `test/prefs/lgpd_surface_test.dart` as enumera. Coluna nova reprova o build até ser justificada contra a INV-2 e a LGPD-RF13. Sintoma é dado sensível de saúde e **não** é persistido — a sequência morre em memória.
 
 ## Comandos

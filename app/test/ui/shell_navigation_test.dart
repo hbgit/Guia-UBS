@@ -11,11 +11,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/l10n/app_localizations.dart';
 import 'package:guia_ubs/prefs/locale_store.dart';
+import 'package:guia_ubs/prefs/preferences_repository.dart';
+import 'package:guia_ubs/prefs/user_database_connection.dart';
 import 'package:guia_ubs/ui/app_router.dart';
 import 'package:guia_ubs/ui/app_routes.dart';
 import 'package:guia_ubs/content/data/content_repository.dart';
 import 'package:guia_ubs/ui/app_scope.dart';
 import 'package:guia_ubs/ui/theme/gubs_theme.dart';
+
+import '../support/sqlite_test_libs.dart';
 
 Future<void> pumpApp(
   WidgetTester tester, {
@@ -26,10 +30,16 @@ Future<void> pumpApp(
   final router = buildGubsRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
 
+  // A tela de privacidade lê o `user.db`. O provider não tem padrão de
+  // propósito — quem o esquece descobre agora, e não em produção.
+  final db = inMemoryUserDatabase();
+  addTearDown(db.close);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         localeStoreProvider.overrideWithValue(MemoryLocaleStore(locale)),
+        preferencesProvider.overrideWithValue(PreferencesRepository(db)),
         contentProvider.overrideWithValue(content),
       ],
       child: MaterialApp.router(
@@ -50,6 +60,8 @@ Future<void> pumpApp(
 }
 
 void main() {
+  setUpAll(configureSqliteForTests);
+
   testWidgets('a barra de abas está presente em toda tela da casca',
       (tester) async {
     // "Casa sempre visível" (CAP-02) é exatamente isto: de qualquer tela, a
