@@ -83,6 +83,7 @@ flutter build apk --release --target-platform=android-arm64
 
 tool/gen_launcher_icon.sh           # regenera o ícone do launcher a partir do SVG
 tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o SVG
+tool/gen_about_logos.sh             # logos institucionais da tela "Sobre"
 ```
 
 **Código gerado não é versionado.** `lib/l10n/app_localizations*.dart` e

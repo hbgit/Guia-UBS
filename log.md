@@ -218,3 +218,8 @@ Na entrada (prompt_builder.dart): o usuário nunca digita. Ele toca em até 5 í
 Na saída (engine_decoder.dart): o texto gerado não é lido como texto. Ele é varrido em busca de um identificador que já exista na tabela routing_outcome do pacote. Qualquer outra coisa — prosa, dois identificadores, alucinação — vira null, e o gate decide. A severidade vem do banco, nunca do texto: o modelo só consegue nomear um desfecho já revisado clinicamente.
 
 
+TODO:
+
+* Os quatro documentos em app/assets/legal/ estão marcados como minuta no próprio texto e a tela exibe o aviso. Descrevem com precisão o que o app faz hoje, mas revisão jurídica é pré-requisito de publicação e não era deste plano.
+
+* E os logotipos institucionais agora aparecem ao lado de orientação clínica ainda não revisada — por isso pus o mesmo aviso que o packer emite na própria tela "Sobre". Ele sai junto com a dupla aprovação clínica; até lá, é o que impede o crédito ser lido como endosso.

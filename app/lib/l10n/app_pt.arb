@@ -17,7 +17,6 @@
   "languageChange": "Trocar idioma",
   "navHome": "Início",
   "navWhereTo": "Onde ir",
-  "navDocuments": "Documentos",
   "homeQuestion": "Como você está?",
   "homeHint": "Toque em uma opção para começar",
   "homeStartTriage": "Estou com sintomas",
@@ -87,5 +86,97 @@
   "privacyWipeConfirm": "Apagar mesmo assim",
   "privacyWipeCancel": "Não apagar",
   "privacyWipeDone": "Tudo apagado",
-  "privacyStoredMetered": "Se o posto liberou baixar por dados móveis"
+  "privacyStoredMetered": "Se o posto liberou baixar por dados móveis",
+  "navMore": "Mais",
+  "@navMore": {
+    "description": "Aba do menu utilitario."
+  },
+  "moreTitle": "Mais opções",
+  "moreHint": "Ajustes e informações do aplicativo",
+  "moreSettings": "Ajustes",
+  "moreSettingsHint": "Idioma, cores e tamanho da letra",
+  "moreHowTo": "Como usar",
+  "moreHowToHint": "Um guia rápido do aplicativo",
+  "morePrivacy": "Privacidade e termos",
+  "morePrivacyHint": "O que fica no aparelho e as regras de uso",
+  "moreAbout": "Sobre",
+  "moreAboutHint": "Versão, créditos e licenças",
+  "settingsTitle": "Ajustes",
+  "settingsLanguage": "Idioma",
+  "settingsTheme": "Cores da tela",
+  "settingsThemeSystem": "Como no aparelho",
+  "settingsThemeLight": "Claro",
+  "settingsThemeDark": "Escuro",
+  "settingsFont": "Tamanho da letra",
+  "settingsFontNormal": "Normal",
+  "settingsFontLarge": "Grande",
+  "settingsFontLarger": "Muito grande",
+  "settingsFontCapped": "O aparelho já está com a letra ampliada. Este é o maior tamanho.",
+  "@settingsFontCapped": {
+    "description": "Aviso quando o teto de 2x corta o pedido."
+  },
+  "settingsMetered": "Baixar usando dados móveis",
+  "settingsMeteredBody": "O aplicativo baixa conteúdo novo só no Wi-Fi. Ligue se o posto não tem Wi-Fi.",
+  "howToTitle": "Como usar",
+  "howToStepOf": "Passo {n} de {total}",
+  "@howToStepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "howToStep1Title": "Toque no boneco",
+  "howToStep1Body": "Mostre onde dói apontando no corpo. Não precisa escrever nada.",
+  "howToStep2Title": "Escolha o que você sente",
+  "howToStep2Body": "Toque nos desenhos parecidos com o que você está sentindo.",
+  "howToStep3Title": "Veja a orientação",
+  "howToStep3Body": "Verde é procurar a UBS. Vermelho é emergência: ligue 192.",
+  "howToStep4Title": "Ouça em voz alta",
+  "howToStep4Body": "Toque no alto-falante e o aparelho lê a tela para você.",
+  "howToStep5Title": "Funciona sem internet",
+  "howToStep5Body": "Tudo aqui funciona com o aparelho desligado da rede.",
+  "privacyStoredTheme": "As cores que você escolheu",
+  "privacyStoredFontScale": "O tamanho de letra que você escolheu",
+  "privacyDocuments": "Ler os documentos",
+  "privacyDocumentsVersion": "Versão de {data}",
+  "@privacyDocumentsVersion": {
+    "placeholders": {
+      "data": {
+        "type": "String"
+      }
+    }
+  },
+  "legalTitle": "Privacidade e termos",
+  "legalDraft": "Minuta. Este texto ainda não passou por revisão jurídica.",
+  "@legalDraft": {
+    "description": "Some quando os documentos forem aprovados."
+  },
+  "legalUnavailable": "Não foi possível abrir os documentos neste aparelho.",
+  "aboutTitle": "Sobre",
+  "aboutVersion": "Versão {version}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutBuild": "Build {build}",
+  "@aboutBuild": {
+    "placeholders": {
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutCredits": "Realização",
+  "aboutLicenses": "Licenças dos componentes",
+  "aboutClinicalNotice": "As orientações deste aplicativo ainda não passaram por revisão clínica. Não use para decidir sozinho sobre a sua saúde.",
+  "@aboutClinicalNotice": {
+    "description": "Mesmo aviso que o packer emite. Sai com a dupla aprovacao."
+  }
 }

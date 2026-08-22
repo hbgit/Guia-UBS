@@ -51,7 +51,7 @@ void main() {
     // Roteador SEM os portões: `GubsScaffold` precisa de um `GoRouter` no
     // contexto para resolver o voltar, mas os portões de idioma e de modelo
     // são assunto de `redirect_test`, não desta tela.
-    final router = buildGubsRouter(initialLocation: '/privacidade');
+    final router = buildGubsRouter(initialLocation: '/mais/privacidade');
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
@@ -106,6 +106,8 @@ void main() {
         'Se você aceita ajudar com números de uso',
         'Se o aplicativo já foi preparado',
         'Se o posto liberou baixar por dados móveis',
+        'As cores que você escolheu',
+        'O tamanho de letra que você escolheu',
       ];
       for (final item in declared) {
         expect(find.text(item), findsOneWidget);
@@ -134,6 +136,10 @@ void main() {
     testWidgets('começa ligado e desliga no toque', (tester) async {
       await pump(tester);
       final toggle = find.byKey(const ValueKey('privacy-telemetry'));
+      // A lista e preguicosa e cresceu: o interruptor deixou de nascer na
+      // primeira dobra quando tema, tamanho de letra e o link dos documentos
+      // entraram acima dele. Sem revelar, o widget nem existe na arvore.
+      await reveal(tester, toggle);
       expect(tester.widget<Switch>(toggle).value, isTrue);
 
       await tester.tap(toggle);
@@ -152,6 +158,7 @@ void main() {
       recorder.increment(MetricKey.triageCompletedTotal);
       expect(recorder.snapshot().isEmpty, isFalse);
 
+      await reveal(tester, find.byKey(const ValueKey('privacy-telemetry')));
       await tester.tap(find.byKey(const ValueKey('privacy-telemetry')));
       await tester.pumpAndSettle();
 
@@ -170,10 +177,12 @@ void main() {
 
     testWidgets('a escolha sobrevive à reabertura da tela', (tester) async {
       await pump(tester);
+      await reveal(tester, find.byKey(const ValueKey('privacy-telemetry')));
       await tester.tap(find.byKey(const ValueKey('privacy-telemetry')));
       await tester.pumpAndSettle();
 
       await pump(tester);
+      await reveal(tester, find.byKey(const ValueKey('privacy-telemetry')));
 
       expect(
         tester.widget<Switch>(find.byKey(const ValueKey('privacy-telemetry')))
@@ -283,6 +292,7 @@ void main() {
     testWidgets('a tela inteira funciona em espanhol', (tester) async {
       await pump(tester, locale: AppLocale.es);
 
+      await reveal(tester, find.text('Ayudar a mejorar'));
       expect(find.text('Ayudar a mejorar'), findsOneWidget);
 
       final wipe = find.text('Borrar mis datos');

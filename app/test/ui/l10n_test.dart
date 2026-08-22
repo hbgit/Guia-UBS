@@ -62,7 +62,16 @@ void main() {
       'actionContinue',
       'languagePortuguese',
       'languageSpanish',
-      'navDocuments',
+      // "Ajustes" e "Idioma" são a mesma palavra nos dois idiomas; "Claro",
+      // "Normal" e "Grande" também. "Build" é termo técnico que não se traduz
+      // em nenhum dos dois.
+      'moreSettings',
+      'settingsTitle',
+      'settingsLanguage',
+      'settingsThemeLight',
+      'settingsFontNormal',
+      'settingsFontLarge',
+      'aboutBuild',
     };
 
     for (final key in _keys(pt)) {

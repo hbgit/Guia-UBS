@@ -29,12 +29,21 @@ import '../support/sqlite_test_libs.dart';
 /// pessoa: idioma da interface, se contribui com telemetria agregada, se o
 /// administrador liberou dados móveis, e se já passou pela configuração
 /// inicial. Nenhuma delas identifica ninguém nem descreve saúde.
+/// `theme_mode` e `font_scale` entraram com a tela de ajustes e passaram pela
+/// mesma pergunta: descrevem **como a interface é desenhada**, não quem a usa.
+/// Não identificam ninguém, não dizem nada sobre saúde e nunca saem do
+/// aparelho. Persistir as duas é o ponto delas — quem amplia a fonte costuma
+/// fazê-lo por não enxergar, e obrigar a reescolher a cada abertura seria
+/// acessibilidade pior sem nenhum ganho de privacidade, exatamente como já
+/// vale para o idioma.
 const Set<String> allowedUserDataColumns = {
   'id',
   'locale_code',
   'telemetry_enabled',
   'allow_metered_download',
   'setup_completed',
+  'theme_mode',
+  'font_scale',
 };
 
 /// Tabelas que o `user.db` pode ter.
@@ -131,30 +140,51 @@ void main() {
     });
 
     test('nenhum valor gravado pelo usuário sobrevive ao apagamento', () async {
-      // Percorre as colunas de verdade, em SQL cru: se alguém acrescentar uma
-      // preferência e esquecer de zerá-la no `wipe`, este teste a encontra sem
-      // precisar ser atualizado.
+      // Compara a linha apagada com a de um banco RECÉM-CRIADO, coluna por
+      // coluna, em SQL cru. Assim o teste não precisa saber o que cada default
+      // é — e continua encontrando a preferência que alguém acrescentar e
+      // esquecer de zerar no `wipe`, sem nunca precisar ser atualizado.
+      //
+      // A versão anterior exigia que todo valor fosse `null`, `0` ou `1`, o
+      // que só era verdade enquanto todas as colunas eram booleanas. A
+      // primeira coluna de texto (`theme_mode`, default `system`) reprovou o
+      // teste sem que nada estivesse errado — heurística de tipo no lugar de
+      // comparação com o padrão.
       final repo = PreferencesRepository(db);
       await repo.write(AppLocale.es);
       await repo.setTelemetryEnabled(enabled: false);
       await repo.setAllowMeteredDownload(allowed: true);
       await repo.setSetupCompleted(completed: true);
+      await repo.setThemeMode(GubsThemeMode.dark);
+      await repo.setFontScale(1.6);
 
       await repo.wipe();
 
-      final row = await db.customSelect('SELECT * FROM preferences').getSingle();
-      for (final entry in row.data.entries) {
-        if (entry.key == 'id') continue;
+      final pristine = inMemoryUserDatabase();
+      addTearDown(pristine.close);
+      await pristine.readPreferences();
+
+      final apagado =
+          (await db.customSelect('SELECT * FROM preferences').getSingle()).data;
+      final novo = (await pristine
+              .customSelect('SELECT * FROM preferences')
+              .getSingle())
+          .data;
+
+      for (final key in novo.keys) {
         expect(
-          entry.value,
-          anyOf(isNull, 0, 1),
-          reason: 'coluna ${entry.key} reteve "${entry.value}"',
+          apagado[key],
+          novo[key],
+          reason: 'coluna $key reteve "${apagado[key]}" depois do apagamento',
         );
       }
-      expect(row.data['locale_code'], isNull);
-      expect(row.data['telemetry_enabled'], 1);
-      expect(row.data['allow_metered_download'], 0);
-      expect(row.data['setup_completed'], 0);
+      // Âncoras explícitas: se o default de alguma destas mudar, a comparação
+      // acima continuaria passando e o significado teria mudado em silêncio.
+      expect(apagado['locale_code'], isNull, reason: 'precisa perguntar de novo');
+      expect(apagado['telemetry_enabled'], 1);
+      expect(apagado['setup_completed'], 0);
+      expect(apagado['theme_mode'], 'system');
+      expect(apagado['font_scale'], 1.0);
     });
 
     test('apagar é idempotente — a tela pode ser tocada duas vezes', () async {

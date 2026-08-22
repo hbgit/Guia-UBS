@@ -127,7 +127,10 @@ class HomeScreen extends StatelessWidget {
                   icon: Icons.badge,
                   label: l.homeDocuments,
                   color: colors.blue,
-                  onTap: () => context.go(GubsTab.documents.rootPath),
+                  // Por NOME: "Documentos" deixou de ser raiz de aba quando
+                  // "Mais" entrou na barra, e este ladrilho passou a ser o
+                  // caminho principal até ele.
+                  onTap: () => context.goNamed(Routes.documents),
                 ),
               ),
               const SizedBox(height: spacing * 1.5),

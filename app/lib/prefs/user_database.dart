@@ -66,6 +66,21 @@ class Preferences extends Table {
   BoolColumn get setupCompleted =>
       boolean().withDefault(const Constant(false))();
 
+  /// Claro, escuro ou o do sistema. Valores: `system`, `light`, `dark`.
+  ///
+  /// É como a interface é pintada, não um atributo de quem a usa: não
+  /// identifica ninguém, não descreve saúde e nunca sai do aparelho. Persistir
+  /// é o ponto — um tema que volta ao padrão a cada abertura obriga a pessoa a
+  /// reescolher, e quem o ajusta costuma fazê-lo por dificuldade de enxergar.
+  TextColumn get themeMode => text().withDefault(const Constant('system'))();
+
+  /// Multiplicador de fonte escolhido DENTRO do app (1.0, 1.3 ou 1.6).
+  ///
+  /// Não substitui a escala do sistema: multiplica-a, com teto em 2× — ver
+  /// `ui/app_scope.dart`. Mesma justificativa do tema: escolha de operação da
+  /// interface, e a que mais importa para presbiopia sem óculos.
+  RealColumn get fontScale => real().withDefault(const Constant(1))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -75,8 +90,18 @@ class UserDatabase extends _$UserDatabase {
   UserDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
+  /// ## `onUpgrade` não é opcional
+  ///
+  /// Sem ele, todo aparelho que já tem o app instalado abre um `user.db` na v1
+  /// contra um esquema que espera a v2, e o Drift lança na primeira leitura —
+  /// no boot, antes de qualquer tela. O modo de falha é o app não abrir mais,
+  /// e ele não aparece em instalação limpa: só na ATUALIZAÇÃO por cima, que é
+  /// justamente o caminho de todo mundo que já usa.
+  ///
+  /// As duas colunas da v2 têm default, então `addColumn` preenche as linhas
+  /// existentes sozinho — o idioma já escolhido continua lá.
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
@@ -85,6 +110,12 @@ class UserDatabase extends _$UserDatabase {
             const PreferencesCompanion(id: Value(1)),
             mode: InsertMode.insertOrIgnore,
           );
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(preferences, preferences.themeMode);
+            await m.addColumn(preferences, preferences.fontScale);
+          }
         },
       );
 

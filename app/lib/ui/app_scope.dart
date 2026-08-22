@@ -218,6 +218,103 @@ final telemetryConsentProvider =
   (ref) => TelemetryConsentController(ref.watch(preferencesProvider)),
 );
 
+/// Tema escolhido (claro, escuro ou o do sistema).
+///
+/// Mesmo padrão de idioma e telemetria: **o estado muda antes do disco**. A
+/// RF-01 dá 200 ms para a interface responder, e um `await` em armazenamento
+/// lento faria a tela demorar a repintar por causa de uma gravação que não
+/// interessa ao usuário. Falha ao gravar custa uma reescolha na próxima
+/// abertura, nunca uma tela de erro.
+class ThemeModeController extends StateNotifier<GubsThemeMode> {
+  ThemeModeController(this._preferences) : super(GubsThemeMode.system);
+
+  final PreferencesRepository _preferences;
+
+  Future<void> restore() async =>
+      state = (await _preferences.readAll()).themeMode;
+
+  void select(GubsThemeMode mode) {
+    state = mode;
+    unawaited(_preferences.setThemeMode(mode).catchError((Object _) {}));
+  }
+}
+
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeController, GubsThemeMode>(
+  (ref) => ThemeModeController(ref.watch(preferencesProvider)),
+);
+
+/// Ampliação de fonte escolhida dentro do app.
+///
+/// Não substitui a do sistema — ver `ui/theme/text_scaling.dart`, que compõe
+/// as duas e aplica o teto.
+class FontScaleController extends StateNotifier<double> {
+  FontScaleController(this._preferences) : super(1);
+
+  final PreferencesRepository _preferences;
+
+  Future<void> restore() async =>
+      state = (await _preferences.readAll()).fontScale;
+
+  void select(double scale) {
+    final normalized = normalizeFontScale(scale);
+    state = normalized;
+    unawaited(_preferences.setFontScale(normalized).catchError((Object _) {}));
+  }
+}
+
+final fontScaleProvider = StateNotifierProvider<FontScaleController, double>(
+  (ref) => FontScaleController(ref.watch(preferencesProvider)),
+);
+
+/// Liberação de dados móveis para os downloads (ADR-003).
+///
+/// A decisão já era persistida e já aparecia na tela de privacidade; o que
+/// faltava era um lugar para MUDÁ-LA depois do primeiro acesso. Escreve nos
+/// dois lugares que precisam concordar: o `user.db`, que sobrevive ao
+/// fechamento, e o objeto de provisionamento vivo, que é quem decide se o
+/// download começa agora.
+class MeteredDownloadController extends StateNotifier<bool> {
+  MeteredDownloadController(this._preferences, this._applyToProvisioning)
+      : super(false);
+
+  final PreferencesRepository _preferences;
+  final void Function({required bool allowed}) _applyToProvisioning;
+
+  Future<void> restore() async {
+    state = (await _preferences.readAll()).allowMeteredDownload;
+    _applyToProvisioning(allowed: state);
+  }
+
+  void select({required bool allowed}) {
+    state = allowed;
+    _applyToProvisioning(allowed: allowed);
+    unawaited(
+      _preferences
+          .setAllowMeteredDownload(allowed: allowed)
+          .catchError((Object _) {}),
+    );
+  }
+}
+
+final meteredDownloadProvider =
+    StateNotifierProvider<MeteredDownloadController, bool>(
+  (ref) => MeteredDownloadController(
+    ref.watch(preferencesProvider),
+    ({required bool allowed}) {
+      // O provisionamento não existe nos testes de widget que não o
+      // sobrescrevem, e o provider lança de propósito quando falta. Falta dele
+      // não pode impedir a preferência de ser gravada — é a degradação da
+      // INV-8 aplicada a uma tela de ajustes.
+      try {
+        ref.read(provisioningProvider).allowMeteredNetworks = allowed;
+      } on Object {
+        // Segue só com o `user.db`; o valor é relido no próximo boot.
+      }
+    },
+  ),
+);
+
 /// Contador de telemetria agregada.
 ///
 /// Lê o consentimento a CADA registro — desligar na tela de privacidade precisa

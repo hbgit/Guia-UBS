@@ -14,10 +14,22 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 /// As três abas da navegação principal.
+///
+/// ## Por que "Documentos" saiu da barra e "Mais" entrou
+///
+/// A CAP-02 fixa **três** abas, e a RNF-06 limita a tela inicial a oito
+/// elementos acionáveis. A inicial já usava exatamente oito (cinco escolhas
+/// mais as três abas): uma QUARTA aba estouraria o teto e obrigaria a mexer na
+/// tela clínica para abrir espaço a um menu utilitário.
+///
+/// "Documentos" era o destino que a barra podia ceder: ele já tem um ladrilho
+/// próprio na inicial (`home-docs`), continua a um toque de distância, e agora
+/// ganha botão voltar — antes era raiz de aba e não tinha nenhum. "Mais", ao
+/// contrário, não tinha como ser alcançado de lugar nenhum.
 enum GubsTab {
   home('/'),
   whereTo('/onde-ir'),
-  documents('/documentos');
+  more('/mais');
 
   const GubsTab(this.rootPath);
 
@@ -103,4 +115,9 @@ abstract final class Routes {
   static const privacy = 'privacy';
   static const whereTo = 'whereTo';
   static const documents = 'documents';
+  static const more = 'more';
+  static const settings = 'settings';
+  static const howTo = 'howTo';
+  static const legalDocuments = 'legalDocuments';
+  static const about = 'about';
 }

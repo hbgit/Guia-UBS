@@ -262,6 +262,7 @@ Substituições aplicadas — todo componente pago ou SaaS comercial foi trocado
 | `flutter_riverpod` | Estado da UI (decisão da §1). Fixado no 2.x — ver nota abaixo | MIT | 10 |
 | `flutter_localizations` + `intl` | i18n pt/es (RF-01) via `gen-l10n` | BSD-3 | 10 |
 | `flutter_tts` | TTS pelo engine do SO (RF-06). Módulo folha: falha não propaga | MIT | 10 |
+| `package_info_plus` | Versão e build reais do APK na tela "Sobre" (CAP-19). Uma constante gerada mentiria no dia em que alguém publicasse sem rodar o gerador. **Fixado em `^10`:** as versões 4.0.1–9.x exigem `win32 <6` e conflitam com `file_picker ^12` | BSD-3 | 10 |
 
 `cryptography` é Dart puro, sem biblioteca nativa adicional no APK: o mesmo
 código roda no host e no aparelho, e a suíte que confere a interoperabilidade

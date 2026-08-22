@@ -35,6 +35,7 @@ import 'ui/app_scope.dart';
 import 'ui/router_provider.dart';
 import 'ui/triage/triage_controller.dart';
 import 'ui/theme/gubs_theme.dart';
+import 'ui/theme/text_scaling.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -148,6 +149,12 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
     ref.read(localeControllerProvider.notifier).restore();
     ref.read(setupCompletedProvider.notifier).restore();
     ref.read(telemetryConsentProvider.notifier).restore();
+    // Tema e fonte também são lidos aqui, e não na tela de ajustes: quem
+    // escolheu tema escuro precisa que o app ABRA escuro, e não que ele pisque
+    // claro até alguém entrar em Ajustes.
+    ref.read(themeModeProvider.notifier).restore();
+    ref.read(fontScaleProvider.notifier).restore();
+    ref.read(meteredDownloadProvider.notifier).restore();
 
     // O agendador só interessa enquanto falta modelo. Quando o provisionamento
     // conclui, cancelamos: manter um job periódico para baixar algo que já
@@ -200,6 +207,28 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
       debugShowCheckedModeBanner: false,
       theme: gubsLightTheme,
       darkTheme: gubsDarkTheme,
+      // Sem esta linha o `MaterialApp` usa `ThemeMode.system` e a escolha de
+      // tema feita em Ajustes não teria efeito nenhum — o app já tinha os dois
+      // temas e nenhuma forma de escolher entre eles.
+      themeMode: switch (ref.watch(themeModeProvider)) {
+        GubsThemeMode.system => ThemeMode.system,
+        GubsThemeMode.light => ThemeMode.light,
+        GubsThemeMode.dark => ThemeMode.dark,
+      },
+      // A ampliação escolhida no app MULTIPLICA a do sistema, com teto em 2x.
+      // O porquê de cada metade dessa frase está em `ui/theme/text_scaling.dart`.
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: gubsTextScaler(
+              media.textScaler,
+              ref.watch(fontScaleProvider),
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       locale: ref.watch(flutterLocaleProvider),
       // `GlobalCupertinoLocalizations` entra mesmo o app sendo Material e
       // só-Android: o `MaterialApp` a exige, e sem ela pt e es levantam

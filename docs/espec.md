@@ -30,6 +30,8 @@
 | RF-10 | Sincronização de oportunidade em background | Agendada via WorkManager (`NetworkType.connected`); download retomável (HTTP Range + ETag); manifest + delta operáveis em janela de 30 s |
 | RF-11 | Verificação de integridade e swap atômico de pack | Assinatura Ed25519 do manifest + SHA-256 dos artefatos verificados antes do swap; pack inválido jamais ativado; swap via rename atômico; re-verificação no cold start |
 | RF-12 | Degradação graciosa da triagem (kill switch) | Com engine LLM inoperante, a triagem completa via `RuleOnlyEngine` com resultado conservador; flag `degraded=true` no resultado |
+| RF-13 | Ajustes de apresentação persistidos (CAP-19) | Idioma, tema (`system`, `light`, `dark`) e tamanho de letra (`1.0`, `1.3`, `1.6`) escolhidos em `/mais/ajustes`; a interface reflete em ≤ 200 ms **sem reinício** (herda o orçamento da RF-01) e a escolha sobrevive ao fechamento. Persistência exclusivamente no `user.db` (`theme_mode`, `font_scale`), enumerada pelo controle da LGPD-RF13. A ampliação escolhida no app **multiplica** a do sistema, limitada a 2× — teto do que as telas têm layout verificado |
+| RF-14 | Documentos legais embarcados (CAP-19) | Aviso de privacidade e termos de uso empacotados no APK (`assets/legal/`), legíveis com o rádio desligado, em pt e es, cada um declarando a data da própria versão. Idioma sem tradução recua para `pt` em vez de omitir o documento |
 
 #### Não Funcionais
 

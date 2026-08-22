@@ -157,7 +157,7 @@ class _ServiceChip extends ConsumerWidget {
       key: ValueKey('service-$id'),
       onPressed: () {
         ref.read(selectedServiceProvider.notifier).state = id;
-        context.go(GubsTab.documents.rootPath);
+        context.goNamed(Routes.documents);
       },
       style: OutlinedButton.styleFrom(
         side: BorderSide(color: colors.line, width: 2),

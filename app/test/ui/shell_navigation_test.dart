@@ -93,9 +93,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Onde ir?'), findsWidgets);
 
-    await tester.tap(find.text('Documentos').first);
+    // "Documentos" saiu da barra e "Mais" entrou. O destino continua
+    // alcançável pelo ladrilho da inicial, coberto no teste seguinte.
+    await tester.tap(find.text('Mais').first);
     await tester.pumpAndSettle();
-    expect(find.text('O que levar?'), findsWidgets);
+    expect(find.text('Mais opções'), findsWidgets);
 
     await tester.tap(find.text('Início'));
     await tester.pumpAndSettle();

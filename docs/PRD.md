@@ -94,7 +94,7 @@ Regra de dependência: `ui → triage → content ← sync`; `speech` é folha; 
 | ID | Requisito | Ator | Complexidade | Risco | Release |
 |---|---|---|---|---|---|
 | CAP-01 | Seleção de idioma por ícone (pt/es), persistida | Usuário final | S | Baixo | MVP |
-| CAP-02 | Navegação iconográfica (bottom nav 3 abas, prof. ≤ 4, zero dead-ends) | Usuário final | M | Médio (H1) | MVP |
+| CAP-02 | Navegação iconográfica (bottom nav 3 abas — Início, Onde ir, Mais —, prof. ≤ 4, zero dead-ends) | Usuário final | M | Médio (H1) | MVP |
 | CAP-03 | Composição visual de sintomas (mapa corporal + 1..5 tokens) | Usuário final | M | Médio (H1) | MVP |
 | CAP-04 | Gate determinístico de red flags (pré-LLM, fail-closed) | Sistema | M | **Crítico** (clínico) | MVP |
 | CAP-05 | Inferência SLM local (llama.cpp FFI, timeout 5 s) | Sistema | L | **Alto** (R1/H3) | MVP |
@@ -111,6 +111,7 @@ Regra de dependência: `ui → triage → content ← sync`; `speech` é folha; 
 | CAP-16 | Calendário vacinal interativo | Usuário final | M | Médio (dados municipais) | v1.1 |
 | CAP-17 | Navegador da farmácia básica | Usuário final | M | Médio (dados municipais) | v1.1 |
 | CAP-18 | Saúde da mulher/pré-natal; programas sociais; áudios indígenas; modo ACS | Usuário final/ACS | L | Alto | v2 |
+| CAP-19 | Menu "Mais": ajustes (idioma, tema, fonte, dados móveis), tutorial, documentos legais embarcados e tela "Sobre" | Usuário final | M | Baixo | MVP |
 
 ### 2.3 Fluxos Críticos como FSM
 

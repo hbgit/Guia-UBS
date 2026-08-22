@@ -33,7 +33,7 @@ class AppShell extends StatelessWidget {
   /// Aba correspondente a um caminho.
   ///
   /// Casa é o padrão porque é a raiz de tudo que não pertence às outras duas —
-  /// triagem, emergência, fluxo, privacidade. Assim nenhuma tela fica com a
+  /// triagem, emergência, fluxo, documentos. Assim nenhuma tela fica com a
   /// barra apagada, o que deixaria o usuário sem indicação de onde está.
   static GubsTab tabFor(String location) {
     for (final tab in GubsTab.values) {
@@ -72,10 +72,13 @@ class AppShell extends StatelessWidget {
               selectedIcon: const Icon(Icons.place),
               label: l.navWhereTo,
             ),
+            // `more_horiz` não tem par cheio/vazado no Material, e não
+            // precisa: a `NavigationBar` já distingue a aba ativa pela
+            // pílula de fundo, não só pelo preenchimento do ícone.
             NavigationDestination(
-              icon: const Icon(Icons.badge_outlined),
-              selectedIcon: const Icon(Icons.badge),
-              label: l.navDocuments,
+              icon: const Icon(Icons.more_horiz),
+              selectedIcon: const Icon(Icons.more_horiz),
+              label: l.navMore,
             ),
           ],
         ),

@@ -16,6 +16,11 @@ import 'content/documents_screen.dart';
 import 'content/emergency_screen.dart';
 import 'content/flow_screen.dart';
 import 'content/where_to_screen.dart';
+import 'more/about_screen.dart';
+import 'more/how_to_screen.dart';
+import 'more/legal_documents_screen.dart';
+import 'more/more_screen.dart';
+import 'more/settings_screen.dart';
 import 'setup/setup_screen.dart';
 import 'triage/composition_screen.dart';
 import 'triage/result_screen.dart';
@@ -78,22 +83,58 @@ final List<GubsRouteSpec> gubsRoutes = [
     builder: (context, state) => const FlowScreen(),
   ),
   GubsRouteSpec(
-    path: '/privacidade',
-    name: Routes.privacy,
-    tab: GubsTab.home,
-    builder: (context, state) => const PrivacyScreen(),
-  ),
-  GubsRouteSpec(
     path: '/onde-ir',
     name: Routes.whereTo,
     tab: GubsTab.whereTo,
     builder: (context, state) => const WhereToScreen(),
   ),
+  // "Documentos" deixou de ser raiz de aba (ver `GubsTab`) e passou a ser uma
+  // tela da aba inicial. O efeito colateral é bom: `parentPath` agora devolve
+  // `/`, e a tela ganha o botão voltar que raiz de aba não tem.
   GubsRouteSpec(
     path: '/documentos',
     name: Routes.documents,
-    tab: GubsTab.documents,
+    tab: GubsTab.home,
     builder: (context, state) => const DocumentsScreen(),
+  ),
+  GubsRouteSpec(
+    path: '/mais',
+    name: Routes.more,
+    tab: GubsTab.more,
+    builder: (context, state) => const MoreScreen(),
+  ),
+  GubsRouteSpec(
+    path: '/mais/ajustes',
+    name: Routes.settings,
+    tab: GubsTab.more,
+    builder: (context, state) => const SettingsScreen(),
+  ),
+  GubsRouteSpec(
+    path: '/mais/como-usar',
+    name: Routes.howTo,
+    tab: GubsTab.more,
+    builder: (context, state) => const HowToScreen(),
+  ),
+  // A tela da CAP-13 mudou de `/privacidade` para cá quando ganhou uma porta
+  // no menu. O NOME é o mesmo, e é por ele que o escudo da inicial navega —
+  // a LGPD-RF03 pede a tela alcançável, não que ela more num caminho fixo.
+  GubsRouteSpec(
+    path: '/mais/privacidade',
+    name: Routes.privacy,
+    tab: GubsTab.more,
+    builder: (context, state) => const PrivacyScreen(),
+  ),
+  GubsRouteSpec(
+    path: '/mais/privacidade/documentos',
+    name: Routes.legalDocuments,
+    tab: GubsTab.more,
+    builder: (context, state) => const LegalDocumentsScreen(),
+  ),
+  GubsRouteSpec(
+    path: '/mais/sobre',
+    name: Routes.about,
+    tab: GubsTab.more,
+    builder: (context, state) => const AboutScreen(),
   ),
 ];
 

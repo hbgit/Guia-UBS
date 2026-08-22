@@ -86,6 +86,37 @@ void main() {
       }
     });
 
+    testWidgets('tema $name: os textos do menu "Mais" são legíveis',
+        (tester) async {
+      // A regra do pedido e a do projeto coincidem em 4,5:1 para texto. Medir
+      // no RENDERIZADO, e nao na paleta, e o que pegou o rotulo a 1,94:1 no
+      // aparelho: quem inventa o par e o widget, nao a paleta.
+      await tester.pumpWidget(
+        routedHarness('/mais', brightness: brightness),
+      );
+      await tester.pumpAndSettle();
+
+      for (final text in [
+        'Ajustes',
+        'Idioma, cores e tamanho da letra',
+        'Como usar',
+        'Privacidade e termos',
+        'Sobre',
+        'Versão, créditos e licenças',
+      ]) {
+        final color = _renderedColor(tester, text);
+        expect(color, isNotNull, reason: '"$text" não foi encontrado');
+        expect(
+          // As linhas sao cartoes sobre o fundo: o par que importa e contra
+          // `surface`, nao contra `ground`.
+          contrastRatio(color!, colors.surface),
+          greaterThanOrEqualTo(aaNormalText),
+          reason: '"$text" foi pintado em ${hex(color)} sobre '
+              '${hex(colors.surface)}',
+        );
+      }
+    });
+
     testWidgets('tema $name: os ladrilhos usam a cor semântica correta',
         (tester) async {
       // Verde = rotina, vermelho = emergência, azul = informação. Se um

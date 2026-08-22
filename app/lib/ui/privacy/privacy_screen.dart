@@ -24,9 +24,13 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../l10n/app_localizations.dart';
+import '../app_routes.dart';
 import '../app_scope.dart';
 import '../content/widgets/listen_button.dart';
+import '../more/legal_documents_screen.dart';
 import '../shell/gubs_scaffold.dart';
 import '../theme/gubs_colors.dart';
 import '../theme/gubs_metrics.dart';
@@ -65,8 +69,16 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
               // existia no `user.db` e não aparecia aqui: uma escolha guardada
               // que o titular não vê é uma tela de privacidade que mente.
               (icon: Icons.signal_cellular_alt, label: l.privacyStoredMetered),
+              // As duas entraram com a tela de ajustes. O teste desta tela
+              // compara a contagem daqui com as colunas do `user.db`: uma
+              // preferência guardada e não listada é uma tela de privacidade
+              // que mente ao titular em português claro.
+              (icon: Icons.contrast, label: l.privacyStoredTheme),
+              (icon: Icons.format_size, label: l.privacyStoredFontScale),
             ],
           ),
+          const SizedBox(height: spacing * 2),
+          const _LegalDocumentsLink(),
           const SizedBox(height: spacing * 3),
           _TelemetryToggle(
             enabled: telemetryEnabled,
@@ -148,6 +160,76 @@ class _Notice extends StatelessWidget {
                 .textTheme
                 .bodyLarge
                 ?.copyWith(color: colors.ink),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Porta para os documentos embarcados, com a data da versão local.
+///
+/// A data fica AQUI, e não só dentro do leitor: quem abre esta tela para
+/// conferir se está lendo a versão vigente descobre sem precisar entrar.
+class _LegalDocumentsLink extends ConsumerWidget {
+  const _LegalDocumentsLink();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = L.of(context);
+    final colors = context.gubs;
+    final language = ref.watch(contentLanguageProvider);
+    final date = ref
+        .watch(legalDocumentsProvider(language))
+        .valueOrNull
+        ?.firstOrNull
+        ?.displayDate;
+
+    return OutlinedButton(
+      key: const ValueKey('privacy-documents'),
+      onPressed: () => context.goNamed(Routes.legalDocuments),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: colors.surface,
+        side: BorderSide(color: colors.line, width: 2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacing * 2,
+          vertical: spacing * 1.5,
+        ),
+        minimumSize: const Size.fromHeight(minTouchTarget),
+        alignment: Alignment.centerLeft,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.policy_outlined, size: 28, color: colors.blue),
+          const SizedBox(width: spacing * 2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l.privacyDocuments,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                // Sem data enquanto os documentos carregam, e nunca uma data
+                // inventada: o cabeçalho ausente vira linha ausente.
+                if (date != null)
+                  Text(
+                    l.privacyDocumentsVersion(date),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: colors.inkSoft),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: spacing),
+          ExcludeSemantics(
+            child: Icon(Icons.chevron_right, size: 28, color: colors.inkSoft),
           ),
         ],
       ),

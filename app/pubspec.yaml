@@ -62,6 +62,14 @@ dependencies:
   # exaustiva do que o app persiste, e um teste as enumera. Com chave-valor,
   # "o que guardamos sobre o usuario" deixaria de ser verificavel estaticamente.
   drift: ^2.31.0
+  # Versao e build REAIS do APK instalado, para a tela "Sobre". Uma constante
+  # gerada do pubspec mentiria no dia em que alguem publicasse sem rodar o
+  # gerador; isto le o que o Android tem de fato. Auditoria em stack.md §9.
+  #
+  # ^10 e nao ^8: as versoes 4.0.1 ate 9.x fixam win32 <6, e o file_picker ^12
+  # ja exige win32 ^6 — `pub get` falha a resolver. Nao baixe este limite sem
+  # olhar o file_picker junto.
+  package_info_plus: ^10.0.0
 
 dev_dependencies:
   flutter_test:
@@ -88,3 +96,15 @@ flutter:
   uses-material-design: true
   # Gera as classes de i18n a partir de lib/l10n/*.arb (ver l10n.yaml).
   generate: true
+  assets:
+    # Aviso de privacidade e termos de uso, EMBARCADOS no APK: precisam abrir
+    # com o radio desligado, e um link para uma pagina na web deixaria o
+    # documento inacessivel exatamente para o publico deste app.
+    #
+    # O diretorio inteiro, e nao arquivo por arquivo: acrescentar um idioma
+    # nao pode depender de alguem lembrar de editar esta lista.
+    - assets/legal/
+    # Logotipos institucionais da tela "Sobre", rasterizados de SVG por
+    # tool/gen_about_logos.sh — PNG em vez de SVG para nao acrescentar
+    # dependencia de renderizador vetorial por duas imagens de tamanho fixo.
+    - assets/branding/

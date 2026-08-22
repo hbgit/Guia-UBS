@@ -73,6 +73,7 @@ flutter test --plain-name "trecho do nome do teste"
 flutter build apk --release --target-platform=android-arm64
 tool/gen_launcher_icon.sh       # regenera os 15 PNGs do icone a partir do SVG
 tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o SVG
+tool/gen_about_logos.sh         # rasteriza os logos institucionais da tela Sobre
 
 # Plano de controle (rodar da raiz)
 npm test                        # contract + packer
@@ -87,6 +88,10 @@ docker compose -f infra/compose.yaml config --quiet
 **`SOURCE_DATE_EPOCH` no packer não é opcional quando o hash importa.** Sem ele o `built_at` recebe o relógio de parede e duas builds do mesmo conteúdo produzem `content.db` diferentes — o que invalida as fixtures de teste e, em produção, faria a frota re-baixar o pack a cada republicação.
 
 **O ícone do launcher é gerado, não desenhado à mão.** A fonte é `app/tool/icon/icone_app.svg` (a arte como foi entregue, pino verde sobre fundo claro); o script inverte as cores, enquadra e escreve os 15 PNGs. Duas regras moram no cabeçalho dele e não devem ser reinventadas no olho: a altura do pino ocupa **62 dp** dos 108 dp da tela adaptativa — não 66, porque a ponta afilada é o que uma máscara circular decepa primeiro — e a composição é centrada **no centro do pino**, não no da tela, que é assimétrica. A estrada sangrar pela borda mascarada é intencional. No monocromático, a cruz precisa ser **vazada** (`DstOut` no gerador): ela é um path desenhado por cima do pino, não um furo, e silhueta ingênua devolve uma mancha sólida sem nada que identifique o app.
+
+**A barra tem TRÊS abas, e a terceira é "Mais" — "Documentos" saiu dela.** Não foi arbitrário: a inicial usa exatamente oito elementos acionáveis (cinco escolhas + três abas), que é o teto da RNF-06, e `test/ui/accessibility_test.dart` reprova em nove. Uma quarta aba obrigaria a mexer na tela clínica para abrir espaço a um menu utilitário. "Documentos" cedeu o lugar porque já tinha ladrilho próprio na inicial; de quebra ganhou botão voltar, que raiz de aba não tem. Antes de acrescentar destino à barra, resolva de onde sai o elemento.
+
+**Coluna nova no `user.db` custa quatro coisas, no mesmo commit** — `theme_mode` e `font_scale` são o precedente: (1) `schemaVersion` + `onUpgrade` com teste de migração v1→v2, porque **sem ele todo aparelho já instalado quebra no boot** e instalação limpa não mostra isso; (2) a lista permitida de `test/prefs/lgpd_surface_test.dart`, com a justificativa escrita; (3) uma entrada na tela de privacidade em pt e es, que o teste conta contra as colunas; (4) a linha correspondente em `docs/lgpd.md`.
 
 **Armadilha do `flutter build apk --release` logo após um build debug:** falha com *"package dev.flutter.plugins.integration_test does not exist"*. Apagar `android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java` resolve; ele é regerado.
 
