@@ -71,6 +71,8 @@ flutter test                    # suite completa
 flutter test test/triage/       # so um diretorio
 flutter test --plain-name "trecho do nome do teste"
 flutter build apk --release --target-platform=android-arm64
+tool/gen_launcher_icon.sh       # regenera os 15 PNGs do icone a partir do SVG
+tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o SVG
 
 # Plano de controle (rodar da raiz)
 npm test                        # contract + packer
@@ -83,6 +85,8 @@ docker compose -f infra/compose.yaml config --quiet
 **Código gerado não é versionado.** `lib/l10n/app_localizations*.dart` (i18n) e `**/*.g.dart` (Drift) estão no `.gitignore`. O i18n sai do próprio `flutter pub get`; o Drift exige `dart run build_runner build`. Em checkout limpo, pular esse comando produz ~35 erros de análise que não têm nada a ver com o código escrito.
 
 **`SOURCE_DATE_EPOCH` no packer não é opcional quando o hash importa.** Sem ele o `built_at` recebe o relógio de parede e duas builds do mesmo conteúdo produzem `content.db` diferentes — o que invalida as fixtures de teste e, em produção, faria a frota re-baixar o pack a cada republicação.
+
+**O ícone do launcher é gerado, não desenhado à mão.** A fonte é `app/tool/icon/icone_app.svg` (a arte como foi entregue, pino verde sobre fundo claro); o script inverte as cores, enquadra e escreve os 15 PNGs. Duas regras moram no cabeçalho dele e não devem ser reinventadas no olho: a altura do pino ocupa **62 dp** dos 108 dp da tela adaptativa — não 66, porque a ponta afilada é o que uma máscara circular decepa primeiro — e a composição é centrada **no centro do pino**, não no da tela, que é assimétrica. A estrada sangrar pela borda mascarada é intencional. No monocromático, a cruz precisa ser **vazada** (`DstOut` no gerador): ela é um path desenhado por cima do pino, não um furo, e silhueta ingênua devolve uma mancha sólida sem nada que identifique o app.
 
 **Armadilha do `flutter build apk --release` logo após um build debug:** falha com *"package dev.flutter.plugins.integration_test does not exist"*. Apagar `android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java` resolve; ele é regerado.
 

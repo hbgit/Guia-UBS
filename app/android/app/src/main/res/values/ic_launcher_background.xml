@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Campo do icone adaptativo. E o verde da propria arte entregue
+         (tool/icon/icone_app.svg), nao o GubsColors.green do tema (#12805C):
+         o icone preserva a cor da marca como ela veio.
+
+         Se um dia isso mudar, mude junto a constante VERDE de
+         tool/gen_launcher_icon.sh e regenere — a camada <foreground> e composta
+         sobre esta cor para produzir o icone legado, e as duas saindo de
+         sincronia da um contorno esverdeado errado no bitmap plano. -->
+    <color name="ic_launcher_background">#248B54</color>
+</resources>

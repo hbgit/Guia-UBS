@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Icone adaptativo. Como o minSdk deste app e 26 (build.gradle.kts), TODO
+    aparelho onde ele instala le este arquivo — os PNGs de mipmap-*/ic_launcher
+    sao so o resto para launchers de terceiros que ainda pedem o bitmap plano.
+
+    As tres camadas saem de tool/gen_launcher_icon.sh, que documenta o
+    enquadramento: a altura do pino ocupa 62 dp dos 108 dp da tela, e a estrada
+    sangra de proposito pela borda que a mascara do launcher apara.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <!-- Icone tematico do Android 13+: o sistema tinge esta silhueta com a cor
+         do papel de parede. A cruz e VAZADA aqui (ver o passo do DstOut no
+         gerador); sem isso o pino vira uma mancha solida e some a unica coisa
+         que identifica o app. -->
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
+</adaptive-icon>

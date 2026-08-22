@@ -66,6 +66,7 @@ docs/       fonte de verdade (ver hierarquia abaixo)
 | Android SDK | compileSdk 36, minSdk 26 | build do APK |
 | CMake + Ninja | — | shim nativo (o primeiro build baixa o llama.cpp) |
 | Docker | — | `infra/` |
+| librsvg + ImageMagick | — | só para regenerar o ícone do launcher |
 
 ## Build e testes
 
@@ -79,12 +80,22 @@ dart run build_runner build     # GERA os *.g.dart do Drift (user.db)
 flutter analyze --fatal-infos   # o CI usa --fatal-infos: info vira erro
 flutter test                    # suíte completa
 flutter build apk --release --target-platform=android-arm64
+
+tool/gen_launcher_icon.sh           # regenera o ícone do launcher a partir do SVG
+tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o SVG
 ```
 
 **Código gerado não é versionado.** `lib/l10n/app_localizations*.dart` e
 `**/*.g.dart` estão no `.gitignore`. O i18n sai do próprio `flutter pub get`; o
 Drift exige `build_runner`. Em checkout limpo, pular esse comando produz ~35
 erros de análise sem relação com o código escrito.
+
+Os 15 PNGs do ícone **são** versionados — o build do Android os consome direto —
+mas a receita que os produz fica ao lado deles. `app/tool/icon/icone_app.svg` é a
+arte como foi entregue; o script inverte as cores, enquadra para a máscara do
+ícone adaptativo e escreve as três camadas em cada densidade. Precisa de
+`rsvg-convert`, `magick` e `python3`, e não roda no CI: é ferramenta de quem
+edita o ícone. As regras de enquadramento estão no cabeçalho do script.
 
 Testes por diretório ou por nome:
 
