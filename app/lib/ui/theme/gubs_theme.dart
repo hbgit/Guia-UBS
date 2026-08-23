@@ -34,6 +34,16 @@ ThemeData buildGubsTheme(GubsColors colors, Brightness brightness) {
     onSecondary: brightness == Brightness.light ? Colors.white : colors.ground,
     secondaryContainer: colors.blueSoft,
     onSecondaryContainer: colors.ink,
+    // Procedência (selo de "quem produziu esta orientação").
+    //
+    // Declarar estes três NÃO é opcional. Sem eles o Flutter resolve
+    // `tertiaryContainer` para `secondaryContainer` — que aqui é o AZUL de
+    // informação —, e o selo sairia pintado da cor semântica errada sem
+    // ninguém ter escrito uma linha errada.
+    tertiary: colors.lilac,
+    onTertiary: colors.onLilac,
+    tertiaryContainer: colors.lilacSoft,
+    onTertiaryContainer: colors.onLilac,
     error: colors.red,
     onError: brightness == Brightness.light ? Colors.white : colors.ground,
     errorContainer: colors.redSoft,

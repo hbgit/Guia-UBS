@@ -84,7 +84,7 @@ void main() {
         overrides: [
           localeStoreProvider.overrideWithValue(MemoryLocaleStore(locale)),
           contentProvider.overrideWithValue(content),
-          triageEngineProvider.overrideWithValue(engine),
+          triageEngineProvider.overrideWith((ref) => engine),
         ],
         child: MaterialApp.router(
           theme: gubsLightTheme,
@@ -235,14 +235,17 @@ void main() {
       expect(decoration.border!.top.color, GubsColors.light.green);
     });
 
-    testWidgets('sem modelo, o aviso de degradação aparece — discreto',
+    testWidgets('sem modelo, o SELO diz que o assistente não participou',
         (tester) async {
+      // A linha auxiliar antiga ("Orientação feita só com as regras do posto")
+      // foi REMOVIDA, não duplicada: o selo diz a mesma coisa, no topo do
+      // cartão e com contraste maior.
       await pump(tester, engine: _FakeEngine(available: false));
 
       await compose(tester, ['throat', 'pain']);
 
-      expect(find.text('Orientação feita só com as regras do posto'),
-          findsOneWidget);
+      expect(find.byKey(const ValueKey('provenance-rulesOnly')), findsOneWidget);
+      expect(find.text('Regras do posto, sem o assistente'), findsOneWidget);
     });
 
     testWidgets('o texto do cartão é legível sobre o fundo da severidade',

@@ -43,6 +43,9 @@ class GubsColors extends ThemeExtension<GubsColors> {
     required this.blueSoft,
     required this.amber,
     required this.onAmber,
+    required this.lilac,
+    required this.lilacSoft,
+    required this.onLilac,
     required this.focus,
   });
 
@@ -84,6 +87,22 @@ class GubsColors extends ThemeExtension<GubsColors> {
 
   /// Texto sobre preenchimento âmbar.
   final Color onAmber;
+
+  /// **Procedência e automação — a quarta cor semântica.**
+  ///
+  /// Existe para o selo que diz de onde veio a orientação, e **só para ele**.
+  /// Não é uma cor de conteúdo clínico: verde, vermelho e azul respondem por
+  /// "o que fazer"; o lilás responde por "quem produziu isto". Usá-la num
+  /// cartão, botão ou ícone de orientação criaria um quarto significado
+  /// clínico que ninguém especificou.
+  ///
+  /// Chega à tela pelos papéis `tertiary` / `tertiaryContainer` /
+  /// `onTertiaryContainer` do `ColorScheme` (ver `gubs_theme.dart`), e é por
+  /// eles que o widget a lê — nunca por estes campos diretamente. O papel
+  /// acompanha o contraste alto do sistema; um hex fixo, não.
+  final Color lilac;
+  final Color lilacSoft;
+  final Color onLilac;
 
   final Color focus;
 
@@ -135,6 +154,9 @@ class GubsColors extends ThemeExtension<GubsColors> {
     Color? blueSoft,
     Color? amber,
     Color? onAmber,
+    Color? lilac,
+    Color? lilacSoft,
+    Color? onLilac,
     Color? focus,
   }) =>
       GubsColors(
@@ -156,6 +178,9 @@ class GubsColors extends ThemeExtension<GubsColors> {
         blueSoft: blueSoft ?? this.blueSoft,
         amber: amber ?? this.amber,
         onAmber: onAmber ?? this.onAmber,
+        lilac: lilac ?? this.lilac,
+        lilacSoft: lilacSoft ?? this.lilacSoft,
+        onLilac: onLilac ?? this.onLilac,
         focus: focus ?? this.focus,
       );
 
@@ -188,6 +213,9 @@ class GubsColors extends ThemeExtension<GubsColors> {
       blueSoft: mix(blueSoft, other.blueSoft),
       amber: mix(amber, other.amber),
       onAmber: mix(onAmber, other.onAmber),
+      lilac: mix(lilac, other.lilac),
+      lilacSoft: mix(lilacSoft, other.lilacSoft),
+      onLilac: mix(onLilac, other.onLilac),
       focus: mix(focus, other.focus),
     );
   }
@@ -225,6 +253,9 @@ class GubsColors extends ThemeExtension<GubsColors> {
     blueSoft: Color(0xFFE7F0F8),
     amber: Color(0xFF8F651A),
     onAmber: Color(0xFFF4F8F5),
+    lilac: Color(0xFF6449A0),
+    lilacSoft: Color(0xFFEAE2F6),
+    onLilac: Color(0xFF382663),
     focus: Color(0xFF2F6DA8),
   );
 
@@ -253,6 +284,9 @@ class GubsColors extends ThemeExtension<GubsColors> {
     blueSoft: Color(0xFF16293A),
     amber: Color(0xFFD9B25F),
     onAmber: Color(0xFF0E1613),
+    lilac: Color(0xFFB49BE6),
+    lilacSoft: Color(0xFF302545),
+    onLilac: Color(0xFFE2DAF5),
     focus: Color(0xFF6BA6DC),
   );
 }

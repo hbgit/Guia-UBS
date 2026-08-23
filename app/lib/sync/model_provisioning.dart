@@ -223,6 +223,25 @@ class ModelProvisioning {
     }
   }
 
+  /// O arquivo do modelo **pronto para carregar**, ou `null`.
+  ///
+  /// Devolve o caminho só quando o marcador confere: existir em disco não
+  /// basta. Um `.gguf` truncado por download interrompido existe, tem tamanho e
+  /// abre — e o llama.cpp derruba o isolate ao carregá-lo.
+  ///
+  /// É por aqui que o `main` decide se tenta subir o motor SLM ou fica no
+  /// `RuleOnlyEngine`. Nunca lança: sem modelo utilizável, a resposta é `null`,
+  /// que é degradação prevista (RF-12), não erro.
+  Future<File?> verifiedModel() async {
+    try {
+      final file = await _destinationFile();
+      if (!file.existsSync()) return null;
+      return _matchesMarker(file) ? file : null;
+    } on Object {
+      return null;
+    }
+  }
+
   /// Passo 1 do onboarding: checa pré-requisitos e decide se pode pedir o "sim".
   ///
   /// Não baixa nada. Se o modelo já estiver em disco, pula direto para pronto —

@@ -55,7 +55,6 @@
       }
     }
   },
-  "resultDegradedNote": "Orientação feita só com as regras do posto",
   "resultEmergencyCall": "Ligue 192",
   "resultNext": "Voltar ao início",
   "whereToHint": "Cada lugar cuida de uma coisa",
@@ -178,5 +177,27 @@
   "aboutClinicalNotice": "As orientações deste aplicativo ainda não passaram por revisão clínica. Não use para decidir sozinho sobre a sua saúde.",
   "@aboutClinicalNotice": {
     "description": "Mesmo aviso que o packer emite. Sai com a dupla aprovacao."
+  },
+  "provenanceRules": "Orientação das regras do posto",
+  "@provenanceRules": {
+    "description": "Selo: o veredito determinístico prevaleceu, com o assistente disponível."
+  },
+  "provenanceAssistant": "Gerado por assistente virtual",
+  "@provenanceAssistant": {
+    "description": "Selo: o assistente local escalou a severidade. NAO usar 'IA', 'modelo' nem 'inferencia'."
+  },
+  "provenanceRulesOnly": "Regras do posto, sem o assistente",
+  "@provenanceRulesOnly": {
+    "description": "Selo: assistente indisponivel (RF-12). Substitui a antiga resultDegradedNote."
+  },
+  "severityRoutine": "Não urgente",
+  "@severityRoutine": {
+    "description": "Anunciado pelo leitor de tela. A severidade so existia como cor e icone."
+  },
+  "severityAttention": "Atenção",
+  "severityEmergency": "Emergência",
+  "resultFallibilityNote": "Respostas automáticas podem conter erros. Se piorar ou for urgente, ligue 192.",
+  "@resultFallibilityNote": {
+    "description": "Aviso ancorado ao cartao. SUPRIMIDO em emergencia: ao lado de 'Ligue 192' enfraqueceria a instrucao. Sem 'procure um medico', que descreve consulta eletiva."
   }
 }

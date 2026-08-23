@@ -46,9 +46,19 @@ enum CompositionStep {
   int get indexInFlow => CompositionStep.values.indexOf(this);
 }
 
-/// Motor de triagem ativo. Sobrescrito no `main`; padrão é indisponível, que
-/// leva ao `RuleOnlyEngine` — o comportamento correto quando não há modelo.
-final triageEngineProvider = Provider<TriageEngine?>((ref) => null);
+/// Motor de triagem ativo. `null` leva ao `RuleOnlyEngine` — o comportamento
+/// correto quando não há modelo, e não um erro (RF-12).
+///
+/// **Começa nulo e é preenchido DEPOIS do boot**, quando houver modelo
+/// verificado em disco. É `StateProvider` exatamente por isso: carregar um
+/// `.gguf` de 800 MB leva segundos, e esperar por ele antes da primeira tela
+/// travaria o app por causa de um componente que a INV-8 classifica como
+/// opcional. Quem abrir a triagem nesses primeiros segundos roda por regras —
+/// degradação, não falha.
+///
+/// A leitura acontece no INÍCIO da sessão (ver `_startSession`), então uma
+/// sessão já em curso não troca de motor no meio.
+final triageEngineProvider = StateProvider<TriageEngine?>((ref) => null);
 
 /// Regras do pack ativo, ou `null` quando não há pack.
 final ruleModelProvider = Provider<RuleModel?>((ref) {
@@ -197,13 +207,17 @@ class _UnavailableEngine implements TriageEngine {
   Future<void> dispose() async {}
 }
 
-/// Fala o cartão de resultado. Fire-and-forget: a tela nunca espera o áudio.
+/// Fala o resultado. Fire-and-forget: a tela nunca espera o áudio.
 ///
-/// Título e corpo juntos, nessa ordem: quem depende do áudio precisa ouvir o
-/// desfecho antes da explicação, e não o contrário.
-Future<void> speakCard(WidgetRef ref, ContentCard card) async {
+/// Recebe a frase **já montada** por `resultAnnouncement` — a MESMA que o
+/// leitor de tela anuncia, na mesma ordem: procedência, status, título,
+/// orientação, e o aviso de falibilidade ao final.
+///
+/// Montar aqui uma segunda versão do texto criaria duas locuções para o mesmo
+/// cartão, e a que ficasse para trás diria a alguém que a orientação veio de
+/// outro lugar. Com uma fonte só, TalkBack e TTS não têm como divergir.
+Future<void> speakAnnouncement(WidgetRef ref, String announcement) async {
+  if (announcement.trim().isEmpty) return;
   final speaker = ref.read(speakerProvider);
-  final text =
-      [card.title.value, card.body?.value].whereType<String>().join('. ');
-  await speaker.speak(text, ref.read(speechLocaleProvider));
+  await speaker.speak(announcement, ref.read(speechLocaleProvider));
 }

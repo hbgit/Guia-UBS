@@ -98,7 +98,7 @@ Regra de dependência: `ui → triage → content ← sync`; `speech` é folha; 
 | CAP-03 | Composição visual de sintomas (mapa corporal + 1..5 tokens) | Usuário final | M | Médio (H1) | MVP |
 | CAP-04 | Gate determinístico de red flags (pré-LLM, fail-closed) | Sistema | M | **Crítico** (clínico) | MVP |
 | CAP-05 | Inferência SLM local (llama.cpp FFI, timeout 5 s) | Sistema | L | **Alto** (R1/H3) | MVP |
-| CAP-06 | Resposta multimodal (cartão + TTS pt/es) | Usuário final | M | Médio (TTS de ROM) | MVP |
+| CAP-06 | Resposta multimodal (cartão + TTS pt/es) + **selo de procedência** (regras do posto, assistente virtual, ou sem assistente) | Usuário final | M | Médio (TTS de ROM) | MVP |
 | CAP-07 | Guia UBS vs UPA/Hospital (conteúdo estático) | Usuário final | S | Baixo | MVP |
 | CAP-08 | Orientador de documentação | Usuário final | S | Baixo | MVP |
 | CAP-09 | Fluxograma de atendimento (4 passos) | Usuário final | S | Baixo | MVP |

@@ -1,0 +1,237 @@
+<title>Selo de procedência — Guia UBS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ============ tokens: claro (:root nu) ============ */
+  :root{
+    --ground:#F4F8F5;
+    --surface:#FFFFFF;
+    --surface-2:#ECF3EE;
+    --ink:#17251F;
+    --ink-soft:#5A6B63;
+    --line:#DFE8E2;
+    --green:#12805C;
+    --green-soft:#E3F2EB;
+    --red:#9E2626;
+    --red-soft:#FBE9E9;
+    --amber:#8F651A;
+
+    /* Papéis MD3 do selo. No app são tertiary / tertiaryContainer /
+       onTertiaryContainer — nunca hex fixo lido pela tela. */
+    --selo-borda:#6449A0;   /* tertiary            */
+    --selo-fundo:#EAE2F6;   /* tertiaryContainer   */
+    --selo-tinta:#382663;   /* onTertiaryContainer */
+  }
+  /* ============ tokens: escuro ============ */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#0E1613;
+      --surface:#182219;
+      --surface-2:#1F2B24;
+      --ink:#E8F0EB;
+      --ink-soft:#94A79D;
+      --line:#28352E;
+      --green:#3FC28D;
+      --green-soft:#153427;
+      --red:#E36A6A;
+      --red-soft:#3A1D1D;
+      --amber:#D9B25F;
+
+      --selo-borda:#B49BE6;
+      --selo-fundo:#302545;
+      --selo-tinta:#E2DAF5;
+    }
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:24px;
+    background:var(--surface-2); color:var(--ink);
+    font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  h1.pagina{font-size:20px;margin:0 0 4px}
+  p.nota{color:var(--ink-soft);font-size:14px;margin:0 0 24px;max-width:70ch}
+  .grade{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+  figure{margin:0}
+  figcaption{
+    color:var(--ink-soft);font-size:13px;margin:8px 0 0;max-width:320px;
+  }
+  figcaption b{color:var(--ink)}
+
+  /* ---------- a tela ---------- */
+  .tela{
+    width:320px; background:var(--ground);
+    border:1px solid var(--line); border-radius:24px;
+    padding:16px; display:flex; flex-direction:column; gap:8px;
+  }
+  .topo{display:flex;align-items:center;gap:8px}
+  .topo .voltar,.topo .ouvir{
+    width:44px;height:44px;flex:0 0 44px;
+    display:grid;place-items:center;color:var(--ink-soft);
+  }
+  .topo h2{flex:1;text-align:center;font-size:17px;margin:0}
+
+  /* ---------- o cartão: a cor é a GRAVIDADE ---------- */
+  .cartao{
+    border-radius:20px; padding:24px;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+  }
+  .cartao--rotina    {background:var(--green-soft); border:3px solid var(--green)}
+  .cartao--atencao   {background:var(--surface-2);  border:3px solid var(--amber)}
+  .cartao--emergencia{background:var(--red-soft);   border:3px solid var(--red)}
+  .cartao h3{font-size:20px;margin:16px 0 0}
+  .cartao p{margin:12px 0 0;font-size:15px}
+  .cartao .status{width:72px;height:72px}
+  .cartao--rotina .status{color:var(--green)}
+  .cartao--atencao .status{color:var(--amber)}
+  .cartao--emergencia .status{color:var(--red)}
+
+  /* ---------- O SELO ----------
+     Alinhado à esquerda enquanto o resto do cartão é centralizado: é o
+     desalinhamento que o faz ler como ETIQUETA sobre o conteúdo.
+     Largura pelo conteúdo — faixa de largura total competiria com o cartão.
+     Sem sombra: sombra sugeriria que é acionável.                        */
+  .selo{
+    align-self:flex-start;
+    display:inline-flex; align-items:center; gap:8px;
+    min-height:32px; padding:6px 12px;
+    border-radius:16px;
+    background:var(--selo-fundo);
+    border:1.5px solid var(--selo-borda);
+    color:var(--selo-tinta);
+    font-size:14px; font-weight:600; text-align:left;
+  }
+  .selo svg{width:20px;height:20px;flex:0 0 20px}
+
+  /* ---------- aviso: fora do cartão, ancorado por proximidade ---------- */
+  .aviso{
+    display:flex; gap:8px; align-items:flex-start;
+    color:var(--ink-soft); font-size:12px; margin:0;
+  }
+  .aviso svg{width:20px;height:20px;flex:0 0 20px;color:var(--amber)}
+
+  .ligue{
+    background:var(--red); color:#fff; border-radius:20px;
+    padding:16px; display:flex; gap:16px; justify-content:center;
+    align-items:center; font-size:20px; font-weight:800;
+  }
+  .concluir{
+    margin-top:8px; min-height:88px; border:0; border-radius:16px;
+    background:var(--surface-2); color:var(--ink);
+    font-family:inherit; font-size:18px; font-weight:700;
+  }
+</style>
+
+<h1 class="pagina">Selo de procedência — tela de resultado</h1>
+<p class="nota">
+  Três estados, um por mecanismo. O selo é o primeiro elemento do cartão e o
+  primeiro anunciado pelo leitor de tela. O tingimento lilás vive só dentro do
+  badge: a cor do cartão continua codificando a <b>gravidade</b>, e nada aqui a
+  toca. Abra em tema claro e escuro — os tokens trocam sozinhos.
+</p>
+
+<div class="grade">
+
+  <!-- ============ (A) regras do posto — red flag ============ -->
+  <figure>
+    <section class="tela">
+      <div class="topo">
+        <span class="voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></span>
+        <h2>Procure emergência agora</h2>
+        <span class="ouvir"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></span>
+      </div>
+
+      <article class="cartao cartao--emergencia">
+        <span class="selo">
+          <!-- Icons.rule: lista com marca de conferência -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h11M3 12h7M3 18h7M14 15l2 2 5-5"/></svg>
+          Orientação das regras do posto
+        </span>
+        <svg class="status" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm0 6 7.5 13h-15L12 8zm-1 4v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg>
+        <h3>Procure emergência agora</h3>
+        <p>Vá à UPA ou chame o socorro.</p>
+      </article>
+
+      <div class="ligue">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11.4 11.4 0 0 0 3.6.58 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.58 3.6a1 1 0 0 1-.25 1l-2.2 2.2z"/></svg>
+        Ligue 192
+      </div>
+      <!-- SEM aviso de falibilidade: ao lado de "Ligue 192" ele enfraqueceria
+           a única instrução que não admite hesitação. -->
+      <button class="concluir">Pronto</button>
+    </section>
+    <figcaption>
+      <b>(A) Regras do posto.</b> Red flag: a regra de segurança decidiu e o
+      assistente nem foi consultado (INV-1). Único estado <b>sem</b> aviso de
+      falibilidade — é a exceção declarada.
+    </figcaption>
+  </figure>
+
+  <!-- ============ (B) assistente virtual ============ -->
+  <figure>
+    <section class="tela">
+      <div class="topo">
+        <span class="voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></span>
+        <h2>Procure a UBS hoje</h2>
+        <span class="ouvir"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></span>
+      </div>
+
+      <article class="cartao cartao--atencao">
+        <span class="selo">
+          <!-- Icons.smart_toy_outlined: cabeça geométrica, sem rosto expressivo -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 5V8M2 13v3M22 13v3"/><circle cx="9" cy="14" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.2" fill="currentColor" stroke="none"/></svg>
+          Gerado por assistente virtual
+        </span>
+        <svg class="status" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3h-4.2a3 3 0 0 0-5.6 0H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 16H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V9h10v2z"/></svg>
+        <h3>Procure a UBS hoje</h3>
+        <p>Leve documento e cartão do SUS.</p>
+      </article>
+
+      <p class="aviso">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V8h2v5z"/></svg>
+        Respostas automáticas podem conter erros. Se piorar ou for urgente,
+        ligue 192.
+      </p>
+      <button class="concluir">Pronto</button>
+    </section>
+    <figcaption>
+      <b>(B) Assistente virtual.</b> O modelo local escalou acima do gate — o
+      desfecho exibido é a escolha dele. Aviso estático, sempre visível, sem
+      depender de toque.
+    </figcaption>
+  </figure>
+
+  <!-- ============ (C) sem o assistente ============ -->
+  <figure>
+    <section class="tela">
+      <div class="topo">
+        <span class="voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></span>
+        <h2>Cuide em casa</h2>
+        <span class="ouvir"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg></span>
+      </div>
+
+      <article class="cartao cartao--rotina">
+        <span class="selo">
+          <!-- Icons.cloud_off: mesmo glifo de "100% offline" da inicial -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 18H7a4 4 0 0 1-.6-7.95"/><path d="M9 5.5A5 5 0 0 1 18 8h.5a3.5 3.5 0 0 1 2.6 5.8"/><path d="M3 3l18 18"/></svg>
+          Regras do posto, sem o assistente
+        </span>
+        <svg class="status" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.8-9.4-9A5.5 5.5 0 0 1 12 6.6 5.5 5.5 0 0 1 21.4 12c-1.9 4.2-9.4 9-9.4 9z"/></svg>
+        <h3>Cuide em casa</h3>
+        <p>Beba água e descanse. Se piorar, volte aqui.</p>
+      </article>
+
+      <p class="aviso">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V8h2v5z"/></svg>
+        Respostas automáticas podem conter erros. Se piorar ou for urgente,
+        ligue 192.
+      </p>
+      <button class="concluir">Pronto</button>
+    </section>
+    <figcaption>
+      <b>(C) Sem o assistente.</b> O modelo não contribuiu — indisponível, com
+      falha, ou <b>sem opinião</b>. As três dizem a mesma coisa a quem lê. É o
+      rótulo mais longo, e o único que quebra em duas linhas com fonte ampliada.
+    </figcaption>
+  </figure>
+
+</div>

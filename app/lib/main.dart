@@ -10,6 +10,7 @@
 /// porque a INV-8 classifica os dois como folhas.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -31,6 +32,7 @@ import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
 import 'sync/pack_background_sync.dart';
+import 'triage/engine/llama_engine.dart';
 import 'ui/app_scope.dart';
 import 'ui/router_provider.dart';
 import 'ui/triage/triage_controller.dart';
@@ -81,10 +83,10 @@ Future<void> main() async {
         preferencesProvider.overrideWithValue(preferences),
         localeStoreProvider.overrideWithValue(preferences),
         activeContentProvider.overrideWithValue(content),
-        // O motor SLM entra quando existir modelo provisionado. Enquanto for
-        // `null`, a triagem roda pelo `RuleOnlyEngine` — que e o degrau
-        // seguinte da escada do RF-12, nao um erro.
-        triageEngineProvider.overrideWithValue(null),
+        // O motor SLM NAO e sobrescrito aqui: ele comeca nulo e e preenchido
+        // depois do boot, em `_startEngine`. Carregar 800 MB de GGUF leva
+        // segundos, e esperar por isso antes da primeira tela travaria o app
+        // por causa de um componente que a INV-8 classifica como opcional.
         speakerProvider.overrideWithValue(SystemSpeaker()),
         localModelPickerProvider.overrideWithValue(pickModelFromStorage),
         provisioningProvider.overrideWithValue(provisioning),
@@ -156,6 +158,9 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
     ref.read(fontScaleProvider.notifier).restore();
     ref.read(meteredDownloadProvider.notifier).restore();
 
+    // Fora do caminho do boot, de propósito. Ver `_startEngine`.
+    unawaited(_startEngine());
+
     // O agendador só interessa enquanto falta modelo. Quando o provisionamento
     // conclui, cancelamos: manter um job periódico para baixar algo que já
     // existe é gasto de bateria sem contrapartida.
@@ -181,8 +186,51 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
     });
   }
 
+  /// Sobe o motor SLM quando houver modelo verificado em disco.
+  ///
+  /// ## Por que aqui, e não antes do `runApp`
+  ///
+  /// `startLlamaEngine` abre um isolate e carrega um GGUF de 800 MB — segundos
+  /// de trabalho. Fazer isso no caminho do boot devolveria tela preta a quem só
+  /// quer consultar "Onde ir", que não usa modelo nenhum. Enquanto ele não
+  /// chega, `triageEngineProvider` continua nulo e a triagem roda por regras:
+  /// o degrau seguinte da escada do RF-12.
+  ///
+  /// ## Nunca lança
+  ///
+  /// Modelo ausente, marcador que não confere, `.so` que não carrega, isolate
+  /// que morre — todos os caminhos terminam em "sem motor", que é degradação
+  /// prevista. Uma exceção aqui derrubaria o app por causa do componente que a
+  /// INV-8 declara opcional.
+  Future<void> _startEngine() async {
+    try {
+      final model = await ref.read(provisioningProvider).verifiedModel();
+      if (model == null) return;
+
+      // As regras do pack são exigidas pelo motor: ele escolhe entre desfechos
+      // que existem NAQUELE pacote, e sem elas não há o que escolher.
+      final rules = ref.read(ruleModelProvider);
+      if (rules == null) return;
+
+      final engine = await startLlamaEngine(
+        model: rules,
+        modelPath: model.path,
+      );
+      if (engine == null || !mounted) {
+        await engine?.dispose();
+        return;
+      }
+      ref.read(triageEngineProvider.notifier).state = engine;
+    } on Object {
+      // Segue sem motor. Ver o comentário acima.
+    }
+  }
+
   @override
   void dispose() {
+    // O isolate do llama.cpp segura a memória do modelo: deixá-lo vivo depois
+    // da árvore de widgets manteria centenas de MB presos no processo.
+    ref.read(triageEngineProvider)?.dispose().ignore();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

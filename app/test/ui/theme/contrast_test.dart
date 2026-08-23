@@ -116,6 +116,31 @@ void main() {
         }
       });
 
+      test('o selo de procedência é legível dentro de QUALQUER cartão', () {
+        // Duas exigências distintas, das duas normas:
+        //
+        // 1.4.3 — o texto do selo sobre o fundo do selo, 4,5:1;
+        // 1.4.11 — a BORDA do selo contra o fundo do cartao, 3:1. Esta e a que
+        //          se esquece: o selo pousa dentro de um cartao cuja cor muda
+        //          com a gravidade, entao a borda precisa se destacar de TODOS
+        //          os fundos que `forSeverity` produz, nao so de um.
+        expect(
+          contrastRatio(c.onLilac, c.lilacSoft),
+          greaterThanOrEqualTo(aaNormalText),
+          reason: 'texto do selo: ${hex(c.onLilac)} sobre ${hex(c.lilacSoft)}',
+        );
+
+        for (final severity in GubsSeverity.values) {
+          final fundo = c.forSeverity(severity).background;
+          expect(
+            contrastRatio(c.lilac, fundo),
+            greaterThanOrEqualTo(aaLargeTextOrUi),
+            reason: 'borda do selo ${hex(c.lilac)} sobre o cartao de '
+                '${severity.name} (${hex(fundo)})',
+          );
+        }
+      });
+
       test('o indicador de foco é visível sobre os fundos', () {
         expect(
           contrastRatio(c.focus, c.ground),

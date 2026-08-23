@@ -33,7 +33,6 @@
   "triageMultiHint": "Puedes tocar más de uno",
   "triageSeeGuidance": "Ver orientación",
   "triageSelectedCount": "{count} de {max} elegidos",
-  "resultDegradedNote": "Orientación hecha solo con las reglas del puesto",
   "resultEmergencyCall": "Llama al 192",
   "resultNext": "Volver al inicio",
   "whereToHint": "Cada lugar atiende una cosa",
@@ -106,5 +105,12 @@
   "aboutBuild": "Build {build}",
   "aboutCredits": "Realización",
   "aboutLicenses": "Licencias de los componentes",
-  "aboutClinicalNotice": "Las orientaciones de esta aplicación todavía no pasaron por revisión clínica. No la use para decidir solo sobre su salud."
+  "aboutClinicalNotice": "Las orientaciones de esta aplicación todavía no pasaron por revisión clínica. No la use para decidir solo sobre su salud.",
+  "provenanceRules": "Orientación de las reglas del puesto",
+  "provenanceAssistant": "Generado por asistente virtual",
+  "provenanceRulesOnly": "Reglas del puesto, sin el asistente",
+  "severityRoutine": "No urgente",
+  "severityAttention": "Atención",
+  "severityEmergency": "Emergencia",
+  "resultFallibilityNote": "Las respuestas automáticas pueden contener errores. Si empeora o es urgente, llame al 192."
 }
