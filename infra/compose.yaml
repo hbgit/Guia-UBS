@@ -1,8 +1,9 @@
 # Topologia do plano de controle — este arquivo E a producao (stack.md 3.2/7).
 # Dev usa o mesmo arquivo com `compose.override.yaml` sobreposto automaticamente.
 #
-# O servico `packer` entra quando a publicacao for automatizada (arquitetura.md 5);
-# ate la o pack e produzido a partir de `seed/`.
+# Todos os servicos da topologia estao aqui. `packer` e o unico SEM `ports:`, e
+# isso e a garantia de seguranca do item 19: ele le a chave privada Ed25519, e
+# nao existe porta pela qual alcanca-lo.
 
 services:
   # Banco master do catalogo. Mesmo dialeto SQLite do device: o packer
@@ -76,6 +77,38 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+
+  # Job de empacotamento: constroi, valida, assina e publica releases aprovadas.
+  #
+  # SEM `ports:` de proposito. Este processo le a chave privada Ed25519; o `cms`
+  # atende HTTP. Juntar os dois faria uma falha de execucao remota no servico web
+  # virar conteudo clinico assinado chegando a aparelhos offline — que e o que a
+  # INV-4 existe para impedir. A topologia E a garantia.
+  packer:
+    build:
+      context: ..
+      dockerfile: cms/Dockerfile
+    restart: unless-stopped
+    command: ["node", "--import", "tsx", "packer/src/worker.ts", "--interval", "60"]
+    environment:
+      CMS_DATABASE_URL: http://db:8080
+      S3_ENDPOINT: http://storage:9000
+      S3_BUCKET: ${S3_BUCKET:-content-packs}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?defina em infra/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?defina em infra/.env}
+      # A chave e montada como segredo, nunca copiada para a imagem.
+      PACK_SIGNING_KEY_PATH: /run/secrets/pack_signing_key
+      PACK_SIGNING_KEY_ID: ${PACK_SIGNING_KEY_ID:-k1}
+      SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-}
+    volumes:
+      - ${PACK_SIGNING_KEY_HOST_PATH:?defina em infra/.env}:/run/secrets/pack_signing_key:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
 

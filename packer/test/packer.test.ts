@@ -30,7 +30,7 @@ import {
 
 import { buildPack, readRuleModel } from '../src/build-pack.js';
 import { buildManifest } from '../src/release.js';
-import { validateGolden, validateReferential } from '../src/validate.js';
+import { lerGoldenDoYaml, validateGolden, validateReferential } from '../src/validate.js';
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
 
@@ -216,7 +216,7 @@ test('a suite golden do pacote semente passa integralmente', () => {
     sourceCommit: 'test',
   });
   assert.deepEqual(validateReferential(built.dbPath), [], 'sem problema referencial');
-  const report = validateGolden(REPO_ROOT, readRuleModel(built.dbPath));
+  const report = validateGolden(lerGoldenDoYaml(REPO_ROOT), readRuleModel(built.dbPath));
   assert.equal(report.falseNegatives, 0, 'nenhum falso negativo clinico');
   assert.equal(report.passed, report.total, `golden ${report.passed}/${report.total}`);
 });

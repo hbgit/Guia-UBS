@@ -223,3 +223,14 @@ WHEN OLD.`status` = 'approved'
 BEGIN
   SELECT RAISE(ABORT, 'regra aprovada nao e editada in-place: crie uma linha nova');
 END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `approval_no_self_approval`;
+--> statement-breakpoint
+CREATE TRIGGER `approval_no_self_approval`
+BEFORE INSERT ON `approval`
+WHEN NEW.`approver_id` = (
+  SELECT `created_by` FROM `pack_release` WHERE `id` = NEW.`pack_release_id`
+)
+BEGIN
+  SELECT RAISE(ABORT, 'quem cria a release nao aprova a propria release (LGPD-RF11)');
+END;

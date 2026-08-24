@@ -8,11 +8,22 @@ import { check, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-co
 import { ADMIN_ROLES, adminUser } from './auth.js';
 import { municipality } from './content.js';
 
-/** Ciclo de vida do artefato. Ordem nao e livre — o item 19 monta a FSM sobre ela. */
+/**
+ * Ciclo de vida do artefato.
+ *
+ * `building` nao estava na lista original de `arquitetura.md 4.3-C` e entrou no
+ * item 19 por um motivo: sem um estado de POSSE entre `approved` e `built`, dois
+ * processos do job construiriam a mesma release em paralelo. Hoje o compose sobe
+ * uma instancia so — mas "uma instancia hoje" e a mesma classe de suposicao que o
+ * item 18 converteu em invariante ao medir o `PRAGMA foreign_keys`.
+ *
+ * A posse e tomada por compare-and-set (`approved -> building`): so um vence.
+ */
 export const RELEASE_STATUSES = [
   'draft',
   'pending_review',
   'approved',
+  'building',
   'built',
   'published',
   'revoked',
@@ -43,6 +54,15 @@ export const packRelease = sqliteTable(
     manifestJson: text('manifest_json'),
     signedAt: text('signed_at'),
     publishedAt: text('published_at'),
+    /**
+     * Quando o job tomou posse desta release.
+     *
+     * Serve para diagnostico, nao para exclusao mutua — quem garante a posse e o
+     * compare-and-set sobre `status`. Existe porque uma release parada em
+     * `building` precisa dizer HA QUANTO TEMPO: sem isso, "o job travou" e
+     * indistinguivel de "o job esta trabalhando".
+     */
+    claimedAt: text('claimed_at'),
     createdBy: text('created_by')
       .notNull()
       .references(() => adminUser.id),
@@ -52,7 +72,7 @@ export const packRelease = sqliteTable(
     unique('pack_release_municipality_version').on(t.municipalityId, t.packVersion),
     check(
       'pack_release_status_valid',
-      sql`${t.status} IN ('draft', 'pending_review', 'approved', 'built', 'published', 'revoked')`,
+      sql`${t.status} IN ('draft', 'pending_review', 'approved', 'building', 'built', 'published', 'revoked')`,
     ),
     /** Versao e monotonica E positiva — o mesmo dominio que `manifestSchema` exige. */
     check('pack_release_version_positive', sql`${t.packVersion} > 0`),

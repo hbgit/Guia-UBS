@@ -46,6 +46,15 @@ export function seedIdentity(db: DatabaseSync): void {
     INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
     VALUES ('admin-1', 'editor@exemplo.invalid', 'Operador Um', 'editor', ${NOW_MS}, ${NOW_MS});
   `);
+  // Um SEGUNDO operador, e nao por simetria: o gatilho
+  // `approval_no_self_approval` recusa que quem criou a release a aprove. Com um
+  // operador so, a linha de exemplo de `approval` seria uma auto-aprovacao — e a
+  // primeira versao deste fixture era exatamente isso, pega pelo gatilho.
+  db.exec(`
+    INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
+    VALUES ('admin-2', 'revisor@exemplo.invalid', 'Revisora Dois', 'clinical_reviewer',
+            ${NOW_MS}, ${NOW_MS});
+  `);
   db.exec(`
     INSERT INTO municipality (id, code, name, version, updated_by, updated_at)
     VALUES ('mun-1', '0000000', 'Municipio Exemplo', ${AUTHORING});
@@ -114,6 +123,6 @@ export const APPEND_ONLY_ROWS: Readonly<Record<string, { insert: string; id: str
     id: 'approval-1',
     insert: `INSERT INTO approval
        (id, pack_release_id, approver_id, role, decision, decided_at)
-     VALUES ('approval-1', 'rel-1', 'admin-1', 'clinical_reviewer', 'approve', '${NOW}')`,
+     VALUES ('approval-1', 'rel-1', 'admin-2', 'clinical_reviewer', 'approve', '${NOW}')`,
   },
 };

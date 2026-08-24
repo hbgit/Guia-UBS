@@ -25,8 +25,9 @@
  *
  * Assim o caminho de aplicacao — uma rota, um bug de ORM, uma sessao
  * comprometida — continua incapaz de apagar, que e a ameaca real, sem tornar
- * impossivel a obrigacao legal. O script do expurgo e do item 19: depende da
- * tabela de retencao aprovada pelo encarregado, que ainda nao existe.
+ * impossivel a obrigacao legal. O script do expurgo continua PENDENTE: depende
+ * da tabela de retencao aprovada pelo encarregado, que ainda nao existe. O item
+ * 19 nao o entregou, e a lacuna esta declarada em arquitetura.md 5.12.
  */
 import { getTableName } from 'drizzle-orm';
 
@@ -34,6 +35,7 @@ import {
   APPEND_ONLY_TABLES,
   VERSION_COLUMN,
   VERSIONED_TABLES,
+  approval,
   routingRule,
 } from './schema/index.js';
 
@@ -117,6 +119,35 @@ END`,
   );
 }
 
+/**
+ * Quem cria a release nao aprova a propria release (lgpd.md LGPD-RF11).
+ *
+ * O item 17 deixou esta regra para o 19 argumentando que meia regra no banco
+ * daria falsa impressao de que a regra inteira estava la. Com as duas metades no
+ * mesmo item, a que E expressavel em SQL passa a ser estrutural — e a outra
+ * ("ao menos um `clinical_reviewer`") fica em `services/approval-workflow.ts`,
+ * porque e agregado sobre outras linhas e nao restricao de linha.
+ *
+ * Estar no banco importa: a segregacao de funcoes e a defesa contra o insider
+ * (PRD, "conteudo incorreto por insider ou erro"), e uma checagem que mora so na
+ * rota protege apenas contra quem passa pela rota.
+ */
+function noSelfApproval(): string[] {
+  const tableName = getTableName(approval);
+  const name = `${tableName}_no_self_approval`;
+  return trigger(
+    name,
+    `CREATE TRIGGER \`${name}\`
+BEFORE INSERT ON \`${tableName}\`
+WHEN NEW.\`approver_id\` = (
+  SELECT \`created_by\` FROM \`pack_release\` WHERE \`id\` = NEW.\`pack_release_id\`
+)
+BEGIN
+  SELECT RAISE(ABORT, 'quem cria a release nao aprova a propria release (LGPD-RF11)');
+END`,
+  );
+}
+
 /** Todas as sentencas, na ordem em que sao aplicadas. */
 export function triggerStatements(): string[] {
   return [
@@ -125,6 +156,7 @@ export function triggerStatements(): string[] {
     ),
     ...VERSIONED_TABLES.flatMap((table) => versionMonotonic(getTableName(table))),
     ...approvedRuleImmutable(),
+    ...noSelfApproval(),
   ];
 }
 

@@ -17,7 +17,12 @@ import { PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
 
 import { buildPack, readRuleModel } from './build-pack.js';
 import { buildManifest, publish, writeManifest, type S3Target } from './release.js';
-import { validateGolden, validateReferential, type ValidationIssue } from './validate.js';
+import {
+  lerGoldenDoYaml,
+  validateGolden,
+  validateReferential,
+  type ValidationIssue,
+} from './validate.js';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT_DIR = join(REPO_ROOT, 'packer', 'out');
@@ -90,7 +95,7 @@ async function main(): Promise<void> {
   report('integridade referencial e traducoes', referential);
 
   const model = readRuleModel(built.dbPath);
-  const golden = validateGolden(REPO_ROOT, model);
+  const golden = validateGolden(lerGoldenDoYaml(REPO_ROOT), model);
   report(`suite golden (${golden.passed}/${golden.total})`, golden.issues);
 
   if (golden.falseNegatives > 0) {

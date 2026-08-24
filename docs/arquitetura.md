@@ -250,8 +250,8 @@ O ganho clínico é o motivo de as **regras** ficarem do lado global: uma red fl
 
 | # | Tabela | Colunas-chave | Notas |
 |---|---|---|---|
-| 6 | `pack_release` | `id`, `municipality_id`, `pack_version INTEGER` (monotônico por município), `schema_version`, `status CHECK(status IN ('draft','pending_review','approved','built','published','revoked'))`, `pack_sha256`, `manifest_json`, `signed_at`, `published_at`, `created_by`, UNIQUE(`municipality_id`,`pack_version`) | Ciclo de vida do artefato |
-| 7 | `approval` | `id`, `pack_release_id`, `approver_id→admin_user`, `role`, `decision CHECK(decision IN ('approve','reject'))`, `comment`, `decided_at` | **APPEND-ONLY**; regra de negócio: `approver_id ≠ pack_release.created_by` e exige ≥ 1 `clinical_reviewer` |
+| 6 | `pack_release` | `id`, `municipality_id`, `pack_version INTEGER` (monotônico por município), `schema_version`, `status CHECK(status IN ('draft','pending_review','approved','building','built','published','revoked'))`, `claimed_at`, `pack_sha256`, `manifest_json`, `signed_at`, `published_at`, `created_by`, UNIQUE(`municipality_id`,`pack_version`) | Ciclo de vida do artefato |
+| 7 | `approval` | `id`, `pack_release_id`, `approver_id→admin_user`, `role`, `decision CHECK(decision IN ('approve','reject'))`, `comment`, `decided_at` | **APPEND-ONLY**. `approver_id ≠ pack_release.created_by` é **gatilho** desde o item 19 — a regra por LINHA mora no banco, porque a ameaça é o insider e uma checagem só na rota protege apenas contra quem passa pela rota. O quórum (≥ 1 `clinical_reviewer`) é agregado sobre outras linhas e vive em `services/approval-workflow.ts` |
 | 8 | `golden_case` | `id`, `tokens_json` (ex.: `["chest","pain"]`), `expected_outcome_id`, `clinical_source`, `added_by`, `reviewed_by`, `active` | Suite clínica versionada **no banco**, junto das regras que ela protege |
 | 9 | `golden_run` | `id`, `pack_release_id`, `passed INTEGER`, `total INTEGER`, `failures_json`, `ran_at` | Falha ⇒ assinatura bloqueada (R5) |
 | 10 | `signing_key` | `key_id TEXT PK` (`k1`,`k2`), `public_key`, `activated_at`, `retired_at` | Rotação dual-key sem release do app (R4) |
@@ -897,8 +897,8 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 16. Schema Drizzle completo + migrações + triggers append-only. ✅
 17. Better Auth + RBAC + 2FA; trilha de auditoria. ✅
 18. CRUD de conteúdo com travamento otimista; editor de regras (DNF) com validação. ✅
-19. Workflow de dual review + orquestração de release; ingestão de telemetria com validador k≥20.
-**Saída:** pack publicado ponta a ponta pelo CMS, com aprovação clínica registrada.
+19. Workflow de dual review + orquestração de release; ingestão de telemetria com validador k≥20. ✅
+**Saída:** pack publicado ponta a ponta pelo CMS, com aprovação clínica registrada. ✅ **Fase 3 concluída** (§5.12).
 
 #### 5.9 Resultado do item 16 — banco master do CMS (2026-08-23)
 
@@ -993,6 +993,49 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 1. **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de piloto.**
 2. **Upload de asset não existe.** `asset` tem CRUD de metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível até isso fechar. O `putObject` (SigV4) já existe em `packer/src/release.ts` e é o ponto de partida.
 3. **O packer fixa `defaultOutcomeId: 'ROUTINE_UBS'` no código** ([packer/src/index.ts](../packer/src/index.ts)). O CMS deriva o padrão da menor severidade; os dois concordam hoje por coincidência de nomenclatura. Um município que nomeie o desfecho de rotina de outro jeito quebra o packer, não o CMS.
+
+
+#### 5.12 Resultado do item 19 — dual review, orquestração e telemetria (2026-08-24)
+
+**262 testes TypeScript** (9 contract + 233 cms + 29 packer). **A Fase 3 fecha aqui:** conteúdo editado no CMS, aprovado por outra pessoa, construído, assinado e publicado — verificado ponta a ponta contra `sqld` + MinIO reais.
+
+**A chave privada nunca toca o processo que atende HTTP.** O CMS move a release para `approved`; um job separado (`packer/src/worker.ts`, serviço `packer` no compose **sem `ports:`**) constrói, valida, assina e publica. Juntar os dois faria uma falha de execução remota no serviço web virar conteúdo clínico assinado chegando a aparelhos offline — que é o que a INV-4 existe para impedir. **A topologia é a garantia**, não uma configuração.
+
+**A FSM ganhou um estado que a §4.3-C não tinha.** Entre `approved` e `built` faltava posse: dois processos do job construiriam a mesma release em paralelo. Entrou `building` com `claimed_at`, tomado por compare-and-set. "Uma instância hoje" é a mesma classe de suposição que o item 18 converteu em invariante ao medir o `PRAGMA foreign_keys`.
+
+**O dual review tem três metades, e cada uma mora onde consegue ser cumprida.** Por PAPEL (matriz do item 17), por LINHA (gatilho novo: quem cria a release não a aprova) e por QUÓRUM (≥ 1 `clinical_reviewer`, agregado no serviço). O item 17 adiou a segunda argumentando que meia regra no banco daria falsa impressão; com as duas metades juntas, a que **é** expressável em SQL virou estrutural.
+
+**O gatilho pegou o fixture de teste no primeiro build.** A linha de exemplo de `approval` no `test/support/db.ts` aprovava com o **mesmo** operador que criou a release — uma auto-aprovação que passava despercebida desde o item 16.
+
+**E o teste do dual review estava errando o cenário.** A primeira versão fazia um `clinical_reviewer` criar a release, mas ele não tem `content:write` — nunca seria o autor. O caminho pelo qual a auto-aprovação é de fato alcançável é a **promoção**: um editor cria a release, é promovido a revisor, e passa a ter permissão de aprovar sem deixar de ser o autor. A matriz de papéis não vê isso; só a regra por linha barra.
+
+**O extrator tem três responsabilidades que não podem falhar em silêncio.** Só regras `approved` entram (rascunho no pack é conteúdo não revisado chegando a aparelho sem internet); só o município da release; nenhuma coluna de autoria atravessa. As três têm teste próprio.
+
+**Duas fontes para a suíte golden, e nenhuma sincronização.** O YAML alimenta o caminho `seed/` (que o CI roda em toda PR, sem docker); `golden_case` alimenta o caminho do CMS, onde o revisor clínico acrescenta casos pela interface. Cada caminho tem **uma** fonte, e as duas desaguam na mesma `validateGolden` — que é o que impede os critérios divergirem. `import-golden.ts` semeia a tabela uma vez e é idempotente: não sobrescreve caso editado no CMS.
+
+**Guarda nova na assinatura.** Assinar com chave que não está em `signing_key` produz um pack que **toda a frota rejeita em silêncio**: o sync tenta, a assinatura não confere, e nada no servidor acusa. A guarda deriva a pública da privada e compara com o registro — transformando um incidente mudo de frota inteira numa falha de build com nome. Roda **antes** do build, porque descobrir no fim desperdiçaria o trabalho e o erro apareceria depois dos portões verdes, onde ninguém o procura.
+
+**Portão vermelho devolve a release para `approved`, não para um estado de erro.** O problema está no conteúdo, e depois de corrigido a mesma release deve poder ser construída de novo. Um estado `failed` exigiria um caminho de volta que ninguém lembraria de usar. A corrida golden fica registrada em `golden_run` mesmo quando falha.
+
+**O teste da trilha encontrou uma transição não auditada.** Tomar posse (`approved → building`) alterava o estado sem registrar nada: uma release em `building` não diria quando o job a pegou. Corrigido — e todas as transições do job registram `actor_id` **NULO**, que é a verdade (inventar um usuário `system` criaria uma linha em `admin_user` que parece porta dos fundos numa auditoria).
+
+**A telemetria ganhou endpoint e duas lacunas declaradas.** `POST /api/telemetry` é a **segunda e última** exceção à LGPD-RT01 — autenticar exigiria identidade de dispositivo, que a INV-2 proíbe. Há teste percorrendo `/api` e exigindo que nenhuma outra rota dispense sessão.
+
+**Achado ao ler o desenho: a telemetria não tem produtor possível, e não é só falta de ADR.** `TelemetryRecorder` acumula contadores **por aparelho**; o contrato exige `kCount >= 20` no lote submetido, e um aparelho não tem como saber quantos outros existem na coorte. **Falta um agregador, que nenhum documento nomeia.** São duas causas independentes, e as duas ficam registradas abaixo.
+
+**Sabotagem: 7 proteções, 7 pegas** — gatilho anti-auto-aprovação removido, quórum aceitando qualquer papel, atalho `draft → approved` na FSM, validador k≥20 desligado, extrator deixando rascunho passar, extrator ignorando o município, guarda de chave desligada.
+
+**Verificado contra `sqld` + MinIO reais:** sessão com 2FA; conteúdo criado pelo CMS; autor tentando aprovar → **403**; revisora clínica aprovando → `approved`; job construindo, rodando a suíte golden (1/1), assinando e publicando → `published`; três objetos no MinIO; **assinatura conferindo com a chave registrada, e falhando ao adulterar versão ou hash**; trilha distinguindo operador de job pelo `actor_id` nulo. Ambiente derrubado com `down -v`.
+
+##### Lacunas ao fim da Fase 3
+
+1. **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia**. Sem interface, o revisor clínico não exerce o papel. **Pré-requisito de piloto.**
+2. **A telemetria não tem produtor**, por duas causas independentes: o app não envia (terceira chamada de rede exige ADR) e, mesmo que enviasse, seu lote seria recusado por falta de agregação. **Quem agrega é uma decisão de arquitetura ainda não tomada.**
+3. **Não há importador de CONTEÚDO** de `seed/` para o CMS — só de casos golden. Um CMS recém-implantado começa vazio, e a primeira release precisa ser montada pela API. A verificação deste item usou um conjunto mínimo por isso.
+4. **Upload de asset não existe.** O binário ainda vem de `seed/assets/`; `asset.storage_key` aponta para objetos que ninguém enviou.
+5. **`defaultOutcomeId` fixo no CLI do packer** (`ROUTINE_UBS`), enquanto o worker e o CMS o derivam da menor severidade. Concordam hoje por coincidência de nomenclatura.
+6. **24 casos golden sem `reviewed_by`.** O packer e o importador avisam; bloqueia piloto.
+7. **Expurgo por retenção (LGPD-RF07) não implementado** — depende da tabela de retenção aprovada pelo encarregado.
 
 
 ### Fase 4 — Endurecimento e GA

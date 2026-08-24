@@ -19,7 +19,10 @@ import {
 import { mensagemDoErro } from './db/errors.js';
 import type { Env } from './env.js';
 import { contentRoutes } from './routes/content.js';
+import { approvalRoutes } from './routes/approvals.js';
 import { meRoutes } from './routes/me.js';
+import { releaseRoutes } from './routes/releases.js';
+import { telemetryRoutes } from './routes/telemetry.js';
 import { ruleRoutes } from './routes/rules.js';
 import { userRoutes } from './routes/users.js';
 
@@ -48,6 +51,18 @@ export function createApp({
    */
   app.get('/health', (c) => c.json({ status: 'ok' }));
 
+  /**
+   * SEGUNDA excecao declarada a LGPD-RT01, e a ultima.
+   *
+   * Nao ha alternativa: autenticar exigiria identidade de dispositivo, que a
+   * INV-2 proibe. Fica ANTES do grupo protegido de proposito — montada dentro
+   * dele, herdaria `requireSession` e nenhum produtor conseguiria falar com ela.
+   *
+   * `test/telemetry-ingest.test.ts` afirma que esta e a unica rota de `/api` que
+   * dispensa sessao.
+   */
+  app.route('/api/telemetry', telemetryRoutes(client));
+
   // Trava progressiva e trilha ANTES do handler do Better Auth.
   app.use('/api/auth/*', auditAndThrottleAuth(auth, client, env.hashSalt));
   app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
@@ -60,6 +75,8 @@ export function createApp({
   protegido.route('/users', userRoutes(client, env.hashSalt));
   protegido.route('/content', contentRoutes(client, env.hashSalt));
   protegido.route('/rules', ruleRoutes(client, env.hashSalt));
+  protegido.route('/releases', releaseRoutes(client, env.hashSalt));
+  protegido.route('/approvals', approvalRoutes(client, env.hashSalt));
 
   app.route('/api', protegido);
 

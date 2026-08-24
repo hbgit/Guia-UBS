@@ -99,6 +99,20 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **Regra aprovada responde 409 com `next: /revisao`.** O gatilho do item 16 e a defesa; a rota e quem diz o que fazer.
 - **`:memory:` no libSQL da um banco POR CONEXAO.** Uma transacao abre conexao nova e cai num schema vazio — sintoma: `no such table` numa tabela recem-usada. O fixture de teste usa arquivo temporario.
 
+## Publicacao: dual review e o job (`cms/src/services/approval-workflow.ts`, `packer/src/worker.ts`)
+
+- **A chave privada Ed25519 nunca toca o processo que atende HTTP.** O CMS aprova; o job `packer` — servico do compose **sem `ports:`** — constroi, assina e publica. A topologia E a garantia, nao uma configuracao.
+- **O dual review tem TRES metades**: por PAPEL (matriz do item 17), por LINHA (gatilho `approval_no_self_approval`) e por QUORUM (agregado, no servico). A do meio mora no banco porque a ameaca e o insider, e checagem so na rota protege so contra quem passa pela rota.
+- **O cenario alcancavel de auto-aprovacao e a PROMOCAO**: editor cria a release, e promovido a revisor, e passa a poder aprovar sem deixar de ser o autor. A matriz de papeis nao ve; so a regra por linha barra.
+- **A FSM e dado (`TRANSICOES`), percorrida pelo teste.** Nao existe `draft -> approved` nem `pending_review -> built`: publicar sem revisao clinica precisa ser impossivel de ESCREVER.
+- **`approved -> building` e compare-and-set.** Sem estado de posse, dois jobs constroem a mesma release. Tomar posse tambem entra na trilha — senao "o job travou" e indistinguivel de "esta trabalhando".
+- **Portao vermelho devolve a release para `approved`**, nao para um estado de erro: depois de corrigido o conteudo, a MESMA release deve poder ser construida. A corrida golden fica registrada mesmo falhando.
+- **Toda transicao do job registra `actor_id` NULO.** O job nao tem operador; inventar um `system` criaria linha em `admin_user` que parece porta dos fundos numa auditoria.
+- **`extract.ts` filtra por `status='approved'`.** Rascunho no pack e conteudo nao revisado chegando a aparelho sem internet (INV-4).
+- **Assinar com chave fora de `signing_key` faz a frota inteira rejeitar EM SILENCIO.** A guarda deriva a publica da privada e confere antes do build.
+- **Duas fontes de suite golden, sem sincronizacao**: YAML para o caminho `seed/` (CI, sem docker) e `golden_case` para o caminho do CMS. Cada caminho tem UMA; as duas desaguam na mesma `validateGolden`.
+- **`POST /api/telemetry` e a SEGUNDA e ultima excecao a LGPD-RT01.** Autenticar exigiria identidade de dispositivo (INV-2 proibe). **Nao ha produtor**: o app nao envia, e o lote de um aparelho nao alcanca k>=20 — falta um agregador.
+
 ## Comandos
 
 ```sh
@@ -125,6 +139,8 @@ npm run cms:check               # schema fora de sincronia = build vermelho
 npm run typecheck               # tsc nos tres workspaces (o CI roda; tsx nao confere tipo)
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL)
 npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # 1o operador
+npm run cms:import-golden -- --autor <id>       # semeia golden_case do YAML (1x)
+npm run pack:worker -- --once                   # job: constroi, assina e publica
 npm --workspace @guia-ubs/cms run dev    # sobe o CMS (exige os segredos de infra/.env)
 docker compose -f infra/compose.yaml config --quiet
 ```

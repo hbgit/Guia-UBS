@@ -130,7 +130,13 @@ npm run cms:generate            # migração a partir de cms/src/db/schema/
 npm run cms:triggers            # regenera cms/src/db/triggers.sql
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL, default 127.0.0.1:8080)
 npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # primeiro operador
+npm run cms:import-golden -- --autor <id>       # semeia golden_case a partir do YAML
+npm run pack:worker -- --once                   # job: constrói, assina e publica
 ```
+
+O job de empacotamento é um processo **separado e sem porta de rede** — ele lê a
+chave privada Ed25519, e o CMS atende HTTP. Juntar os dois faria uma falha no
+serviço web virar conteúdo clínico assinado chegando a aparelhos offline.
 
 O CMS exige `BETTER_AUTH_SECRET` e `IP_HASH_SALT` (ver `infra/.env.example`) e
 **não sobe sem eles** — é o comportamento certo: sem sal, a trilha gravaria IP
@@ -201,13 +207,13 @@ forma de fixar núcleos com `taskset`.
 
 ## Estado atual
 
-Fases 0, 1 e 2 concluídas; Fase 3 em andamento (itens 16, 17 e 18 entregues). Verificação
+Fases 0, 1, 2 e **3 concluídas**. Verificação
 da última execução completa:
 
 | Suíte | Resultado |
 |---|---|
 | Testes Dart | 532 |
-| Testes TypeScript (contract + cms + packer) | 216 |
+| Testes TypeScript (contract + cms + packer) | 271 |
 | Golden clínica | 24/24 |
 | APK release arm64 | 24,8 MB |
 
@@ -217,12 +223,14 @@ p95 de 4731 ms com o agendador livre e 13130 ms no proxy de aparelho de entrada
 estão no [ADR-003](docs/stack.md); os números completos, em
 [arquitetura.md §5.1](docs/arquitetura.md).
 
-**Próximo:** Fase 3, item 19 — workflow de dual review, orquestração de release e
-ingestão de telemetria com validador k≥20.
+**Próximo:** Fase 4 — endurecimento e GA (testes de perf/estabilidade 72 h,
+auditoria de tráfego, Ansible + runbooks, delta packs).
 
-**Lacuna declarada:** não há interface (`cms/web/`). A `stack.md` decide "Vite +
-React SPA servida pelo próprio Hono", mas nenhum item do roadmap a nomeia — sem
-ela o revisor clínico não consegue exercer o papel, e é pré-requisito de piloto.
+**Lacunas ao fim da Fase 3** (detalhe em [arquitetura.md §5.12](docs/arquitetura.md)):
+não há `cms/web/` — sem interface o revisor clínico não exerce o papel, e é
+pré-requisito de piloto; a telemetria não tem produtor (o app não envia, e o lote
+de um aparelho não alcança k≥20 — falta um agregador); não há importador de
+conteúdo de `seed/` para o CMS; upload de asset não existe.
 
 ## Documentação
 

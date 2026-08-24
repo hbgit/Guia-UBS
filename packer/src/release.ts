@@ -5,7 +5,13 @@
  * vive em cofre offline/HSM e so o CI assina, com aprovacao manual. Aqui ela e
  * lida de um caminho passado por parametro e nunca registrada em log.
  */
-import { createHash, createHmac, createPrivateKey, sign as edSign } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  createPrivateKey,
+  createPublicKey,
+  sign as edSign,
+} from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -75,6 +81,51 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
   });
 
   return { manifest, packUrl };
+}
+
+/**
+ * Chave publica derivada da privada, em base64 (SPKI/DER) — o formato que
+ * `signing_key.public_key` guarda.
+ */
+export function chavePublicaDe(privateKeyPath: string): string {
+  const privada = createPrivateKey(readFileSync(privateKeyPath, 'utf8'));
+  return createPublicKey(privada).export({ type: 'spki', format: 'der' }).toString('base64');
+}
+
+/**
+ * Recusa assinar com chave que a frota nao conhece.
+ *
+ * O aparelho verifica o manifest contra as chaves publicas que carrega, e
+ * `signing_key` e o registro do que foi distribuido. Assinar com uma chave fora
+ * dele produz um pack que **todo aparelho rejeita em silencio**: o sync tenta, a
+ * assinatura nao confere, o pack e descartado, e nada no servidor acusa — a
+ * frota simplesmente para de receber conteudo.
+ *
+ * Conferir aqui transforma um incidente mudo de frota inteira numa falha de
+ * build com nome.
+ */
+export function conferirChaveRegistrada(
+  keyId: string,
+  privateKeyPath: string,
+  registradas: readonly { keyId: string; publicKey: string; retiredAt: string | null }[],
+): void {
+  const registro = registradas.find((k) => k.keyId === keyId);
+  if (!registro) {
+    throw new Error(
+      `A chave "${keyId}" nao esta em signing_key. Um pack assinado com ela seria ` +
+        'rejeitado por toda a frota, em silencio.',
+    );
+  }
+  if (registro.retiredAt !== null) {
+    throw new Error(`A chave "${keyId}" foi aposentada em ${registro.retiredAt}.`);
+  }
+  const derivada = chavePublicaDe(privateKeyPath);
+  if (derivada !== registro.publicKey) {
+    throw new Error(
+      `A chave privada em ${privateKeyPath} nao corresponde a publica registrada para ` +
+        `"${keyId}". Assinar assim produziria um pack que a frota rejeita.`,
+    );
+  }
 }
 
 export function writeManifest(outDir: string, manifest: Manifest): string {

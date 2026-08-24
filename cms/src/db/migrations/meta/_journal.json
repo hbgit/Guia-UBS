@@ -36,6 +36,13 @@
       "when": 1787598601236,
       "tag": "0004_municipio_versionado",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787603411806,
+      "tag": "0005_release_building",
+      "breakpoints": true
     }
   ]
 }

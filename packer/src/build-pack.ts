@@ -20,6 +20,27 @@ export interface BuildOptions {
   municipality: string;
   defaultOutcomeId: string;
   sourceCommit: string;
+  /**
+   * Sentencas de DADOS a carregar sobre o DDL.
+   *
+   * Ausente, o pack e construido de `seed/*.sql` — o caminho do CI, que roda em
+   * toda PR sem docker. Presente, vem do extrator do banco de autoria
+   * (`extract.ts`), que e o caminho do CMS.
+   *
+   * Os dois entram pelo MESMO construtor e passam pelos MESMOS portoes, de
+   * proposito: um segundo construtor para o caminho do banco seria um caminho
+   * cujos portoes ninguem exercita em toda PR.
+   */
+  dataSource?: { name: string; sql: string }[];
+  /**
+   * Onde os binarios de asset estao. Padrao: `seed/`.
+   *
+   * Continua sendo `seed/` mesmo no caminho do banco, porque o upload de asset
+   * ainda nao existe (lacuna declarada no item 18): `asset.storage_key` aponta
+   * para objetos que ninguem enviou. Quando o upload chegar, este parametro
+   * passa a apontar para o storage.
+   */
+  assetRoot?: string;
 }
 
 export interface BuildResult {
@@ -78,6 +99,7 @@ function buildTimestamp(): string {
 
 export function buildPack(options: BuildOptions): BuildResult {
   const { repoRoot, outDir } = options;
+  const assetRoot = options.assetRoot ?? join(repoRoot, 'seed');
   mkdirSync(outDir, { recursive: true });
 
   const dbPath = join(outDir, 'content.db');
@@ -90,7 +112,7 @@ export function buildPack(options: BuildOptions): BuildResult {
     db.exec('PRAGMA foreign_keys = ON');
 
     for (const statement of readDdl(repoRoot)) db.exec(statement);
-    for (const { name, sql } of readSeedFiles(repoRoot)) {
+    for (const { name, sql } of options.dataSource ?? readSeedFiles(repoRoot)) {
       try {
         db.exec(sql);
       } catch (cause) {
@@ -107,7 +129,7 @@ export function buildPack(options: BuildOptions): BuildResult {
     const resolved: BuildResult['assets'] = [];
 
     for (const { ref, path } of assets) {
-      const filePath = join(repoRoot, 'seed', path);
+      const filePath = join(assetRoot, path);
       let bytes: number;
       let content: Buffer;
       try {
@@ -115,8 +137,8 @@ export function buildPack(options: BuildOptions): BuildResult {
         bytes = statSync(filePath).size;
       } catch {
         throw new Error(
-          `Asset "${ref}" aponta para seed/${path}, que nao existe. ` +
-            'Rode `node seed/assets/generate-placeholders.mjs`.',
+          `Asset "${ref}" aponta para ${path}, que nao existe em ${assetRoot}. ` +
+            'Se o build veio de seed/, rode `node seed/assets/generate-placeholders.mjs`.',
         );
       }
       const sha256 = createHash('sha256').update(content).digest('hex');

@@ -101,12 +101,29 @@ export function validateReferential(dbPath: string): ValidationIssue[] {
   }
 }
 
-interface GoldenCase {
+export interface GoldenCase {
   id: string;
   tokens: string[];
   expect: string;
   note?: string;
   reviewed_by?: string | null;
+}
+
+/**
+ * Casos golden do YAML — a fonte do caminho `seed/`, que o CI roda em toda PR.
+ *
+ * O outro leitor e `extract.ts#lerGoldenDoBanco`, a fonte do caminho do CMS,
+ * onde o revisor clinico acrescenta casos pela interface. Sao duas FONTES para
+ * dois CAMINHOS distintos, e nao duas copias da mesma coisa: cada caminho tem
+ * uma so, e nao ha sincronizacao para envelhecer.
+ *
+ * Os dois desaguam na MESMA `validateGolden`, que e o que impede os criterios de
+ * aprovacao divergirem.
+ */
+export function lerGoldenDoYaml(repoRoot: string): GoldenCase[] {
+  const file = join(repoRoot, 'seed', 'golden', 'clinical_cases.yaml');
+  const parsed = parseYaml(readFileSync(file, 'utf8')) as { cases?: GoldenCase[] };
+  return parsed.cases ?? [];
 }
 
 export interface GoldenReport {
@@ -126,7 +143,7 @@ export interface GoldenReport {
  * que precisava de emergencia.
  */
 export function validateGolden(
-  repoRoot: string,
+  cases: readonly GoldenCase[],
   model: {
     rules: Rule[];
     outcomes: Map<string, Outcome>;
@@ -134,10 +151,6 @@ export function validateGolden(
     tokenIds: Set<string>;
   },
 ): GoldenReport {
-  const file = join(repoRoot, 'seed', 'golden', 'clinical_cases.yaml');
-  const parsed = parseYaml(readFileSync(file, 'utf8')) as { cases?: GoldenCase[] };
-  const cases = parsed.cases ?? [];
-
   const issues: ValidationIssue[] = [];
   let passed = 0;
   let falseNegatives = 0;

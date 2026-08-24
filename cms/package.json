@@ -5,13 +5,14 @@
   "type": "module",
   "description": "Plano de controle: banco master do catalogo, migracoes e gatilhos",
   "scripts": {
+    "create-admin": "tsx scripts/create-admin.ts",
     "db:generate": "drizzle-kit generate",
-    "db:triggers": "tsx scripts/gen-triggers.ts",
     "db:migrate": "tsx scripts/migrate.ts",
-    "test": "node --import tsx --test test/*.test.ts",
+    "db:triggers": "tsx scripts/gen-triggers.ts",
     "dev": "tsx watch src/index.ts",
+    "import-golden": "tsx scripts/import-golden.ts",
     "start": "tsx src/index.ts",
-    "create-admin": "tsx scripts/create-admin.ts"
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@guia-ubs/contract": "*",
@@ -23,6 +24,7 @@
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
     "hono": "^4.13.4",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
