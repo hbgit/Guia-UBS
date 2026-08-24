@@ -108,11 +108,27 @@ export const VERSIONED_TABLES: readonly SQLiteTable[] = [
  * lista de colunas tipadas, mas estao no alcance do expurgo por retencao.
  */
 export const PII_COLUMNS: readonly string[] = [
+  // Identidade do operador.
   'admin_user.email',
   'admin_user.name',
-  'admin_user.password_hash',
-  'admin_user.totp_secret_enc',
+  // URL de foto exigida pelo core do Better Auth. NENHUMA rota nossa escreve
+  // nela — declarada porque coluna de dado pessoal sem justificativa escrita e
+  // o que a LGPD-RT02 proibe, e "existe mas ninguem usa" so vale se estiver dito.
+  'admin_user.image',
+  // Credenciais. O hash da senha mora em `account`, nao no usuario: e onde o
+  // Better Auth procura.
+  'account.password',
+  'two_factor.secret',
+  'two_factor.backup_codes',
+  // PII de sessao VIVA, apagada no logout e na expiracao. A trilha permanente
+  // guarda o IP so hasheado — sao coisas diferentes de proposito: a sessao
+  // precisa do IP para detectar roubo de cookie; a trilha, nao.
+  'session.ip_address',
+  'session.user_agent',
+  // Pseudonimizadas: hash com sal, nunca o valor em claro.
+  'login_attempt.subject_key',
   'audit_entry.ip_hash',
+  // Titular do aceite (operador ou participante do piloto).
   'consent_record.subject_ref',
 ];
 

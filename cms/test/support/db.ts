@@ -28,6 +28,8 @@ export function freshDatabase(): TestDatabase {
 }
 
 const NOW = '2026-08-23T12:00:00Z';
+/** O mesmo instante em milissegundos, para as colunas que o Better Auth possui. */
+const NOW_MS = Date.parse(NOW);
 
 /** Colunas de autoria, ja preenchidas — toda linha de conteudo precisa das tres. */
 const AUTHORING = `1, 'admin-1', '${NOW}'`;
@@ -37,9 +39,12 @@ const AUTHORING = `1, 'admin-1', '${NOW}'`;
  * append-only fecharem.
  */
 export function seedIdentity(db: DatabaseSync): void {
+  // `created_at`/`updated_at` sao INTEGER de milissegundos nesta tabela, e nao
+  // TEXT como no resto do banco: o Better Auth passa objetos `Date` ao adapter.
+  // A senha NAO mora aqui — vai para `account.password` (ver `authenticatedUser`).
   db.exec(`
-    INSERT INTO admin_user (id, email, name, password_hash, role, created_at)
-    VALUES ('admin-1', 'editor@exemplo.invalid', 'Operador Um', '$argon2id$ficticio', 'editor', '${NOW}');
+    INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
+    VALUES ('admin-1', 'editor@exemplo.invalid', 'Operador Um', 'editor', ${NOW_MS}, ${NOW_MS});
   `);
   db.exec(`
     INSERT INTO municipality (id, code, name) VALUES ('mun-1', '0000000', 'Municipio Exemplo');

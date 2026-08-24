@@ -1,8 +1,8 @@
 # Topologia do plano de controle — este arquivo E a producao (stack.md 3.2/7).
 # Dev usa o mesmo arquivo com `compose.override.yaml` sobreposto automaticamente.
 #
-# Servicos `cms` e `packer` entram nas Fases 3 e 1 respectivamente
-# (arquitetura.md 5); ate la o pack e produzido a partir de `seed/`.
+# O servico `packer` entra quando a publicacao for automatizada (arquitetura.md 5);
+# ate la o pack e produzido a partir de `seed/`.
 
 services:
   # Banco master do catalogo. Mesmo dialeto SQLite do device: o packer
@@ -44,6 +44,38 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  # Plano de controle: autenticacao de operadores, RBAC e trilha de auditoria.
+  #
+  # NAO e a superficie que o aplicativo Android toca — o app so busca manifest e
+  # pack como arquivos estaticos. Este servico e para gente, atras de sessao com
+  # 2FA obrigatoria.
+  cms:
+    build:
+      context: ..
+      dockerfile: cms/Dockerfile
+    restart: unless-stopped
+    environment:
+      CMS_DATABASE_URL: http://db:8080
+      # Sem estes dois o processo NAO sobe, e e o comportamento certo: sem sal, a
+      # trilha gravaria IP em hash reversivel; sem segredo, o TOTP ficaria
+      # decorativo. Ver cms/src/env.ts.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina em infra/.env}
+      IP_HASH_SALT: ${IP_HASH_SALT:?defina em infra/.env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?defina em infra/.env}
+    ports:
+      - "127.0.0.1:8787:8787"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     security_opt:
       - no-new-privileges:true
 

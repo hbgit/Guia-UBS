@@ -70,6 +70,21 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **`enum` do Drizzle não é restrição — use `check()`.** `text(..., { enum })` é tipagem só de TypeScript e não emite `CHECK` nenhum no DDL (o DDL do pack comprova). Aqui um `role` inválido é escalada de privilégio.
 - **`git diff --exit-code` ignora arquivo não rastreado**, e migração nova nasce assim. Por isso `cms:check` faz `git add --intent-to-add` antes do diff. Ao acrescentar guarda desse tipo em outro workspace, lembre da armadilha.
 
+## Autenticacao do CMS (`cms/src/auth/`)
+
+- **O modelo `user` do Better Auth E a tabela `admin_user`** — mapeado, nao duplicado. Uma segunda tabela de identidade faria "quem e o autor disto?" ter duas respostas possiveis, que podem divergir. `role` e `disabled_at` entram como `additionalFields`.
+- **Senha mora em `account.password`; segredo TOTP, em `two_factor.secret`.** Nao ha coluna de credencial em `admin_user` — o item 16 tinha duas, e as duas estavam no lugar errado. O plugin ja **cifra** o TOTP e os backup codes sob o `BETTER_AUTH_SECRET`.
+- **`admin_user` usa `integer(timestamp_ms)`, nao ISO-8601 TEXT como o resto do banco.** Nao e descuido: o Better Auth passa objetos `Date` ao adapter e o Drizzle so converte `Date` em coluna INTEGER. Tabela nossa continua em TEXT.
+- **O adapter resolve campos pelo nome da PROPRIEDADE Drizzle (camelCase), a coluna e snake_case.** `emailVerified` -> `email_verified` e o par correto; confundir os dois quebra na primeira leitura do modelo. Ha teste para os dois lados.
+- **`auth-schema-conformance.test.ts` compara o schema com `getAuthTables()` em runtime.** Atualizacao da biblioteca que acrescente campo reprova no CI, e nao no primeiro login em producao. Ja pegou dois defeitos antes da primeira requisicao.
+- **O plugin `admin` do Better Auth NAO entra** — traz impersonation, que num sistema com dual review deixaria um admin aprovar como se fosse o revisor. Nao adianta desligar por configuracao: seguranca que depende de opcao desligada e seguranca que uma atualizacao reverte.
+- **2FA obrigatoria e middleware, nao configuracao**, com **uma** excecao nomeada: o proprio fluxo de cadastro do TOTP. Sem ela, ninguem consegue ativar o que e obrigatorio ter ativado.
+- **`two-factor/enable` nao liga a 2FA** — entrega o segredo, deixa `verified = 0` e revoga a sessao. A ativacao acontece na primeira verificacao bem-sucedida, num login novo.
+- **O `secret` do `totpURI` esta em base32; `createOTP` espera o bruto.** Passar direto produz codigo de seis digitos que nunca confere, e o sintoma e so "Invalid code".
+- **A trilha nunca recebe o corpo da requisicao** (senha, codigo TOTP) e o IP vai **hasheado com sal** — `sha256(ip)` puro se inverte por forca bruta, porque IPv4 tem 2^32 enderecos. `loadEnv()` derruba o processo sem `IP_HASH_SALT`.
+- **`audit_entry.actor_id` e nulavel**, e o nulo e informacao: login recusado nao tem ator. Rota de `/api/auth/*` nao passa por `requireSession`, entao o ator e resolvido explicitamente — sem isso, "quem ativou o segundo fator?" fica sem resposta.
+- **Rate limit por endpoint e parametro com padrao LIGADO**; so o teste passa `false`, e ha asserção disso. Desligar nao desliga a trava progressiva por conta.
+
 ## Comandos
 
 ```sh
@@ -94,6 +109,8 @@ npm run cms:generate            # migracao do banco master (drizzle-kit)
 npm run cms:triggers            # regenera cms/src/db/triggers.sql
 npm run cms:check               # schema fora de sincronia = build vermelho
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL)
+npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # 1o operador
+npm --workspace @guia-ubs/cms run dev    # sobe o CMS (exige os segredos de infra/.env)
 docker compose -f infra/compose.yaml config --quiet
 ```
 

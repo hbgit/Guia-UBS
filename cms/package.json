@@ -8,12 +8,21 @@
     "db:generate": "drizzle-kit generate",
     "db:triggers": "tsx scripts/gen-triggers.ts",
     "db:migrate": "tsx scripts/migrate.ts",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@guia-ubs/contract": "*",
+    "@hono/node-server": "^2.1.1",
+    "@hono/zod-openapi": "^1.6.1",
     "@libsql/client": "^0.15.15",
-    "drizzle-orm": "^0.45.2"
+    "@node-rs/argon2": "^2.1.0",
+    "better-auth": "^1.7.1",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",

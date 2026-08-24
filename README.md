@@ -50,7 +50,10 @@ app/        Flutter — o aplicativo
   lib/telemetry/  allowlist fechada de métricas agregadas
   lib/ui/         casca, triagem, conteúdo estático, privacidade
 contract/   TypeScript — schemas Drizzle/Zod e o contrato do manifest
-cms/        TypeScript — banco master do plano de controle (Drizzle + gatilhos)
+cms/        TypeScript — plano de controle: banco master, autenticação e RBAC
+  src/db/         schema Drizzle, migrações e gatilhos append-only
+  src/auth/       Better Auth, matriz de permissões, 2FA, trava de força bruta
+  src/services/   trilha de auditoria e gestão de operadores
 packer/     TypeScript — constrói, valida, assina e publica os pacotes
 seed/       SQL e suíte golden clínica que alimentam o pacote semente
 native/     shim C de 4 funções sobre o llama.cpp (ADR-002)
@@ -124,7 +127,16 @@ Banco master do CMS:
 npm run cms:generate            # migração a partir de cms/src/db/schema/
 npm run cms:triggers            # regenera cms/src/db/triggers.sql
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL, default 127.0.0.1:8080)
+npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # primeiro operador
 ```
+
+O CMS exige `BETTER_AUTH_SECRET` e `IP_HASH_SALT` (ver `infra/.env.example`) e
+**não sobe sem eles** — é o comportamento certo: sem sal, a trilha gravaria IP
+num hash reversível; sem segredo, o segundo fator seria decorativo.
+
+Sem autocadastro: o primeiro operador vem do script acima, os demais são criados
+por um `admin` pela rota auditada. A conta nasce **sem** 2FA e, enquanto não
+ativar, não alcança rota protegida nenhuma.
 
 Os gatilhos **não** entram no journal do drizzle: `triggers.sql` carrega o
 conjunto completo, cada `CREATE` precedido de `DROP ... IF EXISTS`, e é
@@ -183,17 +195,17 @@ forma de fixar núcleos com `taskset`.
 | `interop` | Assina um pacote com chave Ed25519 efêmera e o verifica em Dart — pega divergência entre a serialização canônica em TS e em Dart, que de outra forma só apareceria como frota parando de receber conteúdo |
 | `shim` | Compila o shim nativo e confere os símbolos exportados: mudança de ABI no llama.cpp falha aqui, não no aparelho do usuário |
 | `contract` | `npm test` (contract + cms + packer) + `contract:check` — codegen fora de sincronia reprova |
-| `cms` | `cms:check` — schema do banco master alterado sem regenerar migração ou gatilho reprova |
+| `cms` | `cms:check` — schema do banco master alterado sem regenerar migração ou gatilho reprova. Os testes rodam no job `contract` (`npm test` percorre os workspaces) e incluem a conformidade do schema com o que o Better Auth declara precisar em runtime |
 
 ## Estado atual
 
-Fases 0, 1 e 2 concluídas; Fase 3 em andamento (item 16 entregue). Verificação
+Fases 0, 1 e 2 concluídas; Fase 3 em andamento (itens 16 e 17 entregues). Verificação
 da última execução completa:
 
 | Suíte | Resultado |
 |---|---|
 | Testes Dart | 532 |
-| Testes TypeScript (contract + cms + packer) | 73 |
+| Testes TypeScript (contract + cms + packer) | 128 |
 | Golden clínica | 24/24 |
 | APK release arm64 | 24,8 MB |
 
@@ -203,8 +215,8 @@ p95 de 4731 ms com o agendador livre e 13130 ms no proxy de aparelho de entrada
 estão no [ADR-003](docs/stack.md); os números completos, em
 [arquitetura.md §5.1](docs/arquitetura.md).
 
-**Próximo:** Fase 3, item 17 — Better Auth, RBAC de três papéis e 2FA sobre o
-`admin_user` que o item 16 entregou.
+**Próximo:** Fase 3, item 18 — CRUD de conteúdo com travamento otimista e editor
+de regras (DNF) com validação, sobre a autenticação que o item 17 entregou.
 
 ## Documentação
 

@@ -219,9 +219,13 @@ Quatro domínios de schema. `version INTEGER` nas entidades editáveis implement
 
 | # | Tabela | Colunas-chave | Notas |
 |---|---|---|---|
-| 1 | `admin_user` | `id`, `email UNIQUE`, `name`, `password_hash` (Argon2id), `role CHECK(role IN ('editor','clinical_reviewer','admin'))`, `totp_secret_enc`, `disabled_at`, `created_at` | RBAC de 3 papéis; 2FA obrigatório |
-| 2 | `session` / `account` / `verification` | conforme Better Auth | Sessão ≤ 24 h. **Chegam no item 17**, geradas pelo CLI do Better Auth — escrevê-las à mão significaria adivinhar o schema de outra ferramenta. O item 16 entrega só `admin_user`, que é tabela nossa e alvo das FKs de `audit_entry`, `approval` e de toda coluna `updated_by` |
-| 3 | `audit_entry` | `id`, `actor_id→admin_user`, `action`, `entity_type`, `entity_id`, `before_json`, `after_json`, `ip_hash`, `occurred_at` | **APPEND-ONLY** (trigger bloqueia UPDATE/DELETE) — LGPD-RT03 |
+| 1 | `admin_user` | `id`, `email UNIQUE`, `name`, `email_verified`, `image`, `created_at`, `updated_at`, `two_factor_enabled`, `role CHECK(role IN ('editor','clinical_reviewer','admin'))`, `disabled_at` | É o modelo `user` do Better Auth, **mapeado para esta tabela** em vez de criar uma segunda identidade — assim `audit_entry.actor_id`, `approval.approver_id` e todo `updated_by` continuam apontando para uma linha só. `role` e `disabled_at` entram como `additionalFields`. **Sem `password_hash`** (vive em `account.password`) e **sem `totp_secret_enc`** (vive em `two_factor.secret`, já cifrado pelo plugin) |
+| 2 | `session` | conforme Better Auth (`expires_at`, `token UNIQUE`, `ip_address`, `user_agent`, `user_id`) | Expiração ≤ 24 h. `ip_address` é PII de sessão **viva**, apagada no logout; a trilha permanente guarda o IP só hasheado |
+| 2b | `account` | conforme Better Auth | **Onde mora o hash Argon2id** da senha. As colunas de OAuth ficam sempre nulas: não há provedor social, e não deve haver |
+| 2c | `verification` | conforme Better Auth | Tokens de curta duração |
+| 2d | `two_factor` | `secret`, `backup_codes`, `user_id`, `verified`, `failed_verification_count`, `locked_until` | Segredo TOTP e códigos de recuperação **cifrados em repouso** pelo plugin, sob `BETTER_AUTH_SECRET` |
+| 2e | `login_attempt` | `subject_key PK` (hash do e-mail), `failures`, `last_failure_at`, `locked_until` | Bloqueio **progressivo por conta** (LGPD-RT07). Tabela nossa: o rate limit do Better Auth é janela fixa por endpoint e quem distribui tentativas entre IPs passa por baixo |
+| 3 | `audit_entry` | `id`, `actor_id→admin_user` (**nulável**), `action`, `entity_type`, `entity_id`, `before_json`, `after_json`, `ip_hash`, `occurred_at` | **APPEND-ONLY** (trigger bloqueia UPDATE/DELETE) — LGPD-RT03. `actor_id` nulo quando não houve ator autenticado: um login recusado é exatamente o evento que mais interessa registrar, e atribuí-lo à conta visada afirmaria que a pessoa agiu quando pode ter sido um ataque contra ela. Quem a tentativa visava fica em `entity_id`, pseudonimizado |
 | 4 | `legal_document` | `id`, `type CHECK(type IN ('tos','privacy','consent'))`, `version`, `content_md`, `content_hash`, `effective_from` | Versionado; muda ⇒ re-aceite |
 | 5 | `consent_record` | `id`, `subject_ref`, `doc_type`, `doc_version`, `doc_hash`, `method`, `accepted_at` | **APPEND-ONLY** — LGPD-RT05 (ônus da prova, art. 8º §2º) |
 
@@ -891,7 +895,7 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only. ✅
-17. Better Auth + RBAC + 2FA; trilha de auditoria.
+17. Better Auth + RBAC + 2FA; trilha de auditoria. ✅
 18. CRUD de conteúdo com travamento otimista; editor de regras (DNF) com validação.
 19. Workflow de dual review + orquestração de release; ingestão de telemetria com validador k≥20.
 **Saída:** pack publicado ponta a ponta pelo CMS, com aprovação clínica registrada.
@@ -921,6 +925,39 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 **Sabotagem: 5 proteções, 5 pegas.** Gatilho apagado de `triggers.sql` (4 testes vermelhos), coluna extra na autoria fora da allowlist, coluna do pack faltando na autoria, família de gatilhos de versão desligada (3 vermelhos), `CHECK` de papel afrouxado. A suíte volta a verde em todas.
 
 **Verificado contra o `sqld` de verdade**, não só contra o SQLite dos testes — porque "libSQL é um fork do SQLite" é argumento, não medição. Com o `db` do `infra/compose.yaml` no ar: **28 tabelas, 24 gatilhos**; `DELETE` e `UPDATE` em `audit_entry` recusados com a mensagem que nomeia a LGPD-RT03; `role` fora dos três papéis e `k_count = 19` recusados pelos `CHECK`; e `runMigrations()` rodado uma segunda vez deixa os mesmos 24 gatilhos, confirmando a idempotência no banco real e não só em memória.
+
+
+#### 5.10 Resultado do item 17 — autenticação, RBAC e trilha (2026-08-24)
+
+**104 testes no `cms`, 5 rotas, 6 tabelas novas.** O plano de controle passou a ter porta de rede — e ela nasceu com sessão de 24 h, 2FA obrigatória, três papéis segregados e trilha append-only.
+
+**O item revisou o item 16, e a leitura da biblioteca é que forçou.** `admin_user` tinha `password_hash` e `totp_secret_enc`: o Better Auth guarda a senha em `account.password`, e o plugin `two-factor` **cifra** o segredo TOTP na tabela dele com o `BETTER_AUTH_SECRET`. A coluna `totp_secret_enc` teria ficado vazia para sempre — prometendo no nome uma criptografia que estava em outro lugar. As duas saíram na migração `0001`.
+
+**Uma quebra de convenção, forçada e declarada.** O resto do banco usa `*_at` em ISO-8601 TEXT. `admin_user` passou a usar `integer(timestamp_ms)`: o Better Auth passa objetos `Date` ao adapter, e o Drizzle só converte `Date` em coluna INTEGER. Forçar TEXT exigiria um tipo de coluna customizado no caminho de autenticação — frágil, e no lugar errado.
+
+**A migração gerada estava errada, e os testes pegaram.** O `drizzle-kit` emitiu um `INSERT … SELECT` que lia `email_verified`, `image`, `updated_at` e `two_factor_enabled` da tabela **antiga**, onde não existem; e copiava `created_at` de TEXT para INTEGER, o que o SQLite aceitaria calado e transformaria toda data do sistema em lixo. A conversão (`unixepoch(created_at) * 1000`) foi escrita à mão, com o motivo no cabeçalho do arquivo — é o tipo de coisa que um gerador não tem como saber.
+
+**O plugin `admin` do Better Auth ficou fora por causa da impersonation.** Num sistema com dual review clínico, impersonation deixa um admin aprovar como se fosse o revisor, e a trilha registraria o revisor: a segregação da LGPD-RF11 viraria ficção, sem teste que pegasse depois do fato. Desligar por configuração não serve — segurança que depende de manter uma opção desligada é segurança que uma atualização reverte. A matriz papel×permissão virou dado próprio, percorrida pelo produto cartesiano inteiro.
+
+**2FA obrigatória é enforcement, não configuração.** O Better Auth a trata como opt-in por usuário; a LGPD-RF11 diz obrigatório. Virou middleware que recusa toda rota protegida com `two_factor_enabled` falso, com **uma exceção nomeada** — o próprio fluxo de cadastro do TOTP. Sem ela o sistema trancaria todo mundo do lado de fora no primeiro login.
+
+**`sign-up` público não existe.** `disableSignUp: true` fecha a rota inclusive para chamadas de servidor. Operador é criado por um admin, pela rota auditada, ou pelo `create-admin.ts` no bootstrap — que exige acesso ao banco, ou seja, já é a credencial.
+
+**O teste mais valioso do item pegou dois defeitos antes da primeira requisição.** `auth-schema-conformance` compara o schema Drizzle contra `getAuthTables()` — o que a biblioteca declara precisar, em runtime. Achou (1) que o modelo do 2FA se chamaria `twoFactor` e o adapter procuraria `schema.twoFactor`, que não existe, quebrando a 2FA no primeiro uso e não no boot; e (2) que o adapter resolve campos pelo **nome da propriedade Drizzle** (camelCase), não pela coluna SQL — confundir os dois era o erro que o teste original cometia. Ficou também uma asserção de que as colunas seguem snake_case, para o nome de propriedade não vazar para o banco.
+
+**Escrever os testes revelou duas propriedades que viraram asserção.** O Better Auth recusa requisição autenticada sem `Origin` (proteção CSRF) — afirmado como garantia, porque um afrouxamento futuro deixaria um site de terceiros disparar ações na sessão de um operador. E `two-factor/enable` **não liga** a 2FA: entrega o segredo e deixa `verified = 0`, revogando a sessão; a ativação só acontece quando a pessoa prova ter o autenticador, o que é a ordem correta — o contrário trancaria para fora quem digitasse o segredo errado no aplicativo.
+
+**Um erro sutil de TOTP que o teste teria mascarado.** O `secret` do `totpURI` está em **base32**, e `createOTP` espera o segredo bruto. Passar a string base32 direto produz um código de seis dígitos que parece válido e nunca confere — o sintoma é só "Invalid code". A primeira versão do fixture ligava `two_factor_enabled = 1` direto no banco e teria passado verde por cima disso; foi trocada pelo fluxo real.
+
+**O `sqld` real mostrou o que teste em memória não mostrou.** Na primeira passada por HTTP, `sign_in` e `two_factor_enable` bem-sucedidos entravam na trilha com `actor_id` nulo — essas rotas não passam por `requireSession`, então `c.get('operador')` estava vazio. "Quem ativou o segundo fator?" ficaria sem resposta, que é justamente a pergunta de uma auditoria de acesso. O ator passou a ser resolvido pela sessão da requisição ou, no login, pelo e-mail do corpo; falha continua sem ator, de propósito.
+
+**O rate limit virou parâmetro explícito.** Uma suíte que faz dezenas de logins em segundos batia no teto de 5/60s e transformava cada teste seguinte em falso vermelho. Desligar é privilégio do teste, e há asserção de que o padrão é ligado — senão a exceção do teste vira o comportamento de produção sem ninguém decidir isso. Desligá-lo **não** desliga a trava por conta, que é a proteção que a LGPD-RT07 exige.
+
+**Sabotagem: 6 proteções, 6 pegas.** 2FA obrigatória removida do grupo protegido, `editor` ganhando permissão de aprovar, trilha registrando o corpo da requisição, IP gravado em claro, trava progressiva desligada, `twoFactorTable` removido.
+
+**Verificado contra o `sqld` real, por HTTP:** `/api/me` sem sessão 401; autocadastro 400; senha errada 401; login 200 mas `/api/me` 403 com o caminho da saída; após o TOTP, 200 com papel e permissões resolvidas; trava disparando na 4ª tentativa e recusando a senha **certa** com 429; trilha sem senha, sem hash de senha, sem segredo TOTP e sem e-mail em claro; `DELETE` em `audit_entry` recusado pelo gatilho do item 16.
+
+**Fica para o item 18:** a regra de dual review que depende de LINHA e não de papel — `approver_id ≠ pack_release.created_by` e "≥ 1 `clinical_reviewer`". A primeira sozinha daria a impressão de que a regra inteira está no banco; a segunda é agregado sobre outras linhas, que gatilho SQLite só expressa com subquery frágil.
 
 
 ### Fase 4 — Endurecimento e GA

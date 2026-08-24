@@ -113,8 +113,8 @@ test('papel de admin fora dos tres definidos e recusado', () => {
   assert.throws(
     () =>
       fixture.db.exec(`
-        INSERT INTO admin_user (id, email, name, password_hash, role, created_at)
-        VALUES ('admin-x', 'x@exemplo.invalid', 'X', 'h', 'superadmin', '2026-08-23T12:00:00Z');
+        INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
+        VALUES ('admin-x', 'x@exemplo.invalid', 'X', 'superadmin', 0, 0);
       `),
     /CHECK constraint failed/,
   );
@@ -228,14 +228,21 @@ test('nenhuma tabela guarda sequencia de sintomas de usuario final (INV-2)', () 
       `SELECT m.name AS tabela, p.name AS coluna
          FROM sqlite_master m, pragma_table_info(m.name) p
         WHERE m.type = 'table'
-          AND (p.name LIKE '%token%' OR p.name LIKE '%symptom%' OR p.name LIKE '%sintoma%')`,
+          AND (p.name LIKE '%symptom%' OR p.name LIKE '%sintoma%'
+               OR p.name LIKE '%tokens%' OR p.name = 'token_id')`,
     )
     .all() as { tabela: string; coluna: string }[];
 
-  // Lista EXAUSTIVA das colunas com "token" ou "symptom" no nome, cada uma
-  // revisada. E deliberado que uma coluna nova assim reprove ate ser
-  // acrescentada aqui: o custo e uma linha, e o que esta do outro lado e dado
-  // sensivel de saude.
+  // Lista EXAUSTIVA das colunas que o padrao acima alcanca, cada uma revisada.
+  // E deliberado que uma coluna nova assim reprove ate ser acrescentada aqui: o
+  // custo e uma linha, e o que esta do outro lado e dado sensivel de saude.
+  //
+  // O padrao NAO casa `*_token` no singular, de proposito. Essa e a forma de
+  // token de OAuth (`access_token`, `id_token`, vindos do Better Auth) e de
+  // token de DESIGN (`color_token`) — nenhum deles descreve saude, e obrigar a
+  // biblioteca a passar por uma allowlist de dado clinico a cada atualizacao
+  // encheria a lista de ruido ate ninguem mais ler. No vocabulario de sintoma
+  // deste projeto a coluna e sempre `token_id` ou `tokens_*`.
   const permitidas = new Set([
     // Vocabulario de icones — identificador de conteudo publico, nao sintoma
     // de pessoa.
@@ -244,9 +251,6 @@ test('nenhuma tabela guarda sequencia de sintomas de usuario final (INV-2)', () 
     'routing_rule_term.token_id',
     // Caso clinico ficticio escrito pelo revisor, versionado junto das regras.
     'golden_case.tokens_json',
-    // "token" aqui e token de DESIGN (verde/vermelho/azul), nao de sintoma.
-    'card.color_token',
-    'venue.color_token',
   ]);
 
   for (const { tabela, coluna } of suspeitas) {

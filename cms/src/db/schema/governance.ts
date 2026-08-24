@@ -26,9 +26,21 @@ export const LEGAL_DOC_TYPES = ['tos', 'privacy', 'consent'] as const;
  */
 export const auditEntry = sqliteTable('audit_entry', {
   id: text('id').primaryKey(),
-  actorId: text('actor_id')
-    .notNull()
-    .references(() => adminUser.id),
+  /**
+   * Quem agiu. **Nulo quando nao houve ator autenticado** — e o caso de um login
+   * recusado, que e exatamente o evento que mais interessa registrar.
+   *
+   * O item 16 declarou esta coluna NOT NULL com o argumento de que entrada sem
+   * ator e entrada sem responsavel. O argumento vale para acao de operador e nao
+   * vale para autenticacao: ali "nao sabemos quem era" E o fato registrado. As
+   * alternativas eram piores — inventar uma linha `system` em `admin_user`
+   * criaria um operador que parece porta dos fundos numa auditoria, e atribuir a
+   * tentativa a conta visada afirmaria que a pessoa agiu quando pode ter sido
+   * um ataque contra ela.
+   *
+   * Quem a tentativa visava fica em `entity_id`, ja pseudonimizado.
+   */
+  actorId: text('actor_id').references(() => adminUser.id),
   action: text('action').notNull(),
   entityType: text('entity_type').notNull(),
   entityId: text('entity_id').notNull(),
