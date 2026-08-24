@@ -14,6 +14,14 @@ export {
   type Manifest,
 } from './manifest.js';
 export {
+  evaluate,
+  ruleMatches,
+  type Outcome,
+  type Rule,
+  type RuleTerm,
+  type Verdict,
+} from './rules.js';
+export {
   telemetryBatchSchema,
   cohortSchema,
   isAcceptableBatch,

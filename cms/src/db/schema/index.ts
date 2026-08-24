@@ -25,6 +25,7 @@ import {
   documentTranslation,
   flowStep,
   flowStepTranslation,
+  municipality,
   routingOutcome,
   routingRule,
   routingRuleTerm,
@@ -72,6 +73,7 @@ export const APPEND_ONLY_TABLES: readonly { table: SQLiteTable; requirement: str
  * de alguem sumindo sem explicacao.
  */
 export const VERSIONED_TABLES: readonly SQLiteTable[] = [
+  municipality,
   asset,
   symptomToken,
   tokenTranslation,

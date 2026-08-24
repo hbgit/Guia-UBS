@@ -9,11 +9,16 @@
 import { serve } from '@hono/node-server';
 
 import { createApp } from './app.js';
-import { createDatabaseClient } from './db/client.js';
+import { assertForeignKeysEnforced, createDatabaseClient } from './db/client.js';
 import { loadEnv } from './env.js';
 
 const env = loadEnv();
 const client = createDatabaseClient(env.databaseUrl);
+
+// Antes de aceitar a primeira requisicao: sem FK, apagar um token deixa regra
+// clinica orfa em silencio, e o CRUD do item 18 depende inteiro disso.
+await assertForeignKeysEnforced(client);
+
 const { app } = createApp({ client, env });
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {

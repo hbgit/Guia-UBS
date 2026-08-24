@@ -51,7 +51,12 @@ test('a integridade referencial fecha depois de migrar', () => {
   assert.deepEqual(orfaos, [], 'PRAGMA foreign_key_check acusou orfaos');
 });
 
-test('as FKs estao ligadas — sem isso, metade das guardas nao existe', () => {
+test('as FKs estao ligadas NESTE fixture', () => {
+  // Afirmacao fraca de proposito, e vale dizer por que: ela le a pragma que o
+  // proprio `freshDatabase()` acabou de ligar, entao so garante que o fixture
+  // esta coerente com o que diz ser. A garantia sobre o PRODUTO — que o caminho
+  // de runtime recusa referencia invalida — esta em `foreign-keys.test.ts`, e e
+  // sobre comportamento.
   const [flag] = fixture.db.prepare('PRAGMA foreign_keys').all() as { foreign_keys: number }[];
   assert.equal(flag?.foreign_keys, 1);
 });

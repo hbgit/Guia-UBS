@@ -10,7 +10,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-import type { Outcome, Rule, RuleTerm } from './rules.js';
+import type { Outcome, Rule, RuleTerm } from '@guia-ubs/contract';
 
 export interface BuildOptions {
   repoRoot: string;

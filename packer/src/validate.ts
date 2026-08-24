@@ -11,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { parse as parseYaml } from 'yaml';
 
-import { evaluate, type Outcome, type Rule } from './rules.js';
+import { evaluate, type Outcome, type Rule } from '@guia-ubs/contract';
 
 export interface ValidationIssue {
   kind: 'referential' | 'translation' | 'golden' | 'golden_false_negative';

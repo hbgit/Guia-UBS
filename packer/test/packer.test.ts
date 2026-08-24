@@ -6,7 +6,6 @@
  * Sao o espelho em TypeScript do que o gate Dart precisa reproduzir.
  */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import {
   createHash,
   generateKeyPairSync,
@@ -18,11 +17,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { canonicalPayload, manifestSchema, PACK_SCHEMA_VERSION, type Manifest } from '@guia-ubs/contract';
+import {
+  canonicalPayload,
+  evaluate,
+  manifestSchema,
+  PACK_SCHEMA_VERSION,
+  ruleMatches,
+  type Manifest,
+  type Outcome,
+  type Rule,
+} from '@guia-ubs/contract';
 
 import { buildPack, readRuleModel } from '../src/build-pack.js';
 import { buildManifest } from '../src/release.js';
-import { evaluate, ruleMatches, type Outcome, type Rule } from '../src/rules.js';
 import { validateGolden, validateReferential } from '../src/validate.js';
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');

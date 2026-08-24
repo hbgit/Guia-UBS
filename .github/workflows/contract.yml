@@ -25,6 +25,12 @@ jobs:
 
       - run: npm ci
 
+      # O `tsx` (esbuild) apaga tipo sem conferir: um import duplicado passou
+      # despercebido ate o item 18 porque `tsc` nunca rodava aqui. Teste verde
+      # com tipo quebrado e o pior dos dois mundos — parece verificado.
+      - name: Verificacao de tipos
+        run: npm run typecheck
+
       - name: Testes do contrato
         run: npm test
 

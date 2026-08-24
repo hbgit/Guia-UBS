@@ -47,7 +47,8 @@ export function seedIdentity(db: DatabaseSync): void {
     VALUES ('admin-1', 'editor@exemplo.invalid', 'Operador Um', 'editor', ${NOW_MS}, ${NOW_MS});
   `);
   db.exec(`
-    INSERT INTO municipality (id, code, name) VALUES ('mun-1', '0000000', 'Municipio Exemplo');
+    INSERT INTO municipality (id, code, name, version, updated_by, updated_at)
+    VALUES ('mun-1', '0000000', 'Municipio Exemplo', ${AUTHORING});
   `);
   db.exec(`
     INSERT INTO pack_release

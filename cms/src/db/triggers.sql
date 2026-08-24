@@ -53,6 +53,15 @@ BEGIN
   SELECT RAISE(ABORT, 'approval e append-only (arquitetura.md 4.3-C)');
 END;
 --> statement-breakpoint
+DROP TRIGGER IF EXISTS `municipality_version_monotonic`;
+--> statement-breakpoint
+CREATE TRIGGER `municipality_version_monotonic`
+BEFORE UPDATE ON `municipality`
+WHEN NEW.`version` <> OLD.`version` + 1
+BEGIN
+  SELECT RAISE(ABORT, 'municipality: version precisa subir de 1 a cada UPDATE (travamento otimista)');
+END;
+--> statement-breakpoint
 DROP TRIGGER IF EXISTS `asset_version_monotonic`;
 --> statement-breakpoint
 CREATE TRIGGER `asset_version_monotonic`

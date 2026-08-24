@@ -53,7 +53,8 @@ contract/   TypeScript — schemas Drizzle/Zod e o contrato do manifest
 cms/        TypeScript — plano de controle: banco master, autenticação e RBAC
   src/db/         schema Drizzle, migrações e gatilhos append-only
   src/auth/       Better Auth, matriz de permissões, 2FA, trava de força bruta
-  src/services/   trilha de auditoria e gestão de operadores
+  src/content/    registro de entidades e fábrica de CRUD
+  src/services/   trilha, operadores, travamento otimista, validação de regras
 packer/     TypeScript — constrói, valida, assina e publica os pacotes
 seed/       SQL e suíte golden clínica que alimentam o pacote semente
 native/     shim C de 4 funções sobre o llama.cpp (ADR-002)
@@ -124,6 +125,7 @@ docker compose -f infra/compose.yaml config --quiet
 Banco master do CMS:
 
 ```sh
+npm run typecheck               # tsc nos três workspaces
 npm run cms:generate            # migração a partir de cms/src/db/schema/
 npm run cms:triggers            # regenera cms/src/db/triggers.sql
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL, default 127.0.0.1:8080)
@@ -199,13 +201,13 @@ forma de fixar núcleos com `taskset`.
 
 ## Estado atual
 
-Fases 0, 1 e 2 concluídas; Fase 3 em andamento (itens 16 e 17 entregues). Verificação
+Fases 0, 1 e 2 concluídas; Fase 3 em andamento (itens 16, 17 e 18 entregues). Verificação
 da última execução completa:
 
 | Suíte | Resultado |
 |---|---|
 | Testes Dart | 532 |
-| Testes TypeScript (contract + cms + packer) | 128 |
+| Testes TypeScript (contract + cms + packer) | 216 |
 | Golden clínica | 24/24 |
 | APK release arm64 | 24,8 MB |
 
@@ -215,8 +217,12 @@ p95 de 4731 ms com o agendador livre e 13130 ms no proxy de aparelho de entrada
 estão no [ADR-003](docs/stack.md); os números completos, em
 [arquitetura.md §5.1](docs/arquitetura.md).
 
-**Próximo:** Fase 3, item 18 — CRUD de conteúdo com travamento otimista e editor
-de regras (DNF) com validação, sobre a autenticação que o item 17 entregou.
+**Próximo:** Fase 3, item 19 — workflow de dual review, orquestração de release e
+ingestão de telemetria com validador k≥20.
+
+**Lacuna declarada:** não há interface (`cms/web/`). A `stack.md` decide "Vite +
+React SPA servida pelo próprio Hono", mas nenhum item do roadmap a nomeia — sem
+ela o revisor clínico não consegue exercer o papel, e é pré-requisito de piloto.
 
 ## Documentação
 

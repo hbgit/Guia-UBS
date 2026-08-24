@@ -16,8 +16,11 @@ import {
   requireSession,
   type AuthVariables,
 } from './auth/middleware.js';
+import { mensagemDoErro } from './db/errors.js';
 import type { Env } from './env.js';
+import { contentRoutes } from './routes/content.js';
 import { meRoutes } from './routes/me.js';
+import { ruleRoutes } from './routes/rules.js';
 import { userRoutes } from './routes/users.js';
 
 export interface App {
@@ -55,6 +58,8 @@ export function createApp({
   protegido.use('*', require2fa());
   protegido.route('/me', meRoutes());
   protegido.route('/users', userRoutes(client, env.hashSalt));
+  protegido.route('/content', contentRoutes(client, env.hashSalt));
+  protegido.route('/rules', ruleRoutes(client, env.hashSalt));
 
   app.route('/api', protegido);
 
@@ -64,9 +69,15 @@ export function createApp({
    * daqui carrega dado pessoal.
    */
   app.onError((erro, c) => {
-    console.error('[cms]', erro.message);
+    // A cadeia inteira de `cause`, e nao so `erro.message`: o Drizzle SUBSTITUI
+    // a mensagem do driver por "Failed query: <sql>" e guarda a original em
+    // `cause`. Logar so a superficie esconde exatamente a linha que diz o que
+    // deu errado — foi assim que uma violacao de FK apareceu como 500 sem
+    // explicacao durante o item 18.
+    console.error('[cms]', mensagemDoErro(erro));
     return c.json({ error: 'erro interno' }, 500);
   });
 
   return { app, auth };
 }
+

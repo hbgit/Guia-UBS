@@ -85,6 +85,20 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **`audit_entry.actor_id` e nulavel**, e o nulo e informacao: login recusado nao tem ator. Rota de `/api/auth/*` nao passa por `requireSession`, entao o ator e resolvido explicitamente — sem isso, "quem ativou o segundo fator?" fica sem resposta.
 - **Rate limit por endpoint e parametro com padrao LIGADO**; so o teste passa `false`, e ha asserção disso. Desligar nao desliga a trava progressiva por conta.
 
+## CRUD e editor de regras (`cms/src/content/`, `cms/src/routes/rules.ts`)
+
+- **O CRUD e GERADO de `content/registry.ts`, nao escrito por entidade.** Tres passos precisam acontecer em toda escrita — conferir a versao lida, gravar carimbando o autor, registrar na trilha — e a forma de falhar de dezessete copias e a ultima esquecer o terceiro. `test/crud-registry.test.ts` percorre o registro e exige os tres.
+- **`version` chega por `If-Match`, nunca no corpo.** Aceitar no corpo convida o cliente a reenviar o que leu, que e exatamente o conflito a detectar. Ausente responde **428**, nao 400: 400 mandaria procurar o erro no corpo.
+- **O 409 carrega a versao atual.** Conflito que nao diz contra o que se perdeu obriga a recarregar a tela para descobrir.
+- **O Drizzle SUBSTITUI a mensagem do driver** por `Failed query: <sql>` e poe a original em `cause`. Ler so `error.message` faz toda violacao de integridade virar 500 — a protecao funcionando parece defeito do servidor. Use `db/errors.ts`; o defeito apareceu tres vezes antes de virar modulo.
+- **Nao existe `DELETE` para entidade alvo de regra clinica.** A FK recusaria, mas oferecer rota que sempre falha ensina a ignorar mensagem de erro. Token sai de circulacao por `deprecated`.
+- **O avaliador DNF mora em `contract/src/rules.ts`**, nao no packer. Packer e CMS o importam. Copiar faria a simulacao mostrar um veredito e o gate de publicacao produzir outro — pior que nao simular.
+- **A simulacao considera so regras `approved` mais a proposta.** Rascunho alheio faria o resultado depender de trabalho inacabado de outra pessoa, e duas pessoas veriam respostas diferentes para a mesma regra.
+- **Falso negativo e classe a parte na simulacao**, como no packer: e o caso em que o app manda para casa quem precisava de emergencia.
+- **O desfecho padrao e DERIVADO da menor severidade**, nao configurado. Nao ha coluna para ele, e inventar uma decidiria por fora o que a semantica ja decide.
+- **Regra aprovada responde 409 com `next: /revisao`.** O gatilho do item 16 e a defesa; a rota e quem diz o que fazer.
+- **`:memory:` no libSQL da um banco POR CONEXAO.** Uma transacao abre conexao nova e cai num schema vazio — sintoma: `no such table` numa tabela recem-usada. O fixture de teste usa arquivo temporario.
+
 ## Comandos
 
 ```sh
@@ -108,6 +122,7 @@ npm run contract:check          # codegen fora de sincronia = build vermelho
 npm run cms:generate            # migracao do banco master (drizzle-kit)
 npm run cms:triggers            # regenera cms/src/db/triggers.sql
 npm run cms:check               # schema fora de sincronia = build vermelho
+npm run typecheck               # tsc nos tres workspaces (o CI roda; tsx nao confere tipo)
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL)
 npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # 1o operador
 npm --workspace @guia-ubs/cms run dev    # sobe o CMS (exige os segredos de infra/.env)

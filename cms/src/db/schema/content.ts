@@ -76,12 +76,22 @@ const authoring = () => ({
 // 0. Municipio — nao existe no pack (o pack JA e de um municipio so)
 // ---------------------------------------------------------------------------
 
+/**
+ * Ganha as colunas de autoria como qualquer entidade editavel, embora nao exista
+ * no pack.
+ *
+ * A alternativa seria isenta-la, e ai a fabrica de CRUD teria um caso especial:
+ * uma entidade onde `If-Match` nao vale e a trilha nao registra versao. Caso
+ * especial em fabrica generica e o lugar onde o proximo defeito se esconde — e o
+ * risco real existe, dois admins renomeando o mesmo municipio ao mesmo tempo.
+ */
 export const municipality = sqliteTable('municipality', {
   id: text('id').primaryKey(),
   /** Codigo IBGE de 7 digitos. */
   code: text('code').notNull().unique(),
   name: text('name').notNull(),
   active: integer('active').notNull().default(1),
+  ...authoring(),
 });
 
 // ---------------------------------------------------------------------------

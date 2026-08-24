@@ -231,7 +231,7 @@ Quatro domínios de schema. `version INTEGER` nas entidades editáveis implement
 
 **B. Autoria de conteúdo** — espelha 4.1 em versão mutável: `municipality`, `symptom_token`, `token_translation`, `routing_outcome`, `routing_rule`, `routing_rule_term`, `venue(+trad)`, `card(+trad)`, `service(+trad)`, `document(+trad)`, `service_document`, `flow_step(+trad)`, `asset`. Diferenças em relação ao pack:
 
-- toda entidade editável ganha `version INTEGER NOT NULL DEFAULT 1`, `updated_by→admin_user`, `updated_at`;
+- toda entidade editável ganha `version INTEGER NOT NULL DEFAULT 1`, `updated_by→admin_user`, `updated_at` — **inclusive `municipality`**, que não existe no pack mas é editada; isentá-la faria a fábrica de CRUD do item 18 ter um caso especial, e caso especial em fábrica genérica é onde o próximo defeito se esconde;
 - `asset` guarda `storage_key` (objeto no MinIO) além de `sha256` e `bytes`;
 - `routing_rule` ganha `status CHECK(status IN ('draft','approved'))` — regra aprovada **nunca é editada in-place**: gera nova linha (append por versão de pack).
 
@@ -896,7 +896,7 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 ### Fase 3 — Plano de controle (CAP-14/15)
 16. Schema Drizzle completo + migrações + triggers append-only. ✅
 17. Better Auth + RBAC + 2FA; trilha de auditoria. ✅
-18. CRUD de conteúdo com travamento otimista; editor de regras (DNF) com validação.
+18. CRUD de conteúdo com travamento otimista; editor de regras (DNF) com validação. ✅
 19. Workflow de dual review + orquestração de release; ingestão de telemetria com validador k≥20.
 **Saída:** pack publicado ponta a ponta pelo CMS, com aprovação clínica registrada.
 
@@ -958,6 +958,41 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 **Verificado contra o `sqld` real, por HTTP:** `/api/me` sem sessão 401; autocadastro 400; senha errada 401; login 200 mas `/api/me` 403 com o caminho da saída; após o TOTP, 200 com papel e permissões resolvidas; trava disparando na 4ª tentativa e recusando a senha **certa** com 429; trilha sem senha, sem hash de senha, sem segredo TOTP e sem e-mail em claro; `DELETE` em `audit_entry` recusado pelo gatilho do item 16.
 
 **Fica para o item 18:** a regra de dual review que depende de LINHA e não de papel — `approver_id ≠ pack_release.created_by` e "≥ 1 `clinical_reviewer`". A primeira sozinha daria a impressão de que a regra inteira está no banco; a segunda é agregado sobre outras linhas, que gatilho SQLite só expressa com subquery frágil.
+
+
+#### 5.11 Resultado do item 18 — CRUD, travamento otimista e editor de regras (2026-08-24)
+
+**192 testes no `cms`** (104 ao início do item), 10 entidades com CRUD gerado, editor de regras com catálogo de integridade e simulação clínica.
+
+**A pergunta que abriu o item tinha resposta favorável, e mesmo assim mudou o código.** Nada ligava `PRAGMA foreign_keys` no caminho de runtime; medido, o `sqld` v0.24 e o libSQL em memória ligam por padrão. Mas "a versão de hoje liga por padrão" é fato de versão, não garantia nossa, e o que depende dela não é pouco — sem FK, apagar um `symptom_token` deixa regras clínicas órfãs em silêncio. Entrou `assertForeignKeysEnforced()` no boot, no mesmo espírito de `loadEnv()`. E a asserção que existia — `migrations.test.ts` lendo a pragma — **media a pragma que o próprio fixture tinha acabado de ligar**: um teste que tranquiliza sem guardar. Ficou, renomeada para dizer o que realmente afirma, e a garantia sobre o produto passou para `foreign-keys.test.ts`, que exercita comportamento nos dois sentidos (aceita banco ligado, recusa banco desligado).
+
+**O avaliador DNF mudou de casa.** `packer/src/rules.ts` → `contract/src/rules.ts`. O CMS precisa dele para simular, e copiar seria o que o `CLAUDE.md` proíbe — com uma consequência específica: a simulação mostraria um veredito e o gate de publicação produziria outro, o que é pior do que não ter simulação. São três avaliadores no sistema (TS no packer e no CMS, `RedFlagGate` e `RuleOnlyEngine` em Dart), e a suíte golden é o que os mantém alinhados.
+
+**A fábrica existe porque três passos precisam acontecer em toda escrita.** Conferir a versão lida, gravar carimbando o autor, registrar na trilha. Escritos uma vez por entidade, o defeito típico é a última esquecer o terceiro — e ninguém nota até precisar da trilha, que é exatamente quando não dá mais para reconstruir. O registro (`content/registry.ts`) é dado; o teste o percorre e exige os três de cada entidade.
+
+**`version` chega por `If-Match`, não pelo corpo**, e a ausência responde **428** (RFC 6585), não 400: 400 diria "você errou o corpo" e mandaria o cliente procurar no lugar errado. O 409 carrega a versão atual, porque um conflito que não diz contra o que se perdeu obriga a pessoa a recarregar a tela para descobrir.
+
+**O mesmo defeito apareceu três vezes antes de virar módulo.** O Drizzle **substitui** a mensagem do driver por `Failed query: <sql>` e guarda a original em `cause`. Casar com `error.message` fazia toda violação de integridade virar 500 — ou seja, a proteção referencial funcionando parecia defeito do servidor e ensinava o editor a insistir. Aconteceu na fábrica de CRUD, no editor de regras e no log de erro do app; virou `db/errors.ts`.
+
+**O fixture de teste estava mentindo, e só uma transação revelou.** Com `url: ':memory:'`, cada conexão do libSQL abre um banco **próprio e vazio**. `db.transaction()` abre conexão nova e caía num schema inexistente — o sintoma era `no such table` numa tabela recém-usada. Nenhum teste anterior usava transação, então nada denunciava. O fixture passou a usar arquivo temporário, que também aproxima o teste do que roda: o `sqld` é um servidor com um banco só.
+
+**A simulação é o que dá valor clínico ao editor.** Ela roda `evaluate()` sobre `golden_case` com e sem a regra proposta e devolve quais casos mudam de veredito, com **falso negativo como classe à parte** — é o caso em que o app manda para casa alguém que precisava de emergência. Não bloqueia salvar rascunho (quem bloqueia é o gate do item 19); põe o efeito na frente de quem decide, enquanto ainda dá para desistir. Considera apenas regras `approved` mais a proposta: rascunho alheio faria o resultado depender de trabalho inacabado de outra pessoa.
+
+**O desfecho padrão é derivado, não configurado.** Não há coluna para ele no banco de autoria, e inventar uma seria decidir por fora o que a semântica já decide: "nenhuma regra casou" significa o caso menos grave. É o mesmo raciocínio do app, que deriva os extremos dos desfechos do próprio pack.
+
+**Regra aprovada responde 409 com o caminho da saída** (`/api/rules/:id/revisao`), em vez de deixar o gatilho do item 16 devolver erro de banco. O gatilho continua sendo a defesa; a rota é quem diz o que fazer.
+
+**Sabotagem: 7 proteções, 7 pegas — mas a sétima só depois de o teste ser corrigido.** O teste de "rascunho alheio não influencia a simulação" comparava o **diff**, e incluir rascunhos nos dois lados se cancela: ele parecia significativo e media um cancelamento. Passou a afirmar o veredito **absoluto** do "antes". A primeira tentativa de sabotagem também estava errada — removia só metade do filtro, e a regra vazada entrava sem termos.
+
+**Uma lacuna de CI fechada de passagem.** `tsc` nunca rodava em lugar nenhum: o `tsx` (esbuild) apaga tipo sem conferir. Havia um import duplicado em `packer/test/packer.test.ts` que passava despercebido há dois itens. Entrou `npm run typecheck` no job `contract`.
+
+**Verificado contra o `sqld` real, por HTTP:** ciclo completo de CRUD com ETag, 428 sem `If-Match`, 409 com versão velha carregando a versão atual, tradução por upsert, FK recusando referência inexistente com 409, grupo contraditório recusado com o problema nomeado, simulação apontando `FALSO_NEGATIVO` com o caso identificado, regra aprovada recusando edição e a revisão clonando sem tocar na original, e a trilha com uma entrada por escrita.
+
+##### Lacunas declaradas ao fim do item
+
+1. **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de piloto.**
+2. **Upload de asset não existe.** `asset` tem CRUD de metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível até isso fechar. O `putObject` (SigV4) já existe em `packer/src/release.ts` e é o ponto de partida.
+3. **O packer fixa `defaultOutcomeId: 'ROUTINE_UBS'` no código** ([packer/src/index.ts](../packer/src/index.ts)). O CMS deriva o padrão da menor severidade; os dois concordam hoje por coincidência de nomenclatura. Um município que nomeie o desfecho de rotina de outro jeito quebra o packer, não o CMS.
 
 
 ### Fase 4 — Endurecimento e GA

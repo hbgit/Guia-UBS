@@ -106,6 +106,30 @@ export function createDb(client: Client) {
 }
 
 /**
+ * Recusa subir se o banco nao estiver aplicando chave estrangeira.
+ *
+ * Medido no `sqld` v0.24 e no libSQL em memoria: os dois ligam por padrao. Mas
+ * "a versao de hoje liga por padrao" e fato de versao, nao garantia nossa — e o
+ * que depende dele nao e pouco. Com FK desligada, apagar um `symptom_token`
+ * deixa regras clinicas orfas EM SILENCIO, e o defeito so apareceria no gate do
+ * packer, depois de a regra ja ter sido aprovada por um revisor.
+ *
+ * Falhar no boot e o mesmo padrao de `loadEnv()`: perder uma garantia inteira
+ * sem ninguem perceber e pior do que nao subir.
+ */
+export async function assertForeignKeysEnforced(client: Client): Promise<void> {
+  const resultado = await client.execute('PRAGMA foreign_keys');
+  const ligado = Number(resultado.rows[0]?.foreign_keys ?? 0) === 1;
+  if (!ligado) {
+    throw new Error(
+      'O banco esta com PRAGMA foreign_keys DESLIGADA. Toda garantia referencial ' +
+        'do CMS depende dela: sem FK, apagar um token deixa regras clinicas orfas ' +
+        'em silencio. Verifique a configuracao do sqld antes de subir.',
+    );
+  }
+}
+
+/**
  * Caminho de producao: migracoes pendentes e, em seguida, TODOS os gatilhos.
  *
  * Os gatilhos sao reaplicados a cada execucao de proposito. Um gatilho que

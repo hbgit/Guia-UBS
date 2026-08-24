@@ -6,6 +6,22 @@
  * MESMA tabela do pacote e sao verificados contra a MESMA suite golden.
  *
  * Funcao pura e total: sem I/O, sem excecao para entrada valida, sem estado.
+ *
+ * ## Por que mora no contrato, e nao no packer
+ *
+ * Nasceu em `packer/src/rules.ts`, quando o packer era o unico avaliador em
+ * TypeScript. O item 18 acrescentou o segundo: o CMS simula o efeito de uma
+ * regra sobre a suite golden ANTES de grava-la, para o revisor clinico ver o
+ * que muda enquanto ainda da para desistir.
+ *
+ * Copiar para o CMS seria exatamente o que o `CLAUDE.md` proibe — "logica de
+ * regras duplicada em codigo e proibida" —, e a consequencia da divergencia nao
+ * seria um bug comum: a simulacao mostraria um veredito e o gate de publicacao
+ * produziria outro, o que e pior do que nao ter simulacao nenhuma.
+ *
+ * Tres avaliadores existem no sistema, e os tres leem a mesma tabela: este (TS,
+ * usado por packer e CMS), o `RedFlagGate` e o `RuleOnlyEngine` (Dart, no
+ * aparelho). A suite golden e o que os mantem alinhados.
  */
 
 export interface RuleTerm {

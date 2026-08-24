@@ -177,7 +177,8 @@ test('duas releases com a mesma versao no mesmo municipio sao recusadas', () => 
 
 test('a mesma versao em municipio diferente e permitida', () => {
   fixture.db.exec(`
-    INSERT INTO municipality (id, code, name) VALUES ('mun-2', '1111111', 'Outro Exemplo');
+    INSERT INTO municipality (id, code, name, version, updated_by, updated_at)
+    VALUES ('mun-2', '1111111', 'Outro Exemplo', 1, 'admin-1', '2026-08-23T12:00:00Z');
   `);
   fixture.db.exec(`
     INSERT INTO pack_release

@@ -15,6 +15,7 @@
   "scripts": {
     "contract:generate": "npm --workspace contract run generate",
     "contract:check": "npm run contract:generate && git diff --exit-code contract/",
+    "typecheck": "tsc --noEmit -p contract && tsc --noEmit -p cms && tsc --noEmit -p packer",
     "cms:generate": "npm --workspace @guia-ubs/cms run db:generate",
     "cms:triggers": "npm --workspace @guia-ubs/cms run db:triggers",
     "cms:migrate": "npm --workspace @guia-ubs/cms run db:migrate",
