@@ -50,6 +50,7 @@ app/        Flutter — o aplicativo
   lib/telemetry/  allowlist fechada de métricas agregadas
   lib/ui/         casca, triagem, conteúdo estático, privacidade
 contract/   TypeScript — schemas Drizzle/Zod e o contrato do manifest
+cms/        TypeScript — banco master do plano de controle (Drizzle + gatilhos)
 packer/     TypeScript — constrói, valida, assina e publica os pacotes
 seed/       SQL e suíte golden clínica que alimentam o pacote semente
 native/     shim C de 4 funções sobre o llama.cpp (ADR-002)
@@ -110,11 +111,26 @@ flutter test --plain-name "trecho do nome do teste"
 Rodar da raiz:
 
 ```sh
-npm test                        # contract + packer
+npm test                        # contract + cms + packer
 npm run contract:check          # codegen fora de sincronia = build vermelho
+npm run cms:check               # migração ou gatilho fora de sincronia = build vermelho
 npm run pack:check              # constrói e valida sem assinar
 docker compose -f infra/compose.yaml config --quiet
 ```
+
+Banco master do CMS:
+
+```sh
+npm run cms:generate            # migração a partir de cms/src/db/schema/
+npm run cms:triggers            # regenera cms/src/db/triggers.sql
+npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL, default 127.0.0.1:8080)
+```
+
+Os gatilhos **não** entram no journal do drizzle: `triggers.sql` carrega o
+conjunto completo, cada `CREATE` precedido de `DROP ... IF EXISTS`, e é
+reaplicado a cada migração. `cms:check` usa `git add --intent-to-add` antes do
+diff porque `git diff` ignora arquivo não rastreado — e migração nova nasce
+exatamente assim.
 
 Construir um pacote assinado:
 
@@ -166,16 +182,18 @@ forma de fixar núcleos com `taskset`.
 | `app` | `flutter analyze --fatal-infos` + suíte completa, incluindo a golden clínica: falso negativo reprova o PR |
 | `interop` | Assina um pacote com chave Ed25519 efêmera e o verifica em Dart — pega divergência entre a serialização canônica em TS e em Dart, que de outra forma só apareceria como frota parando de receber conteúdo |
 | `shim` | Compila o shim nativo e confere os símbolos exportados: mudança de ABI no llama.cpp falha aqui, não no aparelho do usuário |
-| `contract` | `npm test` + `contract:check` — codegen fora de sincronia reprova |
+| `contract` | `npm test` (contract + cms + packer) + `contract:check` — codegen fora de sincronia reprova |
+| `cms` | `cms:check` — schema do banco master alterado sem regenerar migração ou gatilho reprova |
 
 ## Estado atual
 
-Fases 0, 1 e 2 concluídas. Verificação da última execução completa:
+Fases 0, 1 e 2 concluídas; Fase 3 em andamento (item 16 entregue). Verificação
+da última execução completa:
 
 | Suíte | Resultado |
 |---|---|
-| Testes Dart | 438 |
-| Testes TypeScript (contract + packer) | 24 |
+| Testes Dart | 532 |
+| Testes TypeScript (contract + cms + packer) | 73 |
 | Golden clínica | 24/24 |
 | APK release arm64 | 24,8 MB |
 
@@ -185,8 +203,8 @@ p95 de 4731 ms com o agendador livre e 13130 ms no proxy de aparelho de entrada
 estão no [ADR-003](docs/stack.md); os números completos, em
 [arquitetura.md §5.1](docs/arquitetura.md).
 
-**Próximo:** Fase 3 — plano de controle (schema completo, autenticação, CRUD de
-conteúdo com dual review e orquestração de release).
+**Próximo:** Fase 3, item 17 — Better Auth, RBAC de três papéis e 2FA sobre o
+`admin_user` que o item 16 entregou.
 
 ## Documentação
 

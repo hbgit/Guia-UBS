@@ -61,6 +61,15 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **Telemetria: a allowlist é uma enum, nunca uma `String`** (`app/lib/telemetry/metric_key.dart`), conferida contra `contract/telemetry-schema.json`. O módulo **não envia e não persiste** — enviar seria uma terceira chamada de rede (exige ADR) e persistir viraria coluna nova no `user.db`. O opt-out zera a COLETA, não só o envio.
 - **O esquema do `user.db` é a superfície auditável da LGPD** (`app/lib/prefs/user_database.dart`). Colunas **tipadas**, nunca chave-valor: as colunas são a resposta a "o que este app guarda sobre a pessoa", e `test/prefs/lgpd_surface_test.dart` as enumera. Coluna nova reprova o build até ser justificada contra a INV-2 e a LGPD-RF13. Sintoma é dado sensível de saúde e **não** é persistido — a sequência morre em memória.
 
+## Banco master do CMS (`cms/`)
+
+- **A lista append-only é uma constante, nunca um literal** (`cms/src/db/schema/index.ts`). `APPEND_ONLY_TABLES` alimenta o gerador de gatilhos **e** é percorrida pelo teste; `VERSIONED_TABLES` e `PII_COLUMNS` funcionam igual. É o mesmo motivo de `lgpd_surface_test.dart` enumerar colunas: lista redigida à parte envelhece e passa a mentir. Tabela acrescentada à constante sem linha de exemplo em `test/support/db.ts` **reprova** — senão o teste rodaria zero asserções e ficaria verde.
+- **Gatilho mora em `triggers.sql` idempotente, não no journal do drizzle.** `drizzle-kit generate --custom` criaria arquivo numerado e imutável, e uma tabela versionada nova daqui a meses exigiria migração só para os gatilhos dela — o conjunto acabaria espalhado por N arquivos históricos. `triggers.sql` carrega o conjunto **completo**, cada `CREATE` precedido de `DROP ... IF EXISTS`, reaplicado a cada `runMigrations()`. Efeito colateral bom: gatilho que sumiu volta sozinho.
+- **Tabela de conteúdo nova exige par em `contract/src/content-schema.ts` no mesmo PR.** `test/schema-conformance.test.ts` compara coluna a coluna **nos dois sentidos**; a única folga é `AUTHORING_ONLY_COLUMNS`. Coluna do pack sem par na autoria = o CMS não consegue produzir a linha; coluna da autoria sem par no pack = alguém preenche um campo que nunca chega ao aparelho.
+- **O corte global × municipal é imposto pelas FKs, não escolhido.** `asset` e `venue` são globais porque `symptom_token.icon_ref` e `routing_outcome.venue_id` apontam para eles a partir do lado global, e FK global→municipal não fecha. As **regras** ficam globais de propósito: red flag corrigida alcança toda a rede por construção.
+- **`enum` do Drizzle não é restrição — use `check()`.** `text(..., { enum })` é tipagem só de TypeScript e não emite `CHECK` nenhum no DDL (o DDL do pack comprova). Aqui um `role` inválido é escalada de privilégio.
+- **`git diff --exit-code` ignora arquivo não rastreado**, e migração nova nasce assim. Por isso `cms:check` faz `git add --intent-to-add` antes do diff. Ao acrescentar guarda desse tipo em outro workspace, lembre da armadilha.
+
 ## Comandos
 
 ```sh
@@ -77,10 +86,14 @@ tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o S
 tool/gen_about_logos.sh         # rasteriza os logos institucionais da tela Sobre
 
 # Plano de controle (rodar da raiz)
-npm test                        # contract + packer
+npm test                        # contract + cms + packer
 SOURCE_DATE_EPOCH=1787097600 PACK_SIGNING_KEY_PATH=contract/keys/dev-k1.pem \
   PACK_VERSION=1 npm run pack:build     # gera packer/out/{content.db,manifest.json}
 npm run contract:check          # codegen fora de sincronia = build vermelho
+npm run cms:generate            # migracao do banco master (drizzle-kit)
+npm run cms:triggers            # regenera cms/src/db/triggers.sql
+npm run cms:check               # schema fora de sincronia = build vermelho
+npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL)
 docker compose -f infra/compose.yaml config --quiet
 ```
 

@@ -61,6 +61,39 @@ jobs:
           node seed/assets/generate-placeholders.mjs
           git diff --exit-code -- seed/assets/
 
+  # Guarda do banco master do plano de controle (arquitetura.md 4.3).
+  #
+  # Os TESTES do cms ja rodam no job `contract`, porque `npm test` percorre os
+  # workspaces. O que este job acrescenta e o diff-check dos artefatos gerados:
+  # migracao e gatilhos sao produzidos por comando, e schema alterado sem
+  # regenerar e o defeito que nao aparece em teste nenhum — o banco de teste
+  # nasce do arquivo antigo e passa.
+  #
+  # `git add --intent-to-add` nao e detalhe: `git diff` IGNORA arquivo nao
+  # rastreado, e migracao nova nasce exatamente assim. Sem ele, quem alterasse o
+  # schema e esquecesse `cms:generate` passaria no CI.
+  cms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Migracao e gatilhos estao em dia
+        run: |
+          npm run cms:generate
+          npm run cms:triggers
+          git add --intent-to-add --all cms/
+          if ! git diff --exit-code -- cms/; then
+            echo "::error::Schema do CMS fora de sincronia. Rode 'npm run cms:generate' e 'npm run cms:triggers' e commite."
+            exit 1
+          fi
+
   infra:
     runs-on: ubuntu-latest
     steps:

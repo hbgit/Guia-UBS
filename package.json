@@ -6,6 +6,7 @@
   "license": "MIT",
   "workspaces": [
     "contract",
+    "cms",
     "packer"
   ],
   "engines": {
@@ -14,6 +15,10 @@
   "scripts": {
     "contract:generate": "npm --workspace contract run generate",
     "contract:check": "npm run contract:generate && git diff --exit-code contract/",
+    "cms:generate": "npm --workspace @guia-ubs/cms run db:generate",
+    "cms:triggers": "npm --workspace @guia-ubs/cms run db:triggers",
+    "cms:migrate": "npm --workspace @guia-ubs/cms run db:migrate",
+    "cms:check": "npm run cms:generate && npm run cms:triggers && git add --intent-to-add --all cms/ && git diff --exit-code -- cms/",
     "infra:validate": "docker compose -f infra/compose.yaml config --quiet",
     "test": "npm --workspaces --if-present run test",
     "pack:build": "npm --workspace @guia-ubs/packer run build:pack",

@@ -220,7 +220,7 @@ Quatro domínios de schema. `version INTEGER` nas entidades editáveis implement
 | # | Tabela | Colunas-chave | Notas |
 |---|---|---|---|
 | 1 | `admin_user` | `id`, `email UNIQUE`, `name`, `password_hash` (Argon2id), `role CHECK(role IN ('editor','clinical_reviewer','admin'))`, `totp_secret_enc`, `disabled_at`, `created_at` | RBAC de 3 papéis; 2FA obrigatório |
-| 2 | `session` / `account` / `verification` | conforme Better Auth | Sessão ≤ 24 h |
+| 2 | `session` / `account` / `verification` | conforme Better Auth | Sessão ≤ 24 h. **Chegam no item 17**, geradas pelo CLI do Better Auth — escrevê-las à mão significaria adivinhar o schema de outra ferramenta. O item 16 entrega só `admin_user`, que é tabela nossa e alvo das FKs de `audit_entry`, `approval` e de toda coluna `updated_by` |
 | 3 | `audit_entry` | `id`, `actor_id→admin_user`, `action`, `entity_type`, `entity_id`, `before_json`, `after_json`, `ip_hash`, `occurred_at` | **APPEND-ONLY** (trigger bloqueia UPDATE/DELETE) — LGPD-RT03 |
 | 4 | `legal_document` | `id`, `type CHECK(type IN ('tos','privacy','consent'))`, `version`, `content_md`, `content_hash`, `effective_from` | Versionado; muda ⇒ re-aceite |
 | 5 | `consent_record` | `id`, `subject_ref`, `doc_type`, `doc_version`, `doc_hash`, `method`, `accepted_at` | **APPEND-ONLY** — LGPD-RT05 (ônus da prova, art. 8º §2º) |
@@ -230,6 +230,17 @@ Quatro domínios de schema. `version INTEGER` nas entidades editáveis implement
 - toda entidade editável ganha `version INTEGER NOT NULL DEFAULT 1`, `updated_by→admin_user`, `updated_at`;
 - `asset` guarda `storage_key` (objeto no MinIO) além de `sha256` e `bytes`;
 - `routing_rule` ganha `status CHECK(status IN ('draft','approved'))` — regra aprovada **nunca é editada in-place**: gera nova linha (append por versão de pack).
+
+**Escopo por município (decidido no item 16).** O pack é por município; este banco é único. O corte não é preferência — é a **direção das chaves estrangeiras** que o decide:
+
+| | Tabelas |
+|---|---|
+| **Global** (sem `municipality_id`) | `asset`, `symptom_token(+trad)`, `routing_outcome`, `routing_rule(+term)`, `venue(+trad)`, `card(+trad)` |
+| **Municipal** (PK composta `(municipality_id, id)`) | `service(+trad)`, `document(+trad)`, `service_document`, `flow_step(+trad)` |
+
+`symptom_token.icon_ref→asset.ref` e `routing_outcome.venue_id→venue.id` saem de tabelas globais. Se `asset` ou `venue` fossem municipais, a PK deles viraria composta e o lado global não teria `municipality_id` para oferecer: a FK não fecharia. Municipal→global é válido e é o único sentido que ocorre.
+
+O ganho clínico é o motivo de as **regras** ficarem do lado global: uma red flag corrigida alcança toda a rede por construção — não existe o estado "corrigido num município, esquecido nos outros". Município que precise de escala de severidade própria é migração **aditiva** depois; o inverso — colapsar N cópias de uma regra clínica numa só — não é.
 
 **C. Publicação**
 
@@ -879,11 +890,38 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 **Sabotagem: 7 proteções, 7 pegas** depois de fechar as duas lacunas acima.
 
 ### Fase 3 — Plano de controle (CAP-14/15)
-16. Schema Drizzle completo + migrações + triggers append-only.
+16. Schema Drizzle completo + migrações + triggers append-only. ✅
 17. Better Auth + RBAC + 2FA; trilha de auditoria.
 18. CRUD de conteúdo com travamento otimista; editor de regras (DNF) com validação.
 19. Workflow de dual review + orquestração de release; ingestão de telemetria com validador k≥20.
 **Saída:** pack publicado ponta a ponta pelo CMS, com aprovação clínica registrada.
+
+#### 5.9 Resultado do item 16 — banco master do CMS (2026-08-23)
+
+**28 tabelas, 24 gatilhos, 85 sentenças de DDL, 49 testes.** O banco existe e é aplicável; não há rota, autenticação nem UI — itens 17 a 19.
+
+**O corte por município não foi escolhido: foi derivado.** A intenção era "clínico global, logística municipal", com `venue` e `asset` do lado municipal. Não fecha. `symptom_token.icon_ref→asset.ref` e `routing_outcome.venue_id→venue.id` saem de tabelas globais, e uma FK global→municipal exigiria que o lado global oferecesse um `municipality_id` que ele não tem. As duas tabelas foram para o lado global porque a integridade referencial não deixa alternativa — o pool de arquivos é global, o **uso** é que é municipal.
+
+**Os gatilhos não são migração do drizzle-kit, e isso é decisão.** `generate --custom` cria arquivo numerado e imutável no journal. Uma tabela versionada acrescentada daqui a três meses exigiria migração nova só para os gatilhos dela, com o gerador incapaz de saber quais já foram emitidos; o conjunto passaria a viver espalhado por N arquivos históricos e "quais gatilhos existem hoje?" deixaria de ter resposta num lugar só. Em vez disso `src/db/triggers.sql` carrega o conjunto **completo**, cada `CREATE` precedido de `DROP ... IF EXISTS`, reaplicado a cada migração. Gatilho não é dado; recriá-lo é idempotente. De quebra, gatilho que sumiu — restauração de backup antiga, `DROP` manual num expurgo interrompido — **volta sozinho** na próxima migração, em vez de ficar ausente e silencioso até o dia em que importa.
+
+**A lista append-only é constante, não literal.** `APPEND_ONLY_TABLES` mora em `schema/index.ts`, o gerador emite o SQL a partir dela e o teste a percorre. É o mesmo motivo de `app/test/prefs/lgpd_surface_test.dart` enumerar colunas em vez de conferir contra um texto ao lado: lista redigida à parte envelhece e passa a mentir. Há um teste só para o modo de falha por vacuidade — tabela acrescentada à constante sem linha de exemplo no suporte de teste reprova, em vez de rodar zero asserções e ficar verde.
+
+**O gatilho de versão monotônica veio junto com a coluna.** `version` nasceu neste item, e o precedente de `theme_mode`/`font_scale` no `user.db` é que coluna e guarda chegam no mesmo commit. Sem ele, um `UPDATE` que esqueça de incrementar `version` perde o travamento otimista **em silêncio** — a próxima escrita concorrente sobrescreve sem 409, e o único sintoma é a edição de alguém sumindo sem explicação. A regra é `NEW.version = OLD.version + 1`, não `>`: um salto também denuncia escrita que não passou pelo caminho do travamento, e ser estrito custa zero para quem usa `SET version = version + 1 WHERE id = ? AND version = ?`.
+
+**Duas regras de dual review foram deliberadamente deixadas fora do banco.** `approver_id ≠ created_by` e "≥ 1 `clinical_reviewer`": a segunda é agregado sobre outras linhas, que gatilho SQLite só expressa com subquery frágil, e a primeira sozinha daria a impressão de que a regra inteira mora no banco quando só metade moraria. Ambas são do item 19, com teste próprio.
+
+**`CHECK` de verdade, porque `enum` do Drizzle não é restrição.** `text(..., { enum })` é tipagem só de TypeScript — o `contract/ddl/0000_content.sql` do pack comprova, sai sem um `CHECK` sequer. No CMS um `role` inválido é escalada de privilégio e um `status` inválido quebra a FSM de release, então as restrições foram escritas com `check()` e existem no DDL. O piso de k-anonimato entrou como `CHECK(k_count >= 20)`: o validador de aplicação protege a porta de entrada, o `CHECK` protege importação manual, script de migração e correção "rápida" no shell.
+
+**O expurgo de retenção e o `BEFORE DELETE` incondicional colidem, e a colisão foi resolvida por escrito.** A LGPD-RF07 obriga a eliminar por prazo; o gatilho proíbe. O gatilho **fica** incondicional, e o expurgo é procedimento nomeado que derruba e recria os gatilhos numa transação, registrando a própria execução em `audit_entry`. O caminho de aplicação — uma rota, um bug de ORM, uma sessão comprometida — continua incapaz de apagar, que é a ameaça real. O script é do item 19: depende da tabela de retenção aprovada pelo encarregado.
+
+**`telemetry_batch` NÃO é append-only, e a ausência é a decisão.** Auditoria e aceite valem por serem irrefutáveis; lote de telemetria é dado operacional com prazo de retenção. Bloquear `DELETE` ali criaria conflito com a obrigação de expurgo sem proteger nada que precisasse de proteção.
+
+**Um buraco no próprio guarda-corpo, achado antes de ir para o CI.** `git diff --exit-code` **ignora arquivo não rastreado** — e migração nova nasce exatamente assim. Quem alterasse o schema e esquecesse `cms:generate` passaria no CI com o defeito que o check existe para pegar. `cms:check` ganhou `git add --intent-to-add` antes do diff; verificado nos três cenários (árvore em dia passa, migração nova reprova, `triggers.sql` alterado reprova).
+
+**Sabotagem: 5 proteções, 5 pegas.** Gatilho apagado de `triggers.sql` (4 testes vermelhos), coluna extra na autoria fora da allowlist, coluna do pack faltando na autoria, família de gatilhos de versão desligada (3 vermelhos), `CHECK` de papel afrouxado. A suíte volta a verde em todas.
+
+**Verificado contra o `sqld` de verdade**, não só contra o SQLite dos testes — porque "libSQL é um fork do SQLite" é argumento, não medição. Com o `db` do `infra/compose.yaml` no ar: **28 tabelas, 24 gatilhos**; `DELETE` e `UPDATE` em `audit_entry` recusados com a mensagem que nomeia a LGPD-RT03; `role` fora dos três papéis e `k_count = 19` recusados pelos `CHECK`; e `runMigrations()` rodado uma segunda vez deixa os mesmos 24 gatilhos, confirmando a idempotência no banco real e não só em memória.
+
 
 ### Fase 4 — Endurecimento e GA
 20. Testes de perf/estabilidade (72 h), auditoria de tráfego (zero PII), varredura de dependências.
