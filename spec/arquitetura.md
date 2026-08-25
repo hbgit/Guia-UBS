@@ -30,7 +30,7 @@ A decisão de sequenciamento mais relevante: **o CMS é o último componente a s
 Guia-UBS/
 ├── CLAUDE.md
 ├── README.md · LICENSE
-├── docs/                        # especificação (existente)
+├── spec/                        # especificação (existente)
 ├── contract/                    # ── espinha dorsal: fonte dos contratos ──
 │   ├── pack-schema.json         # schema do content.db (gerado do Drizzle)
 │   ├── manifest-schema.json     # schema do manifest.json

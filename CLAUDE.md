@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado do repositório
 
-Projeto **em implementação**. A documentação vive em `docs/` (em **português**; mantenha novos documentos em pt-BR) e continua sendo a fonte de verdade. O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), `native/llama_shim/` (C) e `infra/`. O andamento por item está em `docs/arquitetura.md` §Roadmap; as medições e decisões de cada item entregue ficam nas subseções §5.x do mesmo arquivo. O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica para orientar populações rurais, imigrantes e pessoas de baixo letramento sobre serviços do SUS, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
+Projeto **em implementação**. A documentação vive em `spec/` — **renomeada de `docs/`**, e mensagens de commit e trechos antigos ainda citam o nome anterior (em **português**; mantenha novos documentos em pt-BR) e continua sendo a fonte de verdade. O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), `native/llama_shim/` (C) e `infra/`. O andamento por item está em `spec/arquitetura.md` §Roadmap; as medições e decisões de cada item entregue ficam nas subseções §5.x do mesmo arquivo. O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica para orientar populações rurais, imigrantes e pessoas de baixo letramento sobre serviços do SUS, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
 
 ## Hierarquia documental (ordem de precedência)
 
-1. **`docs/PRD.md`** — fonte única da verdade; consolida e governa os demais. Em conflito, vale o PRD.
-2. **`docs/espec.md`** — normativo para comportamento: matrizes FSM completas (FSM-A triagem, FSM-B ciclo do pack), invariantes INV-1…8, requisitos RF/RNF com critérios de aceitação.
-3. **`docs/stack.md`** — decisões de tecnologia com trade-offs, auditoria open source (§9) e **ADRs arquiteturais (§10)**; §11 é a explicação não técnica para sponsors.
-4. **`docs/lgpd.md`** — requisitos de conformidade LGPD (LGPD-RF01…17, RT01…11).
-5. **`docs/brainstorm.md`** — visão de produto, milestones M1–M7, definição do MVP.
-6. **`docs/design.html`** — protótipo interativo autocontido (abrir no navegador); publicado como Artifact.
+1. **`spec/PRD.md`** — fonte única da verdade; consolida e governa os demais. Em conflito, vale o PRD.
+2. **`spec/espec.md`** — normativo para comportamento: matrizes FSM completas (FSM-A triagem, FSM-B ciclo do pack), invariantes INV-1…8, requisitos RF/RNF com critérios de aceitação.
+3. **`spec/stack.md`** — decisões de tecnologia com trade-offs, auditoria open source (§9) e **ADRs arquiteturais (§10)**; §11 é a explicação não técnica para sponsors.
+4. **`spec/lgpd.md`** — requisitos de conformidade LGPD (LGPD-RF01…17, RT01…11).
+5. **`spec/brainstorm.md`** — visão de produto, milestones M1–M7, definição do MVP.
+6. **`spec/design.html`** — protótipo interativo autocontido (abrir no navegador); publicado como Artifact. `spec/design_selo_procedencia.html` é o companheiro para o selo de procedência (RF-15).
 
 Ao alterar uma decisão em um documento, propague a consistência nos demais (eles se citam por links relativos).
 
@@ -23,7 +23,7 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 
 - **Red flag ⇒ EMERGENCY, sempre.** O gate determinístico roda ANTES do LLM e `severity_final = max(gate, llm)` — o LLM nunca rebaixa severidade. Exceção no gate = fail-closed para EMERGENCY.
 - **Zero dado pessoal do usuário final** em disco, log ou rede. A sequência de sintomas morre em memória; telemetria só agregada por coorte com k-anonimato ≥ 20.
-- **Offline-only em runtime:** toda funcionalidade do usuário opera com rádio desligado. O app faz exatamente duas chamadas de rede, ambas fora do caminho do usuário: download de manifest/pack pelo WorkManager e, desde o [ADR-003](docs/stack.md), download do modelo SLM no 1º acesso (700 MB–1,2 GB). Ambas retomáveis por HTTP Range, com SHA-256 conferido antes de aceitar, e **falha em qualquer uma nunca bloqueia o app** — sem modelo, a triagem roda via `RuleOnlyEngine`.
+- **Offline-only em runtime:** toda funcionalidade do usuário opera com rádio desligado. O app faz exatamente duas chamadas de rede, ambas fora do caminho do usuário: download de manifest/pack pelo WorkManager e, desde o [ADR-003](spec/stack.md), download do modelo SLM no 1º acesso (700 MB–1,2 GB). Ambas retomáveis por HTTP Range, com SHA-256 conferido antes de aceitar, e **falha em qualquer uma nunca bloqueia o app** — sem modelo, a triagem roda via `RuleOnlyEngine`.
 - **Nenhum conteúdo sem assinatura Ed25519 válida e dual review clínico** chega ao usuário; versão de pack é monotônica (downgrade rejeitado mesmo assinado).
 - **Falha de LLM/TTS/sync nunca bloqueia** navegação de conteúdo estático (degradação em escada: llama.cpp → MediaPipe → regras puras → conteúdo estático).
 - `RuleOnlyEngine` e `RedFlagGate` consomem a **mesma tabela** do pack — lógica de regras duplicada em código é proibida.
@@ -38,7 +38,7 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 
 ## Convenções de design (UI)
 
-Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = informação**, e **lilás = procedência/automação** — esta última existe só para o selo que diz de onde veio a orientação (`ui/triage/widgets/provenance_badge.dart`) e **nunca** aparece em cartão, botão ou ícone de conteúdo clínico; usá-la ali criaria um quarto significado clínico que ninguém especificou. Alvos de toque ≥ 64 dp, máx. 8 elementos por tela, navegação linear com voltar/casa sempre visíveis, zero texto obrigatório (todo conteúdo essencial tem ícone + áudio pt/es). O protótipo visual está em `docs/design.html`; a implementação normativa é `app/lib/ui/theme/`.
+Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = informação**, e **lilás = procedência/automação** — esta última existe só para o selo que diz de onde veio a orientação (`ui/triage/widgets/provenance_badge.dart`) e **nunca** aparece em cartão, botão ou ícone de conteúdo clínico; usá-la ali criaria um quarto significado clínico que ninguém especificou. Alvos de toque ≥ 64 dp, máx. 8 elementos por tela, navegação linear com voltar/casa sempre visíveis, zero texto obrigatório (todo conteúdo essencial tem ícone + áudio pt/es). O protótipo visual está em `spec/design.html`; a implementação normativa é `app/lib/ui/theme/`.
 
 - **A escala de `severity_level` pertence ao PACK, não ao binário.** O pacote semente usa 10 (rotina) e 100 (emergência); outro município pode publicar outra escala. Use `severityFor(level, model)`, que deriva os extremos dos desfechos do próprio pack. Limiares fixos em Dart já causaram o pior defeito visual do projeto: todo resultado de rotina pintado de vermelho com "Ligue 192" embaixo.
 - **Peça a cor pela SEVERIDADE, não pelo nome.** `GubsColors.forSeverity(...)` devolve o par certo; escolher entre `green` e `red` na hora do layout é o caminho para um cartão de emergência pintado de verde.
@@ -153,7 +153,7 @@ docker compose -f infra/compose.yaml config --quiet
 
 **A barra tem TRÊS abas, e a terceira é "Mais" — "Documentos" saiu dela.** Não foi arbitrário: a inicial usa exatamente oito elementos acionáveis (cinco escolhas + três abas), que é o teto da RNF-06, e `test/ui/accessibility_test.dart` reprova em nove. Uma quarta aba obrigaria a mexer na tela clínica para abrir espaço a um menu utilitário. "Documentos" cedeu o lugar porque já tinha ladrilho próprio na inicial; de quebra ganhou botão voltar, que raiz de aba não tem. Antes de acrescentar destino à barra, resolva de onde sai o elemento.
 
-**Coluna nova no `user.db` custa quatro coisas, no mesmo commit** — `theme_mode` e `font_scale` são o precedente: (1) `schemaVersion` + `onUpgrade` com teste de migração v1→v2, porque **sem ele todo aparelho já instalado quebra no boot** e instalação limpa não mostra isso; (2) a lista permitida de `test/prefs/lgpd_surface_test.dart`, com a justificativa escrita; (3) uma entrada na tela de privacidade em pt e es, que o teste conta contra as colunas; (4) a linha correspondente em `docs/lgpd.md`.
+**Coluna nova no `user.db` custa quatro coisas, no mesmo commit** — `theme_mode` e `font_scale` são o precedente: (1) `schemaVersion` + `onUpgrade` com teste de migração v1→v2, porque **sem ele todo aparelho já instalado quebra no boot** e instalação limpa não mostra isso; (2) a lista permitida de `test/prefs/lgpd_surface_test.dart`, com a justificativa escrita; (3) uma entrada na tela de privacidade em pt e es, que o teste conta contra as colunas; (4) a linha correspondente em `spec/lgpd.md`.
 
 **Armadilha do `flutter build apk --release` logo após um build debug:** falha com *"package dev.flutter.plugins.integration_test does not exist"*. Apagar `android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java` resolve; ele é regerado.
 

@@ -5,7 +5,7 @@ nome no `manifest.json`.
 
 **Regra de compatibilidade:** o app compara apenas o **major**. Pack com major diferente
 do binário é rejeitado e o dispositivo permanece no pack anterior — degradação segura,
-nunca quebra ([espec.md](../docs/espec.md) INV-6). Portanto:
+nunca quebra ([espec.md](../spec/espec.md) INV-6). Portanto:
 
 - **minor** — alteração **aditiva** (tabela ou coluna nova opcional). Apps antigos continuam
   lendo o pack novo. É o caminho normal, inclusive para as features v1.1.

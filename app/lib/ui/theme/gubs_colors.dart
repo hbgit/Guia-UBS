@@ -12,7 +12,7 @@
 /// pede "a cor deste nível de severidade" e recebe a certa, em vez de escolher
 /// entre `green` e `red` no momento do layout.
 ///
-/// A paleta reproduz os tokens de `docs/design.html`, claro e escuro. O que
+/// A paleta reproduz os tokens de `spec/design.html`, claro e escuro. O que
 /// garante que ela continue legível não é a origem, é o teste de contraste:
 /// `test/ui/theme/contrast_test.dart` calcula a razão WCAG 2.2 de cada par
 /// usado e reprova abaixo de AA.
@@ -222,7 +222,7 @@ class GubsColors extends ThemeExtension<GubsColors> {
 
   /// Tema claro.
   ///
-  /// Deriva de `docs/design.html`, com **duas correções que o teste de
+  /// Deriva de `spec/design.html`, com **duas correções que o teste de
   /// contraste impôs** (e que foram propagadas de volta ao protótipo):
   ///
   /// * `red` escureceu de `#CE3A3A` para `#9E2626`. No original, verde e

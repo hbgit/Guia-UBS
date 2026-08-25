@@ -22,7 +22,7 @@ chamadas de rede, ambas fora do caminho do usuário e ambas retomáveis com
 SHA-256 conferido antes de aceitar:
 
 1. manifest + pacote de conteúdo, pelo WorkManager;
-2. o modelo SLM, no primeiro acesso (~800 MB — [ADR-003](docs/stack.md)).
+2. o modelo SLM, no primeiro acesso (~800 MB — [ADR-003](spec/stack.md)).
 
 Falha em qualquer uma **nunca bloqueia o app**: sem modelo, a triagem roda pelo
 `RuleOnlyEngine`; sem pacote, o app continua navegável.
@@ -30,7 +30,7 @@ Falha em qualquer uma **nunca bloqueia o app**: sem modelo, a triagem roda pelo
 ## Invariantes
 
 Estas regras são de segurança clínica e legal, não preferências. Detalhes em
-[`docs/espec.md` §5.1](docs/espec.md):
+[`spec/espec.md` §5.1](spec/espec.md):
 
 | # | Invariante |
 |---|---|
@@ -59,7 +59,7 @@ packer/     TypeScript — constrói, valida, assina e publica os pacotes
 seed/       SQL e suíte golden clínica que alimentam o pacote semente
 native/     shim C de 4 funções sobre o llama.cpp (ADR-002)
 infra/      Compose com sqld + MinIO + Caddy
-docs/       fonte de verdade (ver hierarquia abaixo)
+spec/       fonte de verdade (ver hierarquia abaixo)
 ```
 
 ## Pré-requisitos
@@ -172,7 +172,7 @@ cd infra && docker compose up -d
 
 Sobe `sqld` (banco master), MinIO (artefatos) e Caddy (borda). É a mesma
 topologia planejada para produção — paridade dev/prod literal
-([stack.md §7](docs/stack.md)).
+([stack.md §7](spec/stack.md)).
 
 ### Verificação em aparelho
 
@@ -220,13 +220,13 @@ da última execução completa:
 Medições do SLM em aparelho real (Motorola Edge 40 Neo), Gemma 3 1B Q4_K_M:
 p95 de 4731 ms com o agendador livre e 13130 ms no proxy de aparelho de entrada
 (Cortex-A55), pico de 832 MB de RAM. As decisões que essas medições forçaram
-estão no [ADR-003](docs/stack.md); os números completos, em
-[arquitetura.md §5.1](docs/arquitetura.md).
+estão no [ADR-003](spec/stack.md); os números completos, em
+[arquitetura.md §5.1](spec/arquitetura.md).
 
 **Próximo:** Fase 4 — endurecimento e GA (testes de perf/estabilidade 72 h,
 auditoria de tráfego, Ansible + runbooks, delta packs).
 
-**Lacunas ao fim da Fase 3** (detalhe em [arquitetura.md §5.12](docs/arquitetura.md)):
+**Lacunas ao fim da Fase 3** (detalhe em [arquitetura.md §5.12](spec/arquitetura.md)):
 não há `cms/web/` — sem interface o revisor clínico não exerce o papel, e é
 pré-requisito de piloto; a telemetria não tem produtor (o app não envia, e o lote
 de um aparelho não alcança k≥20 — falta um agregador); não há importador de
@@ -236,13 +236,13 @@ conteúdo de `seed/` para o CMS; upload de asset não existe.
 
 Ordem de precedência — em conflito, vale o documento mais acima:
 
-1. [`docs/PRD.md`](docs/PRD.md) — fonte única da verdade
-2. [`docs/espec.md`](docs/espec.md) — normativo de comportamento: FSM-A, FSM-B, invariantes, RF/RNF
-3. [`docs/stack.md`](docs/stack.md) — decisões de tecnologia, auditoria open source e ADRs
-4. [`docs/lgpd.md`](docs/lgpd.md) — conformidade LGPD
-5. [`docs/brainstorm.md`](docs/brainstorm.md) — visão de produto e milestones
-6. [`docs/arquitetura.md`](docs/arquitetura.md) — roadmap e o resultado medido de cada item entregue
-7. [`docs/design.html`](docs/design.html) — protótipo interativo (abrir no navegador)
+1. [`spec/PRD.md`](spec/PRD.md) — fonte única da verdade
+2. [`spec/espec.md`](spec/espec.md) — normativo de comportamento: FSM-A, FSM-B, invariantes, RF/RNF
+3. [`spec/stack.md`](spec/stack.md) — decisões de tecnologia, auditoria open source e ADRs
+4. [`spec/lgpd.md`](spec/lgpd.md) — conformidade LGPD
+5. [`spec/brainstorm.md`](spec/brainstorm.md) — visão de produto e milestones
+6. [`spec/arquitetura.md`](spec/arquitetura.md) — roadmap e o resultado medido de cada item entregue
+7. [`spec/design.html`](spec/design.html) — protótipo interativo (abrir no navegador)
 
 [`CLAUDE.md`](CLAUDE.md) reúne as armadilhas já pagas — leia antes de mexer em
 tema, sync ou dados no aparelho.
@@ -250,5 +250,5 @@ tema, sync ou dados no aparelho.
 ## Licença
 
 MIT — ver [LICENSE](LICENSE). Toda a stack é open source por decisão registrada
-([stack.md §9](docs/stack.md)); o modelo Gemma 3 1B é *open weights* sob termos
+([stack.md §9](spec/stack.md)); o modelo Gemma 3 1B é *open weights* sob termos
 Google, com alternativas OSI documentadas.

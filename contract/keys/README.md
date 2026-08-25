@@ -1,7 +1,7 @@
 # Chaves de assinatura de pacotes
 
 Somente **chaves públicas** (`*.pub`) são versionadas aqui. O `.gitignore` bloqueia
-`*.pem` — a chave privada é o SPOF mais crítico do sistema ([PRD.md §4.2](../../docs/PRD.md),
+`*.pem` — a chave privada é o SPOF mais crítico do sistema ([PRD.md §4.2](../../spec/PRD.md),
 risco R4): comprometê-la permite distribuir orientação clínica falsa para toda a frota.
 
 ## Regras

@@ -24,7 +24,7 @@ const int maxNavigationDepth = 4;
 /// Espaçamento base. Múltiplos de 8 mantêm o ritmo vertical previsível.
 const double spacing = 8;
 
-/// Raio dos cartões e botões, seguindo o protótipo `docs/design.html`.
+/// Raio dos cartões e botões, seguindo o protótipo `spec/design.html`.
 const double radiusCard = 20;
 const double radiusButton = 16;
 
