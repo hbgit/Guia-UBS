@@ -223,3 +223,31 @@ test('rascunho de outra pessoa nao influencia a simulacao', async () => {
     'o "antes" precisa refletir so o conjunto APROVADO',
   );
 });
+
+test('simular sem desfecho cadastrado devolve o problema, nao 500', async () => {
+  // Descoberto seguindo `docs/operacao.md` num CMS recem-criado — que e
+  // exatamente o estado em que alguem simula a primeira regra. `desfechoPadrao()`
+  // lanca quando nao ha desfecho, e a excecao virava "erro interno": a guarda
+  // funcionando parecia defeito do servidor.
+  const vazio = await freshApp();
+  try {
+    const sessao = await sessaoDe(vazio, 'editor');
+    const r = await pedido(vazio, sessao.cookie, 'POST', '/api/rules/simular', {
+      id: 'r',
+      priority: 1,
+      outcomeId: 'NAO_EXISTE',
+      terms: [{ groupNo: 0, tokenId: 't', negated: false }],
+    });
+    // Um corpo so pode ser lido UMA vez: ler no texto da assercao e depois em
+    // `json()` derruba o teste com "Body has already been read".
+    const corpo = (await r.json()) as {
+      problemas: { codigo: string }[];
+      simulacao: unknown;
+    };
+    assert.equal(r.status, 200, JSON.stringify(corpo));
+    assert.ok(corpo.problemas.some((p) => p.codigo === 'desfecho_inexistente'));
+    assert.equal(corpo.simulacao, null, 'sem desfecho nao ha o que simular');
+  } finally {
+    await vazio.close();
+  }
+});

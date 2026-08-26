@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado do repositório
 
-Projeto **em implementação**. A documentação vive em `spec/` — **renomeada de `docs/`**, e mensagens de commit e trechos antigos ainda citam o nome anterior (em **português**; mantenha novos documentos em pt-BR) e continua sendo a fonte de verdade. O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), `native/llama_shim/` (C) e `infra/`. O andamento por item está em `spec/arquitetura.md` §Roadmap; as medições e decisões de cada item entregue ficam nas subseções §5.x do mesmo arquivo. O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica para orientar populações rurais, imigrantes e pessoas de baixo letramento sobre serviços do SUS, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
+Projeto **em implementação**. A documentação está dividida em dois lugares com papéis distintos, e confundi-los é erro de categoria (tudo em **português**; mantenha novos documentos em pt-BR):
+
+- **`spec/`** — o que o sistema **deve** ser. Normativo, ordenado por precedência, o PRD governa. Foi renomeado de `docs/`, e mensagens de commit anteriores ainda citam o nome antigo.
+- **`docs/`** — como operar o que **existe**. Derivado do código; em conflito com `spec/`, é o `docs/` que está errado. Hoje contém [`docs/operacao.md`](docs/operacao.md), cujas rotas, variáveis de ambiente e comandos são conferidos contra o código por `cms/test/doc-operacao.test.ts`.
+
+O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), `native/llama_shim/` (C) e `infra/`. O andamento por item está em `spec/arquitetura.md` §Roadmap; as medições e decisões de cada item entregue ficam nas subseções §5.x do mesmo arquivo. O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica para orientar populações rurais, imigrantes e pessoas de baixo letramento sobre serviços do SUS, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
 
 ## Hierarquia documental (ordem de precedência)
 
@@ -142,6 +147,8 @@ npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # 1o operador
 npm run cms:import-golden -- --autor <id>       # semeia golden_case do YAML (1x)
 npm run pack:worker -- --once                   # job: constroi, assina e publica
 npm --workspace @guia-ubs/cms run dev    # sobe o CMS (exige os segredos de infra/.env)
+# Rota, variavel de ambiente ou script novo exige linha em docs/operacao.md —
+# `doc-operacao.test.ts` reprova o CI se o manual ficar para tras.
 docker compose -f infra/compose.yaml config --quiet
 ```
 

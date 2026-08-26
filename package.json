@@ -21,6 +21,7 @@
     "cms:migrate": "npm --workspace @guia-ubs/cms run db:migrate",
     "cms:create-admin": "npm --workspace @guia-ubs/cms run create-admin --",
     "cms:import-golden": "npm --workspace @guia-ubs/cms run import-golden --",
+    "cms:register-key": "npm --workspace @guia-ubs/cms run register-signing-key --",
     "cms:check": "npm run cms:generate && npm run cms:triggers && git add --intent-to-add --all cms/ && git diff --exit-code -- cms/",
     "infra:validate": "docker compose -f infra/compose.yaml config --quiet",
     "test": "npm --workspaces --if-present run test",

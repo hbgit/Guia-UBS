@@ -79,9 +79,17 @@ export function ruleRoutes(client: Client, salt: string) {
       return c.json({ error: 'dados invalidos', detalhes: corpo.error.issues }, 400);
     }
     const proposta = corpo.data as RegraProposta;
+    const problemas = await validarRegra(client, proposta);
+
+    // Sem o desfecho, a simulacao nao tem o que comparar: `desfechoPadrao()`
+    // deriva o padrao dos desfechos cadastrados e lanca quando nao ha nenhum.
+    // Deixar subir virava 500 — "erro interno" para quem so precisava saber que
+    // o desfecho nao existe. Descoberto seguindo o manual num CMS recem-criado,
+    // que e exatamente o estado em que alguem simula a primeira regra.
+    const semDesfecho = problemas.some((p) => p.codigo === 'desfecho_inexistente');
     return c.json({
-      problemas: await validarRegra(client, proposta),
-      simulacao: await simularRegra(client, proposta),
+      problemas,
+      simulacao: semDesfecho ? null : await simularRegra(client, proposta),
     });
   });
 

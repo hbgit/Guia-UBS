@@ -59,7 +59,8 @@ packer/     TypeScript — constrói, valida, assina e publica os pacotes
 seed/       SQL e suíte golden clínica que alimentam o pacote semente
 native/     shim C de 4 funções sobre o llama.cpp (ADR-002)
 infra/      Compose com sqld + MinIO + Caddy
-spec/       fonte de verdade (ver hierarquia abaixo)
+spec/       especificação: o que o sistema DEVE ser (normativo)
+docs/       operação: como usar o que EXISTE (derivado)
 ```
 
 ## Pré-requisitos
@@ -243,6 +244,14 @@ Ordem de precedência — em conflito, vale o documento mais acima:
 5. [`spec/brainstorm.md`](spec/brainstorm.md) — visão de produto e milestones
 6. [`spec/arquitetura.md`](spec/arquitetura.md) — roadmap e o resultado medido de cada item entregue
 7. [`spec/design.html`](spec/design.html) — protótipo interativo (abrir no navegador)
+
+### Operação — não normativo
+
+[`docs/operacao.md`](docs/operacao.md) — implantar e operar o plano de controle:
+segredos, primeiro operador, o ciclo de uma release e os runbooks para quando o
+job trava ou um portão fica vermelho. **Derivado do código**: em conflito com
+`spec/`, é o manual que está errado. Suas rotas, variáveis de ambiente e comandos
+são conferidos contra o código por `cms/test/doc-operacao.test.ts`.
 
 [`CLAUDE.md`](CLAUDE.md) reúne as armadilhas já pagas — leia antes de mexer em
 tema, sync ou dados no aparelho.

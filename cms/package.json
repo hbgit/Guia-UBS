@@ -11,6 +11,7 @@
     "db:triggers": "tsx scripts/gen-triggers.ts",
     "dev": "tsx watch src/index.ts",
     "import-golden": "tsx scripts/import-golden.ts",
+    "register-signing-key": "tsx scripts/register-signing-key.ts",
     "start": "tsx src/index.ts",
     "test": "node --import tsx --test test/*.test.ts"
   },
