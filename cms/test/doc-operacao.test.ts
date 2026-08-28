@@ -18,11 +18,12 @@
  * lista os NOMES das entidades; o teste confere que todo nome real esta listado.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { CONTENT_ENTITIES } from '../src/content/registry.js';
+import { ROTAS_DA_SPA } from '../web/src/rotas.js';
 import { freshApp, type Fixture } from './support/app.js';
 
 const RAIZ = join(import.meta.dirname, '..', '..');
@@ -197,10 +198,51 @@ test('o manual declara que NAO e normativo', () => {
   assert.match(MANUAL, /vale o normativo/i);
 });
 
-test('o manual declara as lacunas, inclusive a ausencia de interface', () => {
-  // A parte mais facil de esquecer numa revisao, e a que mais engana: um manual
-  // cheio de `curl` da a impressao de que o sistema esta operavel por quem
-  // deveria opera-lo.
-  assert.match(MANUAL, /n[aã]o consegue trabalhar sozinho/i);
+test('o manual descreve a interface, e ela existe', () => {
+  // A afirmacao anterior — "nao consegue trabalhar sozinho" — era verdadeira
+  // enquanto NAO havia interface nenhuma. Com a entrada pronta, ela ficou
+  // parcialmente falsa, e apagar o teste removeria o unico elo mecanico entre o
+  // manual e a interface. O substituto guarda mais, nao menos.
   assert.match(MANUAL, /cms\/web/);
+  assert.ok(
+    existsSync(join(RAIZ, 'cms', 'web', 'index.html')),
+    'o manual cita `cms/web` e o diretorio nao existe',
+  );
+
+  /**
+   * As lacunas que a interface NAO fecha continuam declaradas, uma a uma.
+   *
+   * "nao consegue trabalhar sozinho" saiu desta lista no item 23d, e a remocao e
+   * a parte importante: com conteudo, regras e releases na tela, a frase virou
+   * FALSA — e guardar uma frase falsa e pior do que nao guardar, porque o teste
+   * passa a exigir que o manual minta. O que sobrou no lugar dela e a lacuna que
+   * de fato restou: nao ha upload do binario de asset.
+   */
+  // Um
+  // manual que se cala sobre o que a tela nao faz engana MAIS do que um manual
+  // sem tela nenhuma: a tela existente da a impressao de cobrir tudo.
+  const LACUNAS_ABERTAS: Readonly<Record<string, RegExp>> = {
+    'nao ha rota que aprove uma REGRA': /n[aã]o existe rota que a mova/i,
+    'nao ha upload de asset': /upload de asset/i,
+    'nao ha importador de conteudo': /importador de conte[uú]do/i,
+    'nao ha aceite de Termo de Uso no primeiro login': /Termo de Uso/i,
+    'traducao nao tem travamento otimista': /travamento otimista/i,
+  };
+  for (const [lacuna, padrao] of Object.entries(LACUNAS_ABERTAS)) {
+    assert.match(MANUAL, padrao, `o manual parou de declarar: ${lacuna}`);
+  }
+});
+
+test('toda tela da interface aparece no manual', () => {
+  // Mesma logica de "toda rota aparece no manual" (linha 74): a lista de telas e
+  // DERIVADA do roteador, nunca redigida ao lado. Tela nova sem linha no manual
+  // e tela que ninguem sabe que existe.
+  //
+  // Exige o caminho ENTRE CRASES. Sem isso, `/` casaria com qualquer barra do
+  // documento e a asserção passaria por vacuidade — o mesmo defeito que faz este
+  // arquivo filtrar rotas `ALL` em vez de aceitar um `GET *`.
+  const faltando = ROTAS_DA_SPA.filter((r) => !MANUAL.includes(`\`${r.caminho}\``)).map(
+    (r) => `${r.caminho} (${r.rotulo})`,
+  );
+  assert.deepEqual(faltando, [], 'tela sem linha em docs/operacao.md');
 });

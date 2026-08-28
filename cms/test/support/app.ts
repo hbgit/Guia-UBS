@@ -50,14 +50,25 @@ export interface Fixture extends App {
  * Um arquivo tambem aproxima o teste do que roda: o `sqld` e um servidor com um
  * banco so, e nao um banco por conexao.
  */
-export async function freshApp(): Promise<Fixture> {
+export async function freshApp(spa?: string): Promise<Fixture> {
   const diretorio = mkdtempSync(join(tmpdir(), 'gubs-cms-'));
   const client = createClient({ url: `file:${join(diretorio, 'cms.db')}` });
   for (const statement of migrationStatements()) await client.execute(statement);
   // Rate limit desligado: dezenas de logins em segundos bateriam no teto de
   // 5/60s e cada teste seguinte viraria falso vermelho. A trava progressiva por
   // CONTA — que e a protecao exigida pela LGPD-RT07 — continua ligada.
-  const montado = createApp({ client, env: TEST_ENV, rateLimit: false });
+  //
+  // `spa` aponta, por padrao, para um diretorio temporario SEM `index.html`. Sem
+  // isso a suite mudaria de comportamento conforme quem a roda tivesse ou nao
+  // executado `npm run web:build`: com um `dist` presente, toda rota inexistente
+  // devolveria a casca em vez de 404. Quem quer a interface servida informa a
+  // raiz (ver `web-static.test.ts`).
+  const montado = createApp({
+    client,
+    env: TEST_ENV,
+    rateLimit: false,
+    spa: spa ?? join(diretorio, 'sem-interface'),
+  });
   return {
     ...montado,
     client,

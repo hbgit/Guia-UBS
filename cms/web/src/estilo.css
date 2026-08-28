@@ -1,0 +1,314 @@
+/*
+ * Estilo da interface de operacao.
+ *
+ * ## Esta paleta NAO e a do aplicativo
+ *
+ * A semantica de cor do Guia UBS — verde = UBS/rotina, vermelho = emergencia,
+ * azul = informacao, lilas = procedencia — e do app Android e existe para quem
+ * tem baixo letramento. Nenhum documento a estende ao CMS, e estende-la seria
+ * ruim: `venue.color_token` e `card.color_token` sao DADO que o operador escolhe
+ * (`CHECK(... IN ('green','red','blue'))`), e uma interface pintada com os mesmos
+ * verdes e vermelhos faria o operador confundir a cor da ferramenta com a cor que
+ * ele esta atribuindo ao conteudo.
+ *
+ * Daqui em diante o CMS e cinza, com UMA cor de alerta. Onde a cor do conteudo
+ * aparecer (Fase D), ela aparece como amostra rotulada com o nome do token, nunca
+ * como cor da propria tela.
+ *
+ * CSS puro, sem framework: e a decisao de orcamento de dependencias do plano.
+ */
+
+:root {
+  --tinta: #1c1c1e;
+  --tinta-fraca: #55555a;
+  --fundo: #f6f6f7;
+  --superficie: #ffffff;
+  --borda: #d6d6da;
+  --alerta: #9e2626;
+  --foco: #2f6da8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--fundo);
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+  margin: 0 0 0.5rem;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+}
+
+.barra nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.barra a {
+  color: var(--tinta);
+  text-decoration: none;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+.barra a[aria-current='true'] {
+  border-bottom-color: var(--foco);
+}
+
+.quem {
+  color: var(--tinta-fraca);
+  font-size: 0.875rem;
+}
+
+.cartao {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+main.cartao {
+  max-width: 26rem;
+  margin: 3rem auto;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/*
+ * `block` e nao herdado do flex do formulario.
+ *
+ * `form { flex-direction: column }` so alcanca os filhos DIRETOS. Nos editores de
+ * regra e de conteudo os campos ficam dentro de `section.cartao`, e sem isto o
+ * rotulo e o campo caem lado a lado — "Identificador [campo] Prioridade [campo]"
+ * numa linha so. So aparece olhando a tela.
+ */
+label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--tinta-fraca);
+  margin-top: 0.75rem;
+}
+
+/* Dentro do rotulo, a caixa de selecao fica ao lado do texto, e nao acima. */
+label > input[type='checkbox'] {
+  display: inline-block;
+  width: auto;
+  margin-right: 0.35rem;
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  background: var(--superficie);
+  color: var(--tinta);
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  margin-top: 1.25rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--tinta);
+  border-radius: 4px;
+  background: var(--tinta);
+  /* Explicita, e nao herdada: e a mesma armadilha documentada no tema do app —
+     um estilo com cor propria vence o do botao e produz texto invisivel. */
+  color: var(--superficie);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.erro,
+.aviso {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--alerta);
+  background: #faf0f0;
+  color: var(--alerta);
+}
+
+.nota {
+  color: var(--tinta-fraca);
+  font-size: 0.875rem;
+}
+
+.segredo {
+  display: block;
+  padding: 0.5rem;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: var(--superficie);
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--borda);
+}
+
+th {
+  font-size: 0.875rem;
+  color: var(--tinta-fraca);
+  font-weight: 600;
+}
+
+textarea {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  background: var(--superficie);
+  color: var(--tinta);
+  resize: vertical;
+}
+
+.acao {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.acao button {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+/*
+ * Decisao registrada sem quorum fechado responde 200, e a tela pinta de VERDE.
+ * Vermelho aqui faria o revisor achar que o voto se perdeu — que e exatamente o
+ * motivo de o servidor nao devolver erro nesse caso.
+ */
+.sucesso {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #1f6f4a;
+  background: #eef6f1;
+  color: #1f6f4a;
+}
+
+fieldset {
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+}
+
+legend {
+  font-size: 0.875rem;
+  color: var(--tinta-fraca);
+  padding: 0 0.25rem;
+}
+
+.problemas li {
+  margin-bottom: 0.5rem;
+}
+
+/*
+ * O bloco que interrompe o trabalho.
+ *
+ * `FALSO_NEGATIVO` e o caso em que o app mandaria para casa alguem que precisava
+ * de emergencia — evento de seguranca do paciente, e nao divergencia de opiniao
+ * clinica. Por isso ele domina a tela em vez de virar mais um item de lista.
+ */
+.falso-negativo {
+  border: 2px solid var(--alerta);
+  border-radius: 6px;
+  background: #faf0f0;
+  color: var(--alerta);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+
+.falso-negativo h3 {
+  margin: 0 0 0.5rem;
+}
+
+select {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  background: var(--superficie);
+  color: var(--tinta);
+}
+
+ol li {
+  margin-bottom: 0.5rem;
+}
+
+input[type='checkbox'] {
+  display: inline-block;
+  width: auto;
+}
+
+/* Na linha de acao os campos convivem com botoes: largura total atrapalharia. */
+.acao input,
+.acao select {
+  width: auto;
+  flex: 1;
+}

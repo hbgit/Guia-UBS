@@ -1,0 +1,35 @@
+# Contexto de build das imagens do plano de controle.
+#
+# O contexto e a RAIZ do repositorio (`infra/compose.yaml` usa `context: ..`), e
+# o mesmo `cms/Dockerfile` constroi os servicos `cms` E `packer`. Mudanca aqui
+# alcanca os dois — verifique com `docker compose build packer`, nao so com
+# `npm run infra:validate`.
+#
+# Passou a ser necessario com `cms/web/`: sem ele, o `COPY cms/ ./cms/` arrastaria
+# o `node_modules` da maquina de quem constroi para dentro da imagem, POR CIMA da
+# arvore icada pelo npm no estagio `deps`.
+
+.git
+.github
+
+# Dependencias: instaladas dentro da imagem por `npm ci`, nunca copiadas.
+node_modules
+**/node_modules
+
+# Saidas de build. O estagio `web` constroi `cms/web/dist` ele mesmo; um `dist`
+# velho vindo do host venceria o que acabou de ser compilado.
+**/dist
+packer/out
+
+# Flutter e shim nativo: nao entram em imagem nenhuma do plano de controle.
+app/build
+app/.dart_tool
+build/
+
+# Bancos locais e segredos.
+*.db
+*.db-journal
+*.db-wal
+.env
+.env.local
+infra/.env

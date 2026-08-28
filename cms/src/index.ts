@@ -11,6 +11,7 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
 import { assertForeignKeysEnforced, createDatabaseClient } from './db/client.js';
 import { loadEnv } from './env.js';
+import { RAIZ_DA_SPA, temInterface } from './web.js';
 
 const env = loadEnv();
 const client = createDatabaseClient(env.databaseUrl);
@@ -20,6 +21,20 @@ const client = createDatabaseClient(env.databaseUrl);
 await assertForeignKeysEnforced(client);
 
 const { app } = createApp({ client, env });
+
+/**
+ * Aviso, nao falha.
+ *
+ * A ausencia da interface nao impede o CMS de servir a API — que e o que o
+ * `packer` e os scripts consomem. Mas descobrir isso por um 503 no navegador,
+ * sem nada no log do servidor, e uma tarde perdida.
+ */
+if (!temInterface()) {
+  console.warn(
+    `[cms] sem interface em ${RAIZ_DA_SPA}: a API responde, as telas devolvem 503.\n` +
+      '      Construa com `npm run web:build`.',
+  );
+}
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.log(`[cms] escutando em http://127.0.0.1:${info.port}`);

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      `noindex` porque o plano de controle nao e superficie publica: a stack.md
+      rejeitou a Vercel (ADR-001) exatamente por nao haver superficie web
+      dinamica voltada ao publico, e um dia isto pode ficar atras de um dominio.
+    -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Guia UBS — plano de controle</title>
+  </head>
+  <body>
+    <div id="raiz"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

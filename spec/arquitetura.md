@@ -145,9 +145,22 @@ cms/
 │   │   ├── approval-workflow.ts     # dual review: editor ≠ aprovador
 │   │   └── release-orchestrator.ts  # dispara packer
 │   ├── auth/                        # Better Auth + RBAC + 2FA TOTP
-│   └── web/                         # SPA React (Vite), servida pelo Hono
+│   └── web.ts                       # serve `web/dist` e faz recuo de histórico
+├── web/                             # SPA React (Vite) — workspace próprio
+│   ├── src/{api,telas}/             # `rotas.ts` é dado, sem DOM: `cms/test` o lê
+│   └── test/                        # Vitest + Testing Library
 ├── test/
-└── Dockerfile                       # multi-stage: deps→dev→build→production
+└── Dockerfile                       # multi-stage: deps→web→production
+
+> **`cms/web/`, e não `cms/src/web/`.** Até o item 23 este bloco escrevia a SPA
+> dentro de `src/`, enquanto §5.11, §5.12, o `README.md` e o `docs/operacao.md`
+> escreviam `cms/web/`. Ficou `cms/web/`, que é o que todo o resto já dizia — e é
+> um **workspace npm próprio**, porque o `npm test` da raiz só enxerga o que está
+> em `workspaces`.
+>
+> O `Dockerfile` também nunca teve o estágio `dev` que este bloco prometia: são
+> `deps → web → production`, e `production` precisa continuar sendo o último
+> porque o serviço `packer` constrói o mesmo arquivo sem `target:`.
 
 packer/
 ├── src/
@@ -1037,6 +1050,82 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 6. **24 casos golden sem `reviewed_by`.** O packer e o importador avisam; bloqueia piloto.
 7. **Expurgo por retenção (LGPD-RF07) não implementado** — depende da tabela de retenção aprovada pelo encarregado.
 
+
+#### 5.13 Resultado do item 23 — interface de operação (2026-08-27)
+
+**Primeiro frontend do repositório.** Workspace `cms/web` (Vite 7, React 19, Vitest + Testing Library), servido pelo próprio Hono, com estágio de build novo no `cms/Dockerfile`. 20 testes de SPA e 12 de servidor entram no `npm test` da raiz sem passo novo no CI.
+
+**O mecanismo de type safety que a stack.md prescreve não é viável, e isso precisa estar escrito.** A [stack.md](stack.md) §3.3 exige "mudança no schema do banco quebra o build do frontend" e nomeia `hono/client` como o meio. Quatro impedimentos independentes, qualquer um fatal: o tipo de rotas do Hono só cresce por **encadeamento**, e `app.ts` usa declarações soltas; o CRUD é montado num **laço** sobre `CONTENT_ENTITIES`, e caminho derivado de variável é `string`, não literal — ~48 das ~65 rotas são estruturalmente não-inferíveis; `hc()` precisa do app como valor, e `createApp` é fábrica que recebe um `Client` vivo; e reconstruir a inferência exigiria abandonar o laço do registro, que é a melhor decisão estrutural do plano de controle. **O requisito é honrado por outro caminho** — tipos derivados de `InferInsertModel` do Drizzle, mais amarrações de exaustividade (`Record<AdminRole, …>` no painel já reprova se um papel novo entrar em `ADMIN_ROLES`). `@hono/zod-openapi` continua instalado e sem uso, e `hono/client` continua ausente: a distância entre a spec e a realidade **aumentou** neste item, e está declarada aqui para que o próximo leitor não implemente contra a spec.
+
+**A guarda de `/api/*` é a linha que sustenta o desenho.** Sem ela, `GET /api/rota-com-typo` recebe o `index.html` do recuo de histórico e todo `fetch` da SPA falha com `Unexpected token '<'` — um erro que aparece no console do navegador e não em tela nenhuma. Ela casa por **prefixo de caminho**, e não por "a rota é protegida": `/api/telemetry` é público e montado antes do grupo protegido, e uma guarda escrita da segunda forma quebraria a única rota sem sessão do sistema.
+
+**A SPA é montada com `app.use('*')`, nunca `app.get('*')`.** `use` grava `method: 'ALL'`, que `doc-operacao.test.ts` filtra ao percorrer `app.routes`; um `GET *` no catálogo faria o teste "toda rota aparece no manual" passar **por vacuidade**, porque o manual contém `*` em qualquer negrito. Asserção verde por vacuidade é pior que vermelha.
+
+**O CSRF em desenvolvimento foi resolvido sem forjar cabeçalho.** Reescrever `Origin` no proxy do Vite falsificaria uma proteção que tem teste, e deixaria qualquer página de terceiro POSTar para `localhost:5173` com a origem lavada pelo proxy. Em vez disso, o `BETTER_AUTH_URL` aponta para a porta do **Vite** no modo de desenvolvimento — a origem que o navegador de fato usa — e o proxy repassa sem tocar em nada. `strictPort: true` não é cosmético: com a porta ocupada, o Vite mudaria para 5174 e todo POST passaria a dar 403 sem explicação.
+
+**Um defeito de laço fechado, achado por teste.** Quem recarrega a página em `/entrar/cadastrar-2fa` está com o cookie de 2FA **pendente**, e a sondagem de `/api/me` responde 401. Tratar isso como "sessão perdida" e navegar para `/entrar` expulsa a pessoa da única tela onde ela ativaria o segundo fator que é obrigatório ter ativado — e entrar de novo a devolve ao cadastro, num laço sem saída. A guarda usa `sessao: 'dispensa'` de `rotas.ts`, que já existia como dado.
+
+**O teste desse defeito passava pelo motivo errado antes de ser corrigido.** Ele afirmava o cabeçalho logo após montar, quando a sondagem ainda não havia respondido e a tela certa estava na frente por um instante — ou seja, passava **com** o defeito. Só depois de esperar a sondagem acontecer *e* o React processar o que ela desencadeou é que a pergunta "continuo na tela do cadastro?" significa alguma coisa. A sabotagem confirma: sem a guarda, vermelho.
+
+**Um `403` com dois significados, e o cliente não consegue desempatar.** Achado no navegador, não em teste. Depois do `enable`, `two_factor_enabled` continua **falso** até a primeira verificação bem-sucedida — então `/api/me` responde o mesmo `403` para "nunca cadastrou" e para "já cadastrou e não verificou". A primeira versão da SPA assumia sempre o primeiro caso e mandava a pessoa gerar outra chave, o que **invalidaria a que ela acabou de guardar no autenticador**. Pior: isso fechava um laço — cadastrar mandava entrar de novo, entrar mandava cadastrar de novo, e o campo de código era inalcançável. A correção tem duas metades: a sondagem de fundo não navega de dentro do fluxo de entrada (quem decide é a ação explícita da pessoa), e a tela de cadastro **pergunta**, oferecendo o atalho para `/entrar/codigo`. Medido contra o servidor: a ativação é o `verify-totp` sobre a sessão do próprio login, e não exige cookie de 2FA pendente.
+
+**O Testing Library não limpa sozinho sem `globals: true`.** Como `vite.config.ts` deliberadamente não usa globais, os renders se acumulavam no mesmo `document.body` e as consultas passavam a encontrar elementos de testes **anteriores** — o sintoma era "found multiple elements" num teste que renderizou uma tela só. `afterEach(cleanup)` explícito.
+
+**A paleta do CMS é cinza, e a divergência é a decisão.** A semântica verde/vermelho/azul/lilás é do app Android e existe para quem tem baixo letramento; nenhum documento a estende ao operador. Estendê-la seria ruim: `venue.color_token` e `card.color_token` são **dado** que o operador atribui, e uma ferramenta pintada com os mesmos verdes e vermelhos faria confundir a cor da tela com a cor sendo atribuída ao conteúdo.
+
+**O estado vazio por papel é conteúdo, não enfeite.** O primeiro operador do sistema é criado por `cms:create-admin` e é um `admin` — que não tem `content:write` nem `approval:decide`. A primeira pessoa a abrir a interface é exatamente a que menos botões enxerga, e sem uma explicação em tela a conclusão razoável é "está quebrado".
+
+**Uma dependência a mais que o orçamento mínimo, declarada:** `qrcode` (MIT, sem transitivas), carregada sob demanda — sai em chunk separado de 26 kB e não entra no bundle inicial de quem já tem 2FA. Digitar 32 caracteres em base32 no celular é onde um revisor clínico municipal desiste, e ele só faz isso uma vez, sozinho. A falha ao gerar o QR é isolada da falha de cadastro: sem canvas, a chave continua na tela e o cadastro continua válido.
+
+##### 23c — o ciclo da release, e dois defeitos do mesmo tipo
+
+**Verificado no navegador, com duas contas:** o editor cria e submete, a revisora clínica aprova, e a trilha registra atores diferentes para cada passo. Nenhum `curl` no caminho. A release para em `approved` com a única transição restante — a do job — renderizada como **texto**, porque um botão desabilitado sugeriria falta de permissão quando o que falta é o job rodar.
+
+**Dois defeitos, e os dois são a mesma classe: usar metade da resposta do servidor.** `GET /api/releases/<id>` devolve `transicoes` com `de`, `para`, `por` e `motivo`. A primeira versão da tela renderizava um botão por transição olhando só `de`/`para` — então o editor que acabara de submeter via "Aprovar" logo abaixo, clicava, e recebia 403 com uma mensagem genérica. Pior: ele é o autor, e mesmo com o papel certo o gatilho anti-auto-aprovação o barraria. Usar `por` **não** é uma segunda cópia da FSM: ele vem na mesma resposta, e ignorá-lo era ler a resposta pela metade. Agora a transição que não é sua aparece como "cabe a `clinical_reviewer`" — a segregação da LGPD-RF11 virou algo que se **vê**.
+
+O outro é o defeito de backend abaixo, que só apareceu porque a tela monta os botões a partir do dado.
+
+**A lista de lacunas do painel mentiu no mesmo commit em que deixou de ser verdade.** `AINDA_NO_CURL` era literal: com a tela de releases pronta, o painel continuava mandando o editor usar `curl` para o que ele acabara de ganhar em botão. Virou derivação de `ROTAS_DA_SPA` — a área some da lista quando a rota aparece. É o mesmo motivo de `PII_COLUMNS` e `APPEND_ONLY_TABLES` serem percorridas por teste, e é a segunda vez neste item que uma lista redigida à parte envelheceu.
+
+**`web-releases-conformance.test.ts` fecha o laço nos dois sentidos**, e um dos seus testes é estrutural: **nenhum literal de estado de release pode aparecer em código de `cms/web/src` fora de `acoes.ts`**. Um `if (status === 'pending_review')` numa tela é o começo da segunda cópia da FSM, e ela não volta atrás sozinha. Comentário que explique a FSM continua permitido — é o oposto do risco.
+
+##### 23d — a cadeia de type safety, e o que ela não alcança
+
+**O elo é `keyof`, e ele foi verificado por sabotagem.** `Campo.nome` é `keyof EntradaDeConteudo[E]`, com `EntradaDeConteudo` derivado de `InferInsertModel` menos `AUTHORING_FIELDS`. Renomear `icon_ref` para `asset_ref` em `db/schema/content.ts` produz **6 erros** em `campos.ts` e reprova `npm run typecheck` — que é o que a [stack.md](stack.md) §3.3 exige, por um caminho diferente do que ela prescreve.
+
+**`keyof` pega renome e remoção; não pega ACRÉSCIMO** — e essa é a metade que importa mais na prática. Uma coluna `NOT NULL` sem default significa que o editor deixa de conseguir criar a linha, o `POST` passa a responder 400 para sempre, e o compilador fica mudo. `web-conformance.test.ts` fecha isso comparando `getTableColumns()` com `CAMPOS` nos dois sentidos; sabotado com uma coluna nova em `card`, reprova nomeando `cards.sabotagem`.
+
+**Uma cópia frouxa quase desfez a cadeia inteira, em silêncio.** `api/erros.ts` declarava seu próprio `ProblemaDeRegra` com `codigo: string`. Parecia inofensivo e significava que um código novo em `rule-validation.ts` passaria pelo compilador sem tocar em `COMO_RESOLVER` — a tela mostraria um problema clínico sem explicação. Passou a reexportar o tipo do servidor: agora o `Record` fica incompleto e reprova.
+
+**Três metadados são repetidos no cliente, e a repetição é comparada.** `registry.ts` importa as tabelas do Drizzle, que são objetos de runtime; importá-lo no navegador arrastaria o ORM inteiro para o bundle por causa de três campos. `META` os repete e o teste os compara campo a campo com `CONTENT_ENTITIES` — que é a diferença entre repetir e duplicar. O mesmo vale para os campos de tradução, conferidos contra as colunas de `*_translation`: campo a menos ali vira pack que o **packer recusa publicar**, longe de quem causou.
+
+**O índice de conteúdo é a resposta a uma frase do manual.** "O `409` diz o que aconteceu mas não o que faltava" (§4.1). Com o banco vazio, o índice mostra as dez entidades na ordem que as FKs impõem e, para cada uma, **nomeia o que falta** — `venues` precisa de `assets`, `routing-outcomes` precisa de `cards` e `venues`. Verificado no navegador.
+
+**A guarda contra a segunda cópia da FSM teve um falso positivo, e a correção foi restringir, não contornar.** `draft` e `approved` são estados de release **e** de regra (`RULE_STATUSES`): o editor de regras usa os dois legitimamente. Proibi-los obrigaria a contorná-los, o que é pior que não guardar. A guarda passou a cobrir os cinco estados inequívocos, onde uma cópia da FSM de release de fato apareceria.
+
+**Um defeito visual que só a tela mostrou:** `form { flex-direction: column }` alcança apenas os filhos diretos, e nos editores os campos ficam dentro de `section.cartao` — rótulo e campo caíam lado a lado, "Identificador [campo] Prioridade [campo]" numa linha só. Nenhum dos 38 testes veria isso.
+
+**A lista de lacunas do painel virou derivação, depois de mentir duas vezes.** Era literal, e ficou falsa no mesmo commit em que releases ganhou tela; na 23d o mesmo teria acontecido com conteúdo e regras. Agora cada área aponta para o prefixo de rota que a cobre, e some quando a rota aparece.
+
+##### Defeito de backend encontrado em 23c, e corrigido
+
+`TRANSICOES[0]` declara `draft → pending_review` como `por: ['editor', 'admin']`, mas a rota `/submeter` exige `content:write`, que o `admin` **não tem**. Como a tela monta os botões a partir de `transicoes` — que é o que a [operacao.md](../docs/operacao.md) §4.4 manda fazer —, um admin veria "Submeter" habilitado e receberia 403. Contornar na SPA seria criar a segunda cópia das regras que a instrução existe para impedir. Corrigido no **dado**: `'admin'` saiu daquela transição, alinhando-a à rota, à matriz de papéis do item 17 e ao manual. Corrigir pelo outro lado — dar `content:write` ao admin — desfaria a segregação que a LGPD-RF11 exige.
+
+O defeito sobreviveu desde o item 19 porque **nenhum teste comparava a FSM com a permissão da rota**: com `curl`, quem monta a chamada já sabe quem pode o quê, e a divergência não tem sintoma. Agora `web-releases-conformance.test.ts` percorre `TRANSICOES` e exige que todo ator declarado em `por` realmente tenha, em `ROLE_PERMISSIONS`, a permissão que a rota correspondente cobra — com a ponte entre os dois vocabulários escrita à mão, porque é exatamente a informação que nenhum dos dois lados carrega sozinho. Transição nova sem linha nessa tabela reprova.
+
+##### Lacunas novas, declaradas ao fim de 23b
+
+1. **Não há aceite de Termo de Uso no primeiro login.** `legal_document` e `consent_record` existem e são append-only desde o item 16, e **nenhuma rota os toca**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com versão e hash do documento registrados. Construir a tela de entrada tornou a lacuna mais visível, não menor.
+2. **Tradução não tem travamento otimista.** `PUT …/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`; dois editores se sobrescrevem em silêncio. A SPA não tem como corrigir isso do lado dela.
+3. **O CMS não está atrás de TLS.** O `edge` (Caddy) proxia só o `storage`, e o `cms` publica em `127.0.0.1:8787` com `BETTER_AUTH_URL` em `http://` — o que deixa o `secure` do cookie desligado. Com `curl` por túnel isso era invisível; **com formulário de login, é exposição de credencial**. Até o piloto, o acesso é por túnel SSH/VPN; antes do piloto, exige bloco próprio no Caddyfile e `https://`, em PR separado.
+
+
+### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅
+23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
+23b. Entrada, cadastro do segundo fator e painel. ✅
+23c. Releases: lista, detalhe com botões vindos de `transicoes`, aprovar/rejeitar. ✅
+23d. Regras (editor DNF + simulação) e CRUD de conteúdo. ✅
+**Saída:** §4 do `docs/operacao.md` executável de ponta a ponta pelo navegador, por dois operadores diferentes.
 
 ### Fase 4 — Endurecimento e GA
 20. Testes de perf/estabilidade (72 h), auditoria de tráfego (zero PII), varredura de dependências.

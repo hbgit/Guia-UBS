@@ -55,6 +55,8 @@ cms/        TypeScript — plano de controle: banco master, autenticação e RBA
   src/auth/       Better Auth, matriz de permissões, 2FA, trava de força bruta
   src/content/    registro de entidades e fábrica de CRUD
   src/services/   trilha, operadores, travamento otimista, validação de regras
+  src/web.ts      serve a interface e faz o recuo de histórico
+  web/            SPA React (Vite) — workspace próprio, servida pelo Hono
 packer/     TypeScript — constrói, valida, assina e publica os pacotes
 seed/       SQL e suíte golden clínica que alimentam o pacote semente
 native/     shim C de 4 funções sobre o llama.cpp (ADR-002)
@@ -116,7 +118,7 @@ flutter test --plain-name "trecho do nome do teste"
 Rodar da raiz:
 
 ```sh
-npm test                        # contract + cms + packer
+npm test                        # contract + cms + cms/web + packer
 npm run contract:check          # codegen fora de sincronia = build vermelho
 npm run cms:check               # migração ou gatilho fora de sincronia = build vermelho
 npm run pack:check              # constrói e valida sem assinar
@@ -126,7 +128,7 @@ docker compose -f infra/compose.yaml config --quiet
 Banco master do CMS:
 
 ```sh
-npm run typecheck               # tsc nos três workspaces
+npm run typecheck               # tsc nos quatro workspaces
 npm run cms:generate            # migração a partir de cms/src/db/schema/
 npm run cms:triggers            # regenera cms/src/db/triggers.sql
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL, default 127.0.0.1:8080)
@@ -134,6 +136,21 @@ npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # primeiro opera
 npm run cms:import-golden -- --autor <id>       # semeia golden_case a partir do YAML
 npm run pack:worker -- --once                   # job: constrói, assina e publica
 ```
+
+Interface de operação (`cms/web/`):
+
+```sh
+npm run web:build               # escreve cms/web/dist (não versionado)
+npm run web:test                # Vitest + Testing Library
+npm run cms:dev                 # sobe o CMS (exige os segredos de infra/.env)
+npm run web:dev                 # Vite em :5173, com proxy para o :8787
+```
+
+Sem `web:build`, a API responde normalmente e as telas devolvem `503`. Em
+desenvolvimento com o Vite, `BETTER_AUTH_URL` precisa ser **a origem que o
+navegador usa** (`http://localhost:5173`), senão todo `POST` leva `403` de CSRF —
+e `localhost` não é a mesma origem que `127.0.0.1`. Detalhe em
+[docs/operacao.md](docs/operacao.md) §2.8 e §2.9.
 
 O job de empacotamento é um processo **separado e sem porta de rede** — ele lê a
 chave privada Ed25519, e o CMS atende HTTP. Juntar os dois faria uma falha no
@@ -224,14 +241,19 @@ p95 de 4731 ms com o agendador livre e 13130 ms no proxy de aparelho de entrada
 estão no [ADR-003](spec/stack.md); os números completos, em
 [arquitetura.md §5.1](spec/arquitetura.md).
 
-**Próximo:** Fase 4 — endurecimento e GA (testes de perf/estabilidade 72 h,
-auditoria de tráfego, Ansible + runbooks, delta packs).
+**Próximo:** Fase 3.5 — interface de operação (`cms/web/`), pré-requisito de
+piloto, **concluída**: entrada, segundo fator, painel, ciclo da release, editor
+de regras com simulação e CRUD de conteúdo. Próximo: Fase 4 — endurecimento e GA.
 
-**Lacunas ao fim da Fase 3** (detalhe em [arquitetura.md §5.12](spec/arquitetura.md)):
-não há `cms/web/` — sem interface o revisor clínico não exerce o papel, e é
-pré-requisito de piloto; a telemetria não tem produtor (o app não envia, e o lote
-de um aparelho não alcança k≥20 — falta um agregador); não há importador de
-conteúdo de `seed/` para o CMS; upload de asset não existe.
+**Lacunas** (detalhe em [arquitetura.md §5.12 e §5.13](spec/arquitetura.md)):
+o §4 do manual já se faz inteiro pela tela, **menos o upload do binário de
+asset**, que continua vindo de `seed/assets/`; não há rota que mova
+uma **regra** de `draft` para `approved`, e por isso regra escrita no CMS não
+chega ao pack; a telemetria não tem produtor (o app não envia, e o lote de um
+aparelho não alcança k≥20 — falta um agregador); não há importador de conteúdo de
+`seed/` para o CMS; upload de asset não existe; não há aceite de Termo de Uso no
+primeiro login (LGPD-RF02/RF04); e o CMS **não está atrás de TLS** — até o piloto,
+acesso por túnel SSH/VPN.
 
 ## Documentação
 

@@ -25,6 +25,7 @@ import { releaseRoutes } from './routes/releases.js';
 import { telemetryRoutes } from './routes/telemetry.js';
 import { ruleRoutes } from './routes/rules.js';
 import { userRoutes } from './routes/users.js';
+import { montarSpa, RAIZ_DA_SPA } from './web.js';
 
 export interface App {
   app: Hono<{ Variables: AuthVariables }>;
@@ -35,11 +36,18 @@ export function createApp({
   client,
   env,
   rateLimit = true,
+  spa = RAIZ_DA_SPA,
 }: {
   client: Client;
   env: Env;
   /** Ver `AuthOptions.rateLimit`: so o teste passa `false`. */
   rateLimit?: boolean;
+  /**
+   * Raiz da interface construida. So o teste informa outra coisa — e informa um
+   * diretorio temporario, para que a suite nao dependa de alguem ter rodado
+   * `npm run web:build`.
+   */
+  spa?: string;
 }): App {
   const auth = createAuth({ client, env, rateLimit });
   const app = new Hono<{ Variables: AuthVariables }>();
@@ -79,6 +87,20 @@ export function createApp({
   protegido.route('/approvals', approvalRoutes(client, env.hashSalt));
 
   app.route('/api', protegido);
+
+  /**
+   * A interface entra por ULTIMO, e a ordem e a garantia: o Hono compoe os
+   * handlers na ordem de registro, entao `/health` e `/api/*` ja responderam
+   * quando a SPA e consultada. Um arquivo chamado `health` dentro de `dist/` nao
+   * sombreia o healthcheck do compose. `test/web-static.test.ts` afirma isso.
+   *
+   * Montada com `app.use`, nunca com `app.get('*')`: `use` grava `method: 'ALL'`,
+   * que `test/doc-operacao.test.ts` filtra ao percorrer `app.routes`. Um
+   * `GET *` no catalogo faria o teste "toda rota aparece no manual" passar
+   * VAZIAMENTE — o manual contem `*` em qualquer negrito. Asserção verde por
+   * vacuidade e pior que vermelha.
+   */
+  montarSpa(app, spa);
 
   /**
    * Erro nao vaza detalhe (LGPD-RT01): a resposta e generica e o servidor fica

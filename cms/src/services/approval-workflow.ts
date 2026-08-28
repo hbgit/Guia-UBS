@@ -53,7 +53,24 @@ export const TRANSICOES: readonly Transicao[] = [
   {
     de: 'draft',
     para: 'pending_review',
-    por: ['editor', 'admin'],
+    /**
+     * `editor` e SO ele.
+     *
+     * Ate o item 23 esta linha dizia `['editor', 'admin']`, e a rota `/submeter`
+     * exige `content:write` — que o `admin` deliberadamente NAO tem
+     * (`auth/permissions.ts`: "concentrar os tres no admin desfaria a segregacao
+     * com uma linha de tabela"). O dado e a rota discordavam, e ninguem notava
+     * porque o unico cliente era `curl`, onde quem monta a chamada ja sabe quem
+     * pode o que.
+     *
+     * A interface expos: ela monta os botoes a PARTIR desta lista — que e o que
+     * a `operacao.md` §4.4 manda fazer, para nao existir uma segunda copia das
+     * regras. Um admin veria "Submeter" habilitado e receberia 403.
+     *
+     * Corrigido no dado, e nao na rota: dar `content:write` ao admin alinharia os
+     * dois pelo lado errado e desfaria a segregacao que a LGPD-RF11 exige.
+     */
+    por: ['editor'],
     motivo: 'submete para revisao clinica',
   },
   {

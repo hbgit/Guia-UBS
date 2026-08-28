@@ -174,8 +174,24 @@ curl -s -b ck.txt -c ck.txt -X POST $B/api/auth/two-factor/verify-totp \
 curl -s -b ck.txt $B/api/me     # 200 = pronto
 ```
 
-> **Com a SPA:** os passos 1–3 viram a tela de login, com o QR na primeira
-> entrada.
+> **Pela interface:** abra `` `/entrar` ``, informe e-mail e senha. Na primeira entrada
+> a resposta manda para `` `/entrar/cadastrar-2fa` ``, que mostra o QR **e** a chave
+> em base32 para digitação manual. Cadastre no autenticador e **entre de novo** —
+> o cadastro só é ativado na primeira verificação bem-sucedida, num login novo, e
+> é por isso que a tela pede para entrar outra vez em vez de aceitar o código ali.
+> O `curl` acima continua valendo como descrição do que a tela faz por baixo.
+> Concluído o segundo fator, a entrada leva ao painel em `` `/` ``, que diz o que
+> o seu papel faz — e o que ele deliberadamente **não** faz.
+
+> **Um `403` com dois significados.** Depois do `enable`, `two_factor_enabled`
+> continua **falso** até a primeira verificação bem-sucedida — então `GET /api/me`
+> responde o mesmo `403 "segundo fator obrigatorio"` para quem **nunca cadastrou**
+> e para quem **já cadastrou e ainda não verificou**. O cliente não tem como
+> distinguir os dois, e adivinhar erraria metade das vezes: mandar quem já tem a
+> chave gerar outra invalidaria a que ele acabou de guardar no autenticador. Por
+> isso a tela `` `/entrar/cadastrar-2fa` `` **pergunta**, oferecendo o atalho para
+> `` `/entrar/codigo` ``. A ativação em si é o `verify-totp` sobre a sessão do
+> login — não é preciso um cookie de 2FA pendente.
 
 **Todo `POST` autenticado exige o cabeçalho `Origin`.** É proteção contra CSRF;
 sem ele a resposta é `403` e a mensagem não diz por quê.
@@ -225,6 +241,53 @@ pack é descartado, e nada no servidor acusa. A guarda transforma um incidente
 mudo de frota inteira numa falha de build com nome.
 
 ---
+
+### 2.8 Construir a interface
+
+```sh
+npm run web:build
+```
+
+Escreve `cms/web/dist/`, que **não é versionado** (`dist/` está no `.gitignore`):
+um clone novo precisa construir antes de a interface responder. Sem o build, a
+API continua atendendo normalmente e as telas devolvem `503` com
+*"interface nao construida"* — `503` e não `404` de propósito, porque `404`
+mandaria procurar erro de digitação no caminho quando o que faltou foi o build.
+O aviso também sai no log do servidor, no boot.
+
+Na imagem do Docker isso já acontece: o estágio `web` do `cms/Dockerfile` roda
+este mesmo comando.
+
+### 2.9 Desenvolver a interface
+
+São dois modos, e a diferença entre eles é a **origem** que o navegador usa —
+que é o que o Better Auth confere para barrar CSRF.
+
+**Modo 1 — com recarregamento automático:**
+
+```sh
+BETTER_AUTH_URL=http://localhost:5173 npm run cms:dev   # terminal 1
+npm run web:dev                                          # terminal 2
+```
+
+O Vite serve em `localhost:5173` e repassa `/api` e `/health` para o `:8787` sem
+reescrever cabeçalho nenhum. Por isso o `BETTER_AUTH_URL` precisa ser **a porta
+do Vite**: é ela que o navegador informa como origem.
+
+**Modo 2 — como em produção, sem proxy:**
+
+```sh
+npm run web:build
+BETTER_AUTH_URL=http://127.0.0.1:8787 npm run cms:dev
+```
+
+É o único modo que exercita o caminho de servir estáticos do Hono. **Confira
+neste modo antes de dar merge** — o Modo 1 nunca passa por ele.
+
+> ⚠️ **`localhost` e `127.0.0.1` são origens diferentes.** Abrir o Modo 2 em
+> `http://localhost:8787` com o `BETTER_AUTH_URL` apontando para `127.0.0.1`
+> devolve `403` em todo `POST`, e a mensagem não diz por quê.
+
 
 ## 3. Os três papéis
 
@@ -316,7 +379,14 @@ As dez entidades: `municipalities`, `assets`, `symptom-tokens`,
 **A chave é composta nas entidades municipais:**
 `/api/content/services/<municipalityId>/<id>`.
 
-**A ordem não é livre — as chaves estrangeiras a impõem.** Um CMS recém-migrado
+**> **Pela interface:** `` `/conteudo` `` mostra as dez entidades na ordem que as
+> FKs impõem e, para cada uma cujo pré-requisito está vazio, **nomeia o que
+> falta** — que é exatamente a informação que o `409` não carrega. As telas são
+> `` `/conteudo/:entidade` ``, `` `/conteudo/:entidade/nova` `` e
+> `` `/conteudo/:entidade/editar` ``. Entidades municipais pedem o município
+> antes de listar, porque a rota responde `400` sem ele.
+
+A ordem não é livre — as chaves estrangeiras a impõem.** Um CMS recém-migrado
 começa vazio, e cada entidade abaixo é alvo da seguinte. Fora de ordem, a
 resposta é `409 "violaria uma referência"`, que diz o que aconteceu mas não o que
 faltava:
@@ -406,6 +476,12 @@ curl -s -b ck.txt -X PATCH $B/api/content/symptom-tokens/chest \
 O `409` de conflito carrega a versão atual porque um conflito que não diz contra
 o que se perdeu obriga a pessoa a recarregar a tela para descobrir.
 
+> **Pela interface:** o formulário lê a linha, guarda o `ETag` e o reenvia como
+> `If-Match` — o `428` é **inalcançável** pela tela, porque a função de gravar só
+> aceita uma leitura como parâmetro. No `409`, a tela mostra a versão atual e
+> pede recarregar; ela **nunca reenvia sozinha**, que seria exatamente o atropelo
+> silencioso que o travamento existe para impedir.
+
 ### 4.3 Escrever e simular uma regra
 
 Uma regra é forma normal disjuntiva: **E** dentro do mesmo `groupNo`, **OU**
@@ -471,6 +547,16 @@ repetida. Corrigir um por requisição faria qualquer revisor desistir na tercei
 `next: /api/rules/<id>/revisao`, que clona a regra como rascunho novo e deixa a
 original intacta — o pack já publicado com ela continua explicável.
 
+> **Pela interface:** `` `/regras` `` lista, `` `/regras/nova` `` e
+> `` `/regras/:id` `` editam. Os grupos são o OU e os termos dentro de cada grupo
+> são o E. **`Simular` fica sempre disponível** — a rota exige apenas
+> `content:read`, de propósito, para o revisor clínico poder perguntar "o que
+> esta regra faria?" sem ter permissão de escrevê-la; `Salvar` some para ele.
+>
+> `FALSO_NEGATIVO` aparece em bloco vermelho, antes de tudo, com a contagem como
+> manchete — e `Salvar` fica **bloqueado** até um reconhecimento explícito. Essa
+> trava é da interface: o servidor não a impõe, e a tela diz isso.
+
 ### 4.4 Criar e submeter a release
 
 | Rota | Método | Quem |
@@ -490,7 +576,16 @@ curl -s -b ck.txt -X POST $B/api/releases/rel-2026-01/submeter -H "$O"
 
 `GET /api/releases/<id>` devolve, junto da release, **as transições possíveis a
 partir do estado atual** — é dali que uma interface monta os botões, em vez de
-manter uma segunda cópia das regras.
+manter uma segunda cópia das regras. É exatamente o que a tela
+`` `/releases/:id` `` faz: um botão por entrada de `transicoes`, e nenhum `if`
+sobre estado. Há teste que reprova se um literal de estado aparecer em código
+fora do mapa de transporte.
+
+> **Pela interface:** `` `/releases` `` lista; `` `/releases/nova` `` cria (só
+> quem tem `content:write` vê o atalho); `` `/releases/:id` `` mostra o estado e
+> as ações. Transições do job aparecem como **texto**, não como botão
+> desabilitado — ninguém deve clicar nelas, e um botão apagado sugeriria falta de
+> permissão.
 
 Versão repetida no mesmo município responde `409`. É o anti-downgrade ancorado no
 banco: reemitir um número faria metade da frota parar de atualizar sem erro
@@ -518,8 +613,14 @@ curl -s -b ck-revisor.txt -X POST $B/api/approvals -H "$J" -H "$O" \
 decisão nova**, não apagar a anterior: a tabela é append-only e as duas ficam
 visíveis.
 
-> **Com a SPA:** botões "Aprovar" e "Rejeitar" na tela da release, com o campo de
-> comentário ao lado. Hoje o revisor clínico depende de quem opera a API — §6.
+> **Pela interface:** os botões "Aprovar" e "Rejeitar" ficam em
+> `` `/releases/:id` ``, com o campo de comentário ao lado — o revisor clínico já
+> decide sem depender de quem opera a API. O `curl` acima continua valendo como
+> descrição do que a tela faz por baixo.
+>
+> **`{"transicionou": false}` é verde, não vermelho.** A decisão foi registrada e
+> conta para o quórum; o que não aconteceu foi a transição. A tela diz quantas
+> faltam. Pintar de erro faria o revisor achar que o voto se perdeu.
 
 ### 4.6 O job publica
 
@@ -618,7 +719,9 @@ publique uma versão nova e corrigida.
 
 | Lacuna | Efeito prático |
 |---|---|
-| **Não há interface** (`cms/web/`) | Tudo neste manual é `curl`. Um revisor clínico municipal **não consegue trabalhar sozinho** — depende de alguém operando a API por ele. É pré-requisito de piloto, não de merge |
+| **Sem upload de asset pela interface** | O formulário de `assets` grava metadado, mas o binário continua vindo de `seed/assets/`: `storageKey` aponta para um objeto que alguém precisa ter enviado por fora. **É a única parte do §4 que ainda não se faz pela tela** |
+| **Sem aceite de Termo de Uso no primeiro login** | `legal_document` e `consent_record` existem no banco e são append-only, e **não há rota nem tela**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com registro da versão e do hash do documento. A interface torna a lacuna **visível**, não a fecha |
+| **Tradução não tem travamento otimista** | `PUT /api/content/<entidade>/<chave>/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`. Dois editores traduzindo o mesmo item se sobrescrevem em silêncio — vence a última gravação, e nada acusa |
 | **Regra escrita no CMS nunca chega ao pack** | Toda regra nasce `draft`, e **não existe rota que a mova para `approved`** — nem o `POST /api/rules`, nem o `PUT`, nem `/revisao`, que também clona como rascunho. Como `extract.ts` filtra `status='approved'`, o §4 inteiro roda até o fim e o portão golden reprova a release: a regra simplesmente não entrou. As regras que hoje chegam ao aparelho vêm do caminho `seed/`, não da autoria. **É o buraco que separa o CMS de ser usável em piloto** |
 | **Telemetria sem produtor** | `POST /api/telemetry` existe e valida, mas nada envia: o app não faz a chamada, e o lote de um aparelho não alcança k≥20. Falta um agregador que nenhum documento especifica |
 | **Sem importador de conteúdo** | `cms:import-golden` traz os casos clínicos, mas não há equivalente para o conteúdo de `seed/`. Um CMS recém-implantado começa vazio, e a primeira release é montada pela API, item a item |
