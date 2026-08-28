@@ -1117,7 +1117,30 @@ O defeito sobreviveu desde o item 19 porque **nenhum teste comparava a FSM com a
 
 1. **Não há aceite de Termo de Uso no primeiro login.** `legal_document` e `consent_record` existem e são append-only desde o item 16, e **nenhuma rota os toca**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com versão e hash do documento registrados. Construir a tela de entrada tornou a lacuna mais visível, não menor.
 2. **Tradução não tem travamento otimista.** `PUT …/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`; dois editores se sobrescrevem em silêncio. A SPA não tem como corrigir isso do lado dela.
-3. **O CMS não está atrás de TLS.** O `edge` (Caddy) proxia só o `storage`, e o `cms` publica em `127.0.0.1:8787` com `BETTER_AUTH_URL` em `http://` — o que deixa o `secure` do cookie desligado. Com `curl` por túnel isso era invisível; **com formulário de login, é exposição de credencial**. Até o piloto, o acesso é por túnel SSH/VPN; antes do piloto, exige bloco próprio no Caddyfile e `https://`, em PR separado.
+3. ~~**O CMS não está atrás de TLS.**~~ **Fechada no item 24** — ver §5.14.
+
+
+#### 5.14 Resultado do item 24 — o CMS atrás de TLS (2026-08-28)
+
+Fecha a lacuna 3 do item 23. O que mudou de peso entre um item e outro: enquanto o plano de controle era API consumida por `curl` de quem já tinha acesso ao host, uma porta em `127.0.0.1` era inócua; com **sete telas** e um formulário de login em uso real, senha, código TOTP e cookie de sessão passaram a atravessar HTTP em claro.
+
+**O interruptor é um só, e estava desligado.** Medido em `node_modules/better-auth/dist/cookies/index.mjs:20-46`: `secure` e o prefixo `__Secure-` saem da **mesma** variável, e ela é `baseURLString.startsWith("https://")`. Não há bloco `advanced` em `auth/config.ts` que sobrescreva, e **`NODE_ENV=production` não socorre** — o fallback por ambiente só vale quando não há `baseURL` nenhum. O mesmo valor governa `trustedOrigins`, que é exatamente `[new URL(baseURL).origin]`.
+
+Por isso a correção central não é o bloco no Caddy: é **`loadEnv()` derrubar o processo** quando, em produção, o `BETTER_AUTH_URL` não começa com `https://`. Mesmo padrão do `IP_HASH_SALT` ausente, aplicado ao predicado exato de que o cookie depende. Sem ela, um `.env` copiado do exemplo sobe com o cookie desprotegido e **nada acusa** — que é literalmente como esta lacuna nasceu e sobreviveu a uma fase inteira.
+
+**A armadilha do arquivo, escrita onde ela seria cometida.** O site de conteúdo tem `@mutating not method GET HEAD` / `respond @mutating 405`, porque o aparelho só lê. Copiá-lo como ponto de partida para o bloco do CMS — o gesto mais natural do mundo — quebraria login, aprovação e toda gravação, com um `405` que ninguém associa ao Caddy. Os dois blocos são separados de propósito, e o comentário diz isso.
+
+**O `cms` deixou de publicar porta**, como o `packer` já não publicava: a topologia **é** a garantia. `db` e `storage` seguem em `127.0.0.1` por necessidade operacional (migração pelo host, console do MinIO); os dois que carregam credencial — o CMS com o formulário, o packer com a chave privada — não publicam nem loopback.
+
+**Dev passou a chegar pelo `edge` também**, em HTTP e por porta (`:80` conteúdo, `:81` CMS). Não é capricho: o caminho do proxy — cabeçalhos, `Origin`, `X-Forwarded-*` — é onde este projeto já se queimou duas vezes, e produção é o pior lugar para exercitá-lo pela primeira vez. O que dev não reproduz é o TLS, e portanto nem o `Secure`; a guarda de boot é o que impede essa divergência de embarcar.
+
+**Um defeito latente encontrado ao escrever o teste.** `loadEnv(source)` aceitava um ambiente e `obrigatorio()` lia `process.env` direto — metade do arquivo ignorava o parâmetro. Passava por acidente enquanto o `.env` do desenvolvedor tinha os segredos, e falharia em CI por um motivo que não é o do teste. É a mesma classe de "teste que tranquiliza sem guardar" que o item 18 encontrou na pragma de FK.
+
+**Duas lacunas de verificação fechadas de passagem:** o job `infra` do CI usava `-f compose.yaml`, então o override de desenvolvimento **nunca era validado**; e **não existia `caddy validate` em lugar nenhum** do repositório — um erro de sintaxe no Caddyfile só aparecia quando o `edge` reiniciava, em produção, com o serviço já fora do ar.
+
+**Sabotagem: 3 guardas, 3 pegas.** Guarda de https removida do `loadEnv`; `ports:` devolvido ao `cms`; `depends_on: cms` removido do `edge`.
+
+**O aplicativo não é afetado, e vale saber por quê:** `PACK_MANIFEST_URL` é constante de compilação apontando para o `storage`, sem pinning nem trust store próprio. Acrescentar um site do CMS não toca nada. Mexer em `CONTENT_DOMAIN`, esse sim, exigiria recompilar e redistribuir o APK — e por isso ficou de fora.
 
 
 ### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅

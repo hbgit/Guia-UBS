@@ -1,14 +1,29 @@
 # Sobreposicao de desenvolvimento (carregada automaticamente por `docker compose`).
 # Mantem a mesma topologia da producao, trocando apenas TLS por HTTP local.
+#
+# O CMS continua SEM porta propria: chega-se a ele pelo edge, como em producao.
+# Publicar 8787 aqui pouparia um salto e faria o unico caminho testado em dev ser
+# o que producao nao usa.
 
 services:
   edge:
     ports: !override
       - "127.0.0.1:8081:80"
+      - "127.0.0.1:8082:81"
     environment:
       CONTENT_DOMAIN: ":80"
+      CMS_DOMAIN: ":81"
       ACME_EMAIL: dev@example.invalid
     volumes:
       - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
+
+  cms:
+    environment:
+      # A origem que o NAVEGADOR usa — e ela e a porta do EDGE, nao a do cms.
+      # `trustedOrigins` do Better Auth e exatamente `[new URL(baseURL).origin]`:
+      # divergir daqui devolve 403 em todo POST, com uma mensagem que nao diz
+      # por que. Em producao este valor precisa comecar com `https://`, e
+      # `loadEnv()` derruba o processo se nao comecar.
+      BETTER_AUTH_URL: http://127.0.0.1:8082

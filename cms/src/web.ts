@@ -2,8 +2,15 @@
  * Serve a interface (`cms/web/dist`) pelo mesmo processo que atende a API.
  *
  * A decisao e da [stack.md](../../spec/stack.md) §1.2: "Vite + React SPA servida
- * pelo proprio Hono — um container so". Nao ha servidor de estaticos separado,
- * nao ha SSR, e o `edge` (Caddy) nao proxia o CMS.
+ * pelo proprio Hono — um container so". Nao ha servidor de estaticos separado e
+ * nao ha SSR.
+ *
+ * Desde o item 24 o `edge` (Caddy) PROXIA este servico — antes disso ele so
+ * atendia o `storage`, e o CMS falava HTTP direto numa porta de loopback. O que
+ * a borda faz e terminar o TLS; o que ela NAO faz e mudar nada aqui: o caminho
+ * chega igual, e a SPA continua same-origin com a API porque o proxy preserva o
+ * host. O cabecalho de cache continua saindo daqui, e nao do Caddy, para a
+ * decisao morar onde ela e tomada.
  *
  * ## A ordem de montagem E a garantia
  *

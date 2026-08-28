@@ -66,8 +66,15 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina em infra/.env}
       IP_HASH_SALT: ${IP_HASH_SALT:?defina em infra/.env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?defina em infra/.env}
-    ports:
-      - "127.0.0.1:8787:8787"
+    # SEM `ports:` de proposito, como o `packer`.
+    #
+    # A unica porta publicada do compose passa a ser a do `edge`, e a topologia e
+    # a garantia — nao uma configuracao. Enquanto o CMS era so `curl` por tunel,
+    # publicar em 127.0.0.1 era inocuo; com formulario de login, cada porta a mais
+    # e uma forma de alcancar credencial sem passar pelo TLS.
+    #
+    # O healthcheck abaixo bate em 127.0.0.1:8787 DE DENTRO do container e nao e
+    # afetado. `cms/test/infra-topologia.test.ts` afirma a ausencia desta linha.
     depends_on:
       db:
         condition: service_healthy
@@ -109,6 +116,10 @@ services:
         condition: service_healthy
       storage:
         condition: service_healthy
+      # O edge agora proxia o CMS tambem. Sem esta dependencia ele sobe apontando
+      # para o vazio, e o primeiro acesso vira 502 — que parece defeito da borda.
+      cms:
+        condition: service_healthy
     security_opt:
       - no-new-privileges:true
 
@@ -122,6 +133,7 @@ services:
       - "443:443"
     environment:
       CONTENT_DOMAIN: ${CONTENT_DOMAIN:?defina em infra/.env}
+      CMS_DOMAIN: ${CMS_DOMAIN:?defina em infra/.env}
       ACME_EMAIL: ${ACME_EMAIL:?defina em infra/.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -129,6 +141,10 @@ services:
       - caddyconfig:/config
     depends_on:
       storage:
+        condition: service_healthy
+      # O edge agora proxia o CMS tambem. Sem esta dependencia ele sobe apontando
+      # para o vazio, e o primeiro acesso vira 502 — que parece defeito da borda.
+      cms:
         condition: service_healthy
     security_opt:
       - no-new-privileges:true

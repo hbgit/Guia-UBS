@@ -1,4 +1,11 @@
-# Borda de entrega de conteudo.
+# Borda: DUAS superficies, com regimes opostos.
+#
+#   {$CONTENT_DOMAIN}  entrega de packs ao aparelho  — somente leitura, publica
+#   {$CMS_DOMAIN}      plano de controle             — autenticada, escreve
+#
+# Elas nao compartilham bloco de proposito. O site de conteudo recusa tudo que
+# nao seja GET/HEAD; herdar essa guarda no CMS quebraria login, aprovacao e toda
+# gravacao — com um 405 que ninguem associa ao Caddy.
 #
 # Duas classes de cache (stack.md 4.2):
 #   - packs e assets: nomeados por hash => imutaveis, cache infinito
@@ -37,4 +44,42 @@
 	reverse_proxy storage:9000 {
 		header_up Host {upstream_hostport}
 	}
+}
+
+# Plano de controle (`cms/`): interface de operacao + API.
+#
+# ## O que este bloco NAO tem, e por que
+#
+# Nao tem `@mutating`/405. O site acima o tem porque o aparelho so le; aqui todo
+# o trabalho e POST, PATCH e DELETE. Copiar aquele bloco como ponto de partida e
+# o erro mais provavel neste arquivo.
+#
+# Nao tem cache. A casca da SPA ja sai com `no-store` do proprio Hono
+# (`cms/src/web.ts`), e os assets com hash ja saem `immutable` — cache aqui
+# duplicaria uma decisao que mora onde ela e tomada.
+#
+# ## O `secure` do cookie depende do BETTER_AUTH_URL, nao daqui
+#
+# O TLS deste bloco cifra o fio, mas o cookie de sessao so ganha `Secure` e o
+# prefixo `__Secure-` se o `BETTER_AUTH_URL` do servico `cms` comecar com
+# `https://` — e um dos dois sem o outro e o pior dos casos: parece protegido e
+# nao esta. `loadEnv()` derruba o processo se isso divergir em producao.
+{$CMS_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		# O Caddy NAO emite HSTS sozinho, mesmo com HTTPS automatico.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		# `same-origin` e nao `no-referrer`: a SPA navega entre as proprias telas,
+		# e o referer interno e util em log de acesso. Nada vaza para fora.
+		Referrer-Policy same-origin
+		# A SPA e autocontida — script e estilo proprios, nenhum CDN (o `qrcode`
+		# entra no bundle). `frame-ancestors 'none'` fecha clickjacking sobre o
+		# formulario de login e sobre os botoes de aprovacao.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+	}
+
+	reverse_proxy cms:8787
 }

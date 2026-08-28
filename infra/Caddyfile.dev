@@ -1,5 +1,16 @@
-# Borda em desenvolvimento: HTTP puro, mesma politica de cache da producao.
-# Manter as regras identicas evita que um bug de cache so apareca em producao.
+# Borda em desenvolvimento: HTTP puro, mesma TOPOLOGIA da producao.
+#
+# Sem hostname em dev, os dois sites se separam por PORTA:
+#   :80  conteudo (packs)     -> publicado como 127.0.0.1:8081
+#   :81  plano de controle    -> publicado como 127.0.0.1:8082
+#
+# O CMS passar pelo edge tambem em dev nao e capricho: o caminho do proxy —
+# cabecalhos, `Origin`, `X-Forwarded-*` — e onde este projeto ja se queimou duas
+# vezes, e producao e o pior lugar para exercita-lo pela primeira vez.
+#
+# O que dev NAO reproduz e o TLS, e portanto nem o `Secure` do cookie nem o
+# prefixo `__Secure-`. Quem quiser medir isso troca este bloco por `tls internal`
+# e aceita a CA local no navegador — e uma medicao, nao configuracao.
 
 :80 {
 	encode zstd gzip
@@ -13,4 +24,17 @@
 	reverse_proxy storage:9000 {
 		header_up Host {upstream_hostport}
 	}
+}
+
+# Plano de controle. Sem `@mutating`/405 e sem HSTS — ver o Caddyfile de producao.
+:81 {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+	}
+
+	reverse_proxy cms:8787
 }

@@ -110,3 +110,21 @@ jobs:
         run: |
           cp .env.example .env
           docker compose -f compose.yaml config --quiet
+          # O override tambem: ate o item 24 ele nunca era validado, e um erro
+          # ali so aparece na maquina de quem esta desenvolvendo.
+          docker compose -f compose.yaml -f compose.override.yaml config --quiet
+
+      # O Caddyfile nunca foi conferido em lugar nenhum ate o item 24. Erro de
+      # sintaxe ali so aparece quando o `edge` reinicia — em producao, com o
+      # servico ja fora do ar.
+      - name: Caddyfile valido
+        working-directory: infra
+        env:
+          CONTENT_DOMAIN: conteudo.exemplo.invalid
+          CMS_DOMAIN: cms.exemplo.invalid
+          ACME_EMAIL: ops@exemplo.invalid
+        run: |
+          docker run --rm -e CONTENT_DOMAIN -e CMS_DOMAIN -e ACME_EMAIL \
+            -v "$PWD:/w:ro" caddy:2.9-alpine caddy validate --config /w/Caddyfile
+          docker run --rm -v "$PWD:/w:ro" caddy:2.9-alpine \
+            caddy validate --config /w/Caddyfile.dev

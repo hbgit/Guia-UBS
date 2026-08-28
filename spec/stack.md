@@ -103,7 +103,13 @@ Renomeou uma coluna no Drizzle → o JSON Schema muda → o Dart gerado muda →
 
 ### 4.2 Cache & Entrega na Edge
 
-- **MinIO (AGPL-3.0) atrás de Caddy (Apache-2.0)**, self-hosted no VPS, para os content packs. Caddy dá TLS automático (Let's Encrypt, gratuito) e cache de estáticos; MinIO dá a API S3 que o packer consome. Trade-off assumido ao remover a CDN comercial: perde-se capilaridade global — aceitável porque manifest e deltas são KB-scale e **qualquer servidor estático vira espelho** (nginx/Caddy + rsync, inclusive servidores municipais federados), sem nenhuma mudança no app.
+- **A borda atende duas superfícies, com regimes opostos** (desde o item 24): o
+domínio de conteúdo entrega packs ao aparelho e recusa tudo que não seja
+`GET`/`HEAD`; o domínio do CMS serve o plano de controle, que é autenticado e
+escreve. Blocos separados de propósito — herdar a guarda de somente-leitura no
+CMS quebraria login e aprovação.
+
+**MinIO (AGPL-3.0) atrás de Caddy (Apache-2.0)**, self-hosted no VPS, para os content packs. Caddy dá TLS automático (Let's Encrypt, gratuito) e cache de estáticos; MinIO dá a API S3 que o packer consome. Trade-off assumido ao remover a CDN comercial: perde-se capilaridade global — aceitável porque manifest e deltas são KB-scale e **qualquer servidor estático vira espelho** (nginx/Caddy + rsync, inclusive servidores municipais federados), sem nenhuma mudança no app.
 - Estratégia de cache em duas classes:
   - **Packs e áudios**: nomeados por hash de conteúdo (`pack-a1b2c3.db`), `Cache-Control: public, max-age=31536000, immutable` — cache infinito, invalidação impossível por construção.
   - **`manifest.json`**: `max-age=60` + ETag — único objeto mutável; o device faz um GET condicional barato e só baixa o resto se a versão mudou.

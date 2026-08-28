@@ -21,8 +21,8 @@ mudar junto reprova o CI.
 
 ```
                    ┌─────────────────────────────────────┐
-  navegador  ──────▶  cms        :8787   sessão + 2FA     │
-  (operador)       │  Hono, RBAC, CRUD, dual review       │
+  navegador  ──▶ edge ──▶ cms  :8787   sessão + 2FA       │
+  (operador)   :443  │  Hono, RBAC, CRUD, dual review     │
                    └───────────────┬─────────────────────┘
                                    │ mesmo banco
                    ┌───────────────▼─────────────────────┐
@@ -39,6 +39,18 @@ mudar junto reprova o CI.
   (offline)         Caddy           packs assinados
 ```
 
+**O `edge` atende DUAS superfícies, com regimes opostos.** `CONTENT_DOMAIN`
+entrega packs ao aparelho e recusa tudo que não seja `GET`/`HEAD`; `CMS_DOMAIN`
+serve o plano de controle, que é autenticado e escreve. São blocos separados de
+propósito: herdar a guarda de somente-leitura no CMS quebraria login, aprovação e
+toda gravação.
+
+**Nenhum outro serviço escuta fora do `localhost`,** e o `cms` não publica porta
+nenhuma — chega-se a ele só pelo `edge`. Enquanto tudo era `curl` por túnel,
+publicar em `127.0.0.1` era inócuo; com formulário de login, cada porta a mais é
+uma forma de alcançar credencial sem passar pelo TLS.
+`cms/test/infra-topologia.test.ts` afirma isso a partir do próprio compose.
+
 **O `packer` não tem porta publicada, e isso é a garantia de segurança do
 sistema, não uma configuração.** Ele lê a chave privada Ed25519; o `cms` atende
 HTTP. Juntar os dois faria uma falha de execução remota no serviço web virar
@@ -48,7 +60,12 @@ conteúdo clínico assinado chegando a aparelhos offline. Se alguém propuser
 ### Conferir se está no ar
 
 ```sh
-curl -s http://127.0.0.1:8787/health      # {"status":"ok"}
+# Pelo edge, que é o único caminho publicado:
+curl -s http://127.0.0.1:8082/health     # {"status":"ok"}  (dev)
+
+# Ou de dentro do container, que é como o healthcheck do compose confere:
+docker compose -f infra/compose.yaml exec cms \
+  node -e "fetch('http://127.0.0.1:8787/health').then(r=>r.text()).then(console.log)"
 ```
 
 | Rota | Método | Acesso |
@@ -85,10 +102,11 @@ openssl rand -base64 24      # MINIO_ROOT_PASSWORD
 |---|---|---|
 | `BETTER_AUTH_SECRET` | cifra o segredo TOTP e os códigos de recuperação em repouso | o processo **não sobe** |
 | `IP_HASH_SALT` | pseudonimiza o IP na trilha e o e-mail na trava de login | o processo **não sobe** |
-| `BETTER_AUTH_URL` | validação de origem (CSRF) | o compose recusa subir |
+| `BETTER_AUTH_URL` | origem confiável na validação de CSRF **e** o que decide se o cookie sai com `Secure` | o compose recusa subir; e em produção, com `http://`, o processo não sobe |
 | `MINIO_ROOT_USER` | credencial do storage | o compose recusa subir |
 | `MINIO_ROOT_PASSWORD` | idem | o compose recusa subir |
-| `CONTENT_DOMAIN` | domínio público servido pela borda | o compose recusa subir |
+| `CONTENT_DOMAIN` | domínio dos packs, servido pela borda ao aparelho | o compose recusa subir |
+| `CMS_DOMAIN` | domínio do plano de controle, servido pela mesma borda | o compose recusa subir |
 | `ACME_EMAIL` | contato do certificado TLS | o compose recusa subir |
 | `PACK_SIGNING_KEY_HOST_PATH` | chave privada no host, montada só-leitura no `packer` | o compose recusa subir |
 | `PACK_SIGNING_KEY_ID` | qual chave de `signing_key` está em uso | assume `k1` |
@@ -274,19 +292,29 @@ O Vite serve em `localhost:5173` e repassa `/api` e `/health` para o `:8787` sem
 reescrever cabeçalho nenhum. Por isso o `BETTER_AUTH_URL` precisa ser **a porta
 do Vite**: é ela que o navegador informa como origem.
 
-**Modo 2 — como em produção, sem proxy:**
+**Modo 2 — a topologia de produção, pelo `edge`:**
 
 ```sh
-npm run web:build
-BETTER_AUTH_URL=http://127.0.0.1:8787 npm run cms:dev
+cd infra && docker compose up -d --build db cms edge
+# navegador em http://127.0.0.1:8082  — a porta do EDGE, não a do cms
 ```
 
-É o único modo que exercita o caminho de servir estáticos do Hono. **Confira
-neste modo antes de dar merge** — o Modo 1 nunca passa por ele.
+É o único modo que exercita **duas** coisas que o Modo 1 não toca: o caminho de
+servir estáticos do Hono, e o proxy — cabeçalhos, `Origin`, `X-Forwarded-*`.
+**Confira neste modo antes de dar merge.**
 
-> ⚠️ **`localhost` e `127.0.0.1` são origens diferentes.** Abrir o Modo 2 em
-> `http://localhost:8787` com o `BETTER_AUTH_URL` apontando para `127.0.0.1`
-> devolve `403` em todo `POST`, e a mensagem não diz por quê.
+Em produção este caminho é o mesmo, com `https://` e o hostname de `CMS_DOMAIN`
+no lugar de `127.0.0.1:8082`. O `cms` não publica porta nenhuma nos dois casos.
+
+> ⚠️ **`localhost` e `127.0.0.1` são origens diferentes,** e é o
+> `BETTER_AUTH_URL` que define qual delas é confiável. Abrir o Modo 2 em
+> `http://localhost:8082` com ele apontando para `127.0.0.1` devolve `403` em
+> todo `POST`, e a mensagem não diz por quê.
+
+> ⚠️ **Em produção o `BETTER_AUTH_URL` precisa começar com `https://`.** Não é
+> preferência: é dele que o cookie de sessão tira o `Secure` e o prefixo
+> `__Secure-`. Com `http://`, senha e sessão trafegam em claro e nada acusa — por
+> isso `loadEnv()` **derruba o processo** nesse caso, em vez de deixar subir.
 
 
 ## 3. Os três papéis

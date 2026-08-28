@@ -252,8 +252,9 @@ uma **regra** de `draft` para `approved`, e por isso regra escrita no CMS não
 chega ao pack; a telemetria não tem produtor (o app não envia, e o lote de um
 aparelho não alcança k≥20 — falta um agregador); não há importador de conteúdo de
 `seed/` para o CMS; upload de asset não existe; não há aceite de Termo de Uso no
-primeiro login (LGPD-RF02/RF04); e o CMS **não está atrás de TLS** — até o piloto,
-acesso por túnel SSH/VPN.
+primeiro login (LGPD-RF02/RF04). O CMS **passou a ficar atrás do Caddy com TLS**
+no item 24: ele não publica porta, e `loadEnv()` derruba o processo se o
+`BETTER_AUTH_URL` não for `https://` em produção.
 
 ## Documentação
 
