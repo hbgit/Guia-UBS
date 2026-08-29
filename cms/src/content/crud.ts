@@ -13,9 +13,10 @@
  * reconstruir. Aqui os tres sao estruturais.
  */
 import type { Client } from '@libsql/client';
-import { eq, getTableName, sql, type SQL } from 'drizzle-orm';
+import { eq, getTableColumns, getTableName, sql, type SQL } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import type { AuthVariables } from '../auth/middleware.js';
@@ -30,6 +31,7 @@ import {
   versaoAtual,
   type Chave,
 } from '../services/optimistic-lock.js';
+import { entregarBinario, receberBinario } from './binario.js';
 import { AUTHORING_FIELDS, type EntidadeConteudo } from './registry.js';
 
 /** `/:municipalityId/:id` a partir da chave declarada no registro. */
@@ -50,13 +52,35 @@ function chaveDaRequisicao(entidade: EntidadeConteudo, params: Record<string, st
  * coluna nova no schema entra aqui sozinha, e uma coluna removida some — sem
  * ninguem lembrar de atualizar dois lugares.
  */
-function esquemaDeEntrada(entidade: EntidadeConteudo) {
+export function esquemaDeEntrada(entidade: EntidadeConteudo) {
   const completo = createInsertSchema(entidade.tabela) as unknown as z.ZodObject<
     Record<string, z.ZodTypeAny>
   >;
   const semAutoria: Record<string, true> = {};
   for (const campo of AUTHORING_FIELDS) semAutoria[campo] = true;
   return completo.omit(semAutoria as never);
+}
+
+/**
+ * As colunas que podem sair em JSON — todas menos as de buffer.
+ *
+ * Derivada do schema, e nao de uma lista: um blob acrescentado a qualquer
+ * entidade fica coberto sem ninguem lembrar.
+ *
+ * Sem isto, um `db.select()` cru traria o binario do asset em TRES lugares, e
+ * cada um tem uma consequencia propria:
+ *
+ *   - `GET /api/content/assets` devolveria 47 arrays de bytes — cerca de um
+ *     megabyte de JSON para desenhar uma tabela de nomes de arquivo;
+ *   - `GET .../assets/:ref` idem, a cada abertura do formulario;
+ *   - e o pior: o `antes` que alimenta a trilha gravaria o blob inteiro em
+ *     `audit_entry`, que e append-only POR GATILHO. De la nao sai nunca mais,
+ *     nem pelo expurgo de retencao que ainda nao existe.
+ */
+function colunasLegiveis(tabela: EntidadeConteudo['tabela']) {
+  return Object.fromEntries(
+    Object.entries(getTableColumns(tabela)).filter(([, c]) => c.dataType !== 'buffer'),
+  );
 }
 
 /** `version` chega como ETag, nunca no corpo. */
@@ -88,7 +112,7 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
     if (entidade.escopo === 'municipal' && !municipio) {
       return c.json({ error: 'informe municipalityId' }, 400);
     }
-    const consulta = db.select().from(entidade.tabela);
+    const consulta = db.select(colunasLegiveis(entidade.tabela)).from(entidade.tabela);
     const filtro = filtroDeEscopo(municipio);
     const linhas = await (filtro ? consulta.where(filtro) : consulta);
     return c.json({ items: linhas });
@@ -98,7 +122,7 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
     const db = createDb(client);
     const chave = chaveDaRequisicao(entidade, c.req.param());
     const linhas = await db
-      .select()
+      .select(colunasLegiveis(entidade.tabela))
       .from(entidade.tabela)
       .where(condicaoDaChave(entidade.tabela, chave))
       .limit(1);
@@ -162,7 +186,7 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
     const db = createDb(client);
     const chave = chaveDaRequisicao(entidade, c.req.param());
     const antes = await db
-      .select()
+      .select(colunasLegiveis(entidade.tabela))
       .from(entidade.tabela)
       .where(condicaoDaChave(entidade.tabela, chave))
       .limit(1);
@@ -210,7 +234,7 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
       const db = createDb(client);
       const chave = chaveDaRequisicao(entidade, c.req.param());
       const antes = await db
-        .select()
+        .select(colunasLegiveis(entidade.tabela))
         .from(entidade.tabela)
         .where(condicaoDaChave(entidade.tabela, chave))
         .limit(1);
@@ -231,6 +255,36 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
       });
       return c.body(null, 204);
     });
+  }
+
+  // --- binario, aninhado -----------------------------------------------------
+  if (entidade.binario) {
+    /**
+     * Teto GLOBAL, o maior entre os tipos.
+     *
+     * Ele protege a memoria: `bodyLimit` confere o `Content-Length` antes de ler
+     * um byte. O teto por `kind` vem depois, no handler, porque o `kind` e fato
+     * da linha e so se conhece depois de le-la — e la o que se protege ja e o
+     * orcamento de tamanho do pack, nao a memoria do servidor.
+     */
+    const tetoGlobal = Math.max(...Object.values(entidade.binario.tipos).map((t) => t.teto));
+
+    app.put(
+      `${caminho}/binario`,
+      requirePermission('content:write'),
+      bodyLimit({
+        maxSize: tetoGlobal,
+        onError: (c) => c.json({ error: `corpo acima de ${tetoGlobal} bytes` }, 413),
+      }),
+      async (c) =>
+        receberBinario(c, entidade, client, salt, chaveDaRequisicao(entidade, c.req.param())),
+    );
+
+    // Leitura aberta a `content:read`: o revisor clinico precisa VER o icone que
+    // esta aprovando, e ele nao tem `content:write`.
+    app.get(`${caminho}/binario`, requirePermission('content:read'), async (c) =>
+      entregarBinario(c, entidade, client, chaveDaRequisicao(entidade, c.req.param())),
+    );
   }
 
   // --- traducao, aninhada ----------------------------------------------------

@@ -68,6 +68,37 @@ export interface Traducao {
   chaveEstrangeira: readonly string[];
 }
 
+/**
+ * Uma entidade que guarda um ARQUIVO, e nao so metadado sobre ele.
+ *
+ * Descrito como dado do registro, e nao como caso especial em `crud.ts`, pelo
+ * mesmo motivo de `traducao`: a fabrica ramifica sobre o registro e nunca
+ * aprende o nome de nenhuma entidade. Hoje so `asset` tem isto — mas o
+ * `if (entidade.binario)` fica ao lado do `if (entidade.traducao)`, que e onde
+ * alguem procuraria.
+ */
+export interface Binario {
+  /** Propriedade Drizzle do blob. */
+  coluna: string;
+  /**
+   * Colunas que o ENVIO preenche, e que por isso saem do formulario.
+   *
+   * `web-conformance.test.ts` exige justificativa para cada uma, e prova que o
+   * `POST` de fato aceita a ausencia delas.
+   */
+  derivadas: readonly string[];
+  /**
+   * Teto e tipos aceitos por `kind`.
+   *
+   * O teto e por tipo porque o risco e por tipo: um icone do pacote semente tem
+   * ~450 bytes, e 64 KiB ja recusa um bitmap contrabandeado dentro de um SVG. O
+   * de audio comeca em 1 MiB e **precisa ser medido contra o `sqld` real** — o
+   * libSQL transporta blob como base64 no protocolo hrana, entao o limite que
+   * morde primeiro e o de tamanho de requisicao do servidor, nao o do SQLite.
+   */
+  tipos: Readonly<Record<string, { mime: readonly string[]; teto: number }>>;
+}
+
 export interface EntidadeConteudo {
   /** Segmento da URL: `/api/content/<nome>`. */
   nome: string;
@@ -90,6 +121,8 @@ export interface EntidadeConteudo {
    * que sempre falha ensina o editor a ignorar mensagem de erro.
    */
   apagavel: boolean;
+  /** Presente quando a entidade guarda um arquivo. Ver `Binario`. */
+  binario?: Binario;
 }
 
 export const CONTENT_ENTITIES: readonly EntidadeConteudo[] = [
@@ -110,6 +143,18 @@ export const CONTENT_ENTITIES: readonly EntidadeConteudo[] = [
     escopo: 'global',
     // Alvo de FK de quase todas as outras: icone, imagem e audio.
     apagavel: false,
+    binario: {
+      coluna: 'binario',
+      // O hash e o tamanho de um arquivo nao se digitam: quem os conhece e quem
+      // recebeu os bytes. Ate o item 25 o formulario os pedia, e o packer os
+      // sobrescrevia — dois campos que o operador preenchia para nada.
+      derivadas: ['sha256', 'bytes'],
+      tipos: {
+        icon: { mime: ['image/svg+xml'], teto: 64 * 1024 },
+        image: { mime: ['image/svg+xml', 'image/png', 'image/webp'], teto: 512 * 1024 },
+        audio: { mime: ['audio/opus', 'audio/ogg'], teto: 1024 * 1024 },
+      },
+    },
   },
   {
     nome: 'symptom-tokens',

@@ -253,9 +253,9 @@ export async function seedConteudo(fixture: Fixture, cookie: string): Promise<vo
     ref: 'icon.exemplo',
     kind: 'icon',
     path: 'assets/exemplo.svg',
-    sha256: 'a'.repeat(64),
-    bytes: 128,
-    storageKey: 'assets/exemplo.svg',
+    // Sem `sha256` nem `bytes`: desde o item 25 eles saem do ENVIO do binario,
+    // e o `$defaultFn` os torna opcionais no POST. Digita-los aqui manteria vivo
+    // o habito que a rota de envio existe para encerrar.
   });
   await pedido(fixture, cookie, 'POST', '/api/content/municipalities', {
     id: 'mun-1',

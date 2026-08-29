@@ -31,6 +31,7 @@ import { randomUUID } from 'node:crypto';
 import { K_ANONYMITY_MIN, isAcceptableBatch } from '@guia-ubs/contract';
 import type { Client } from '@libsql/client';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 
 import { createDb } from '../db/client.js';
 import { classificarViolacao } from '../db/errors.js';
@@ -44,11 +45,26 @@ import { telemetryBatch } from '../db/schema/telemetry.js';
 const MAX_BYTES = 8 * 1024;
 
 export function telemetryRoutes(client: Client) {
-  return new Hono().post('/', async (c) => {
+  /**
+   * O teto agora e MIDDLEWARE, e a diferenca nao e estilo.
+   *
+   * Ate o item 25 a checagem era `(await c.req.text()).length > MAX_BYTES` — que
+   * mede DEPOIS de ter bufferizado tudo. Numa rota sem autenticacao isso
+   * significa que qualquer um faz o servidor alocar o corpo inteiro antes de ele
+   * ser recusado: o teto protegia o parse, nao a memoria.
+   *
+   * `bodyLimit` confere o `Content-Length` ANTES de ler um byte, e em corpo
+   * chunked conta enquanto le, parando no teto. Passou a valer aqui porque a rota
+   * de envio de asset precisou do mesmo mecanismo — e deixar o padrao pior
+   * morando ao lado do melhor e como ele se propaga.
+   */
+  const teto = bodyLimit({
+    maxSize: MAX_BYTES,
+    onError: (c) => c.json({ error: 'lote grande demais' }, 413),
+  });
+
+  return new Hono().post('/', teto, async (c) => {
     const texto = await c.req.text();
-    if (texto.length > MAX_BYTES) {
-      return c.json({ error: 'lote grande demais' }, 413);
-    }
 
     let corpo: unknown;
     try {

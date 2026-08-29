@@ -17,6 +17,9 @@ import { test } from 'node:test';
 
 import { getTableColumns } from 'drizzle-orm';
 
+import { z } from 'zod';
+
+import { esquemaDeEntrada } from '../src/content/crud.js';
 import { AUTHORING_FIELDS, CONTENT_ENTITIES } from '../src/content/registry.js';
 import {
   CAMPOS,
@@ -63,13 +66,46 @@ test('nenhum campo aponta para entidade que nao existe', () => {
   assert.deepEqual(orfas, []);
 });
 
-test('TODA coluna obrigatoria sem default tem campo no formulario', () => {
+/**
+ * Colunas obrigatorias que o SERVIDOR preenche, com o motivo e QUEM as preenche.
+ *
+ * Nao e "coluna que ninguem lembrou de por na tela": e coluna cujo valor o
+ * operador nao TEM como saber. O sha256 de um arquivo nao se digita — quem o
+ * conhece e quem recebeu os bytes.
+ *
+ * A lista so nao vira buraco porque tres coisas sao conferidas abaixo: que a
+ * coluna existe, que o `POST` de fato aceita a ausencia dela, e que a rota
+ * declarada esta viva. Uma coluna genuinamente esquecida so passa se alguem
+ * escrever a justificativa, provar a opcionalidade E nomear uma rota que a
+ * preenche — e ai ela nao esta esquecida.
+ */
+const DERIVADAS_PELO_SERVIDOR: Readonly<
+  Record<string, { rota: string; porque: string }>
+> = {
+  'assets.sha256': {
+    rota: 'PUT /api/content/assets/:ref/binario',
+    porque: 'o hash sai dos bytes recebidos; digitado a mao seria uma afirmacao sem lastro',
+  },
+  'assets.bytes': {
+    rota: 'PUT /api/content/assets/:ref/binario',
+    porque: 'idem — o tamanho e fato do arquivo, nao do formulario',
+  },
+};
+
+test('TODA coluna obrigatoria tem campo no formulario, ou excecao justificada', () => {
   /**
    * O teste que o compilador nao consegue fazer.
    *
-   * Coluna `NOT NULL` sem default e coluna que o `POST` exige. Sem campo, o
-   * editor nao consegue mais criar a linha — e o sintoma e um 400 que a tela nao
-   * explica, num formulario que parece completo.
+   * Coluna `NOT NULL` e coluna que o `POST` exige. Sem campo, o editor nao
+   * consegue mais criar a linha — e o sintoma e um 400 que a tela nao explica,
+   * num formulario que parece completo.
+   *
+   * ## `hasDefault` deixou de isentar, e essa e a mudanca que importa
+   *
+   * Ate o item 25 qualquer coluna com default era pulada em SILENCIO. Isso ficou
+   * perigoso quando `sha256` e `bytes` ganharam `$defaultFn`: uma coluna nova com
+   * default passaria a sumir do formulario sem ninguem ser avisado. Agora o
+   * default nao basta — e preciso ter campo OU estar declarada acima com motivo.
    */
   const semCampo: string[] = [];
   for (const e of CONTENT_ENTITIES) {
@@ -77,16 +113,48 @@ test('TODA coluna obrigatoria sem default tem campo no formulario', () => {
     const declarados = new Set(camposDe(e.nome).map((c) => c.nome));
     for (const [prop, coluna] of Object.entries(getTableColumns(e.tabela))) {
       if ((AUTHORING_FIELDS as readonly string[]).includes(prop)) continue;
-      const temDefault = coluna.hasDefault || coluna.default !== undefined;
-      if (coluna.notNull && !temDefault && !declarados.has(prop)) {
-        semCampo.push(`${e.nome}.${prop}`);
-      }
+      // Coluna anulavel nao e exigida pelo POST: o operador pode nao a informar
+      // e a linha nasce assim. E o caso do proprio binario.
+      if (!coluna.notNull) continue;
+      if (declarados.has(prop)) continue;
+      if (DERIVADAS_PELO_SERVIDOR[`${e.nome}.${prop}`]) continue;
+      semCampo.push(`${e.nome}.${prop}`);
     }
   }
   assert.deepEqual(
     semCampo,
     [],
-    'coluna obrigatoria sem campo: o formulario nao consegue mais criar a linha',
+    'coluna obrigatoria sem campo e sem excecao: o formulario nao consegue mais criar a linha',
+  );
+});
+
+test('toda excecao de coluna derivada e REALMENTE opcional no POST', () => {
+  /**
+   * A guarda que impede a lista acima de virar buraco.
+   *
+   * Excetuar uma coluna que o `POST` continua exigindo produz exatamente a falha
+   * que o teste anterior existe para pegar — 400 para sempre, num formulario que
+   * parece completo —, so que agora com uma justificativa escrita por cima.
+   * `drizzle-zod` marca como opcional o que for anulavel ou tiver default; e isso
+   * que se confere aqui, contra o MESMO schema que a rota usa.
+   */
+  const exigidas: string[] = [];
+  for (const chave of Object.keys(DERIVADAS_PELO_SERVIDOR)) {
+    const [nome, coluna] = chave.split('.');
+    const entidade = CONTENT_ENTITIES.find((e) => e.nome === nome);
+    assert.ok(entidade, `a excecao "${chave}" nomeia uma entidade que nao existe`);
+    assert.ok(
+      coluna && coluna in getTableColumns(entidade.tabela),
+      `a excecao "${chave}" nomeia uma coluna que nao existe`,
+    );
+
+    const forma = esquemaDeEntrada(entidade).shape as Record<string, z.ZodType>;
+    if (!forma[coluna!]?.safeParse(undefined).success) exigidas.push(chave);
+  }
+  assert.deepEqual(
+    exigidas,
+    [],
+    'excecao declarada para coluna que o POST ainda exige — o formulario nao criaria a linha',
   );
 });
 

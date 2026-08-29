@@ -74,9 +74,8 @@ export function seedIdentity(db: DatabaseSync): void {
  */
 export function seedClinicalChain(db: DatabaseSync): void {
   db.exec(`
-    INSERT INTO asset (ref, kind, path, sha256, bytes, storage_key, version, updated_by, updated_at)
-    VALUES ('icon.exemplo', 'icon', 'assets/exemplo.svg', '${'a'.repeat(64)}', 128,
-            'assets/exemplo.svg', ${AUTHORING});
+    INSERT INTO asset (ref, kind, path, sha256, bytes, version, updated_by, updated_at)
+    VALUES ('icon.exemplo', 'icon', 'assets/exemplo.svg', '${'a'.repeat(64)}', 128, ${AUTHORING});
   `);
   db.exec(`
     INSERT INTO card (id, kind, icon_ref, color_token, sort_order, version, updated_by, updated_at)

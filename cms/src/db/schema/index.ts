@@ -144,7 +144,15 @@ export const AUTHORING_ONLY_COLUMNS: readonly string[] = [
   'updated_by',
   'updated_at',
   'municipality_id',
-  'storage_key',
+  /**
+   * O ARQUIVO do asset.
+   *
+   * O pack carrega a referencia (`path`, `sha256`, `bytes`); a autoria carrega
+   * os bytes, porque o CMS nao tem credencial com que po-los em lugar nenhum —
+   * quem publica e o `packer`. Substituiu `storage_key` no item 25, que apontava
+   * para um objeto que ninguem enviava.
+   */
+  'binary',
   'status',
 ];
 

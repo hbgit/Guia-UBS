@@ -66,19 +66,26 @@ export const CAMPOS: MapaDeCampos = {
     { nome: 'active', rotulo: 'Ativo', tipo: 'booleano' },
   ],
   assets: [
-    { nome: 'ref', rotulo: 'Referencia', tipo: 'texto' },
-    { nome: 'kind', rotulo: 'Tipo', tipo: 'texto', dica: 'icon, image ou audio' },
-    { nome: 'path', rotulo: 'Caminho', tipo: 'texto' },
-    { nome: 'sha256', rotulo: 'SHA-256', tipo: 'texto' },
-    { nome: 'bytes', rotulo: 'Bytes', tipo: 'numero' },
     {
-      nome: 'storageKey',
-      rotulo: 'Chave no storage',
+      nome: 'ref',
+      rotulo: 'Referencia',
       tipo: 'texto',
-      // Nao ha upload: o binario continua vindo de `seed/assets/`. A chave aponta
-      // para um objeto que alguem precisa ter enviado por fora — §6 do manual.
-      dica: 'o binario ainda e enviado por fora do CMS',
+      // Vira o nome do arquivo publicado, entao nao aceita barra nem ponto-ponto:
+      // `path` alimenta a chave no S3, a url do manifest e um `join()` no
+      // caminho `seed/`. O servidor recusa o que nao casar.
+      dica: 'minusculas, numeros e pontos: icon.head',
     },
+    { nome: 'kind', rotulo: 'Tipo', tipo: 'texto', dica: 'icon, image ou audio' },
+    {
+      nome: 'path',
+      rotulo: 'Caminho publicado',
+      tipo: 'texto',
+      dica: 'derivado de ref e do tipo; o servidor recusa qualquer outro formato',
+    },
+    // `sha256`, `bytes` e o proprio binario NAO sao campos: saem do envio do
+    // arquivo, na secao propria. Quem conhece o hash de um arquivo e quem recebeu
+    // os bytes — nao quem preenche o formulario. `storageKey` saiu do schema no
+    // item 25, e o compilador pegaria se tivesse ficado aqui.
   ],
   'symptom-tokens': [
     { nome: 'id', rotulo: 'Identificador', tipo: 'texto' },

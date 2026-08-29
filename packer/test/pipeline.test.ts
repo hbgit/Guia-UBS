@@ -46,8 +46,8 @@ async function semear(c: Client): Promise<void> {
   await exec(`INSERT INTO municipality (id, code, name, version, updated_by, updated_at)
     VALUES ('mun-2', '1111111', 'Outro', ${A})`);
 
-  await exec(`INSERT INTO asset (ref, kind, path, sha256, bytes, storage_key, version, updated_by, updated_at)
-    VALUES ('icon.head', 'icon', 'assets/icon.head.svg', '${'a'.repeat(64)}', 1, 'k', ${A})`);
+  await exec(`INSERT INTO asset (ref, kind, path, sha256, bytes, version, updated_by, updated_at)
+    VALUES ('icon.head', 'icon', 'assets/icon.head.svg', '${'a'.repeat(64)}', 1, ${A})`);
 
   for (const [id, kind] of [
     ['chest', 'body_part'],
@@ -162,7 +162,7 @@ test('nenhuma coluna de autoria atravessa para o pack', async () => {
   const sql = (await extrairConteudo({ client, municipalityId: 'mun-1' }))
     .map((p) => p.sql)
     .join('\n');
-  for (const coluna of ['updated_by', 'updated_at', 'storage_key', 'status', 'municipality_id']) {
+  for (const coluna of ['updated_by', 'updated_at', 'binary', 'status', 'municipality_id']) {
     assert.ok(!sql.includes(coluna), `"${coluna}" atravessou para o pack`);
   }
 });

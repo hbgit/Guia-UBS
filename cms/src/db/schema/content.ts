@@ -36,6 +36,7 @@
 import { COLOR_TOKENS, LANGS, VENUES } from '@guia-ubs/contract';
 import { sql } from 'drizzle-orm';
 import {
+  blob,
   check,
   foreignKey,
   index,
@@ -102,17 +103,64 @@ export const municipality = sqliteTable('municipality', {
  * O pool de arquivos e global; o USO e que e municipal. Um municipio publica
  * `image.ubs.0000000` e so ele o referencia.
  *
- * `storage_key` e o objeto no MinIO — unica coluna de dominio que existe aqui e
- * nao no pack: o pack carrega `path` relativo dentro do artefato publicado, que
- * o packer resolve na hora de empacotar.
+ * ## O BINARIO mora aqui, e isso e uma decisao de fronteira
+ *
+ * Ate o item 25 havia `storage_key`, apontando para um objeto no MinIO que
+ * ninguem enviava. A coluna prometia um lugar; o lugar nao existia. Saiu pelo
+ * mesmo motivo que o `totp_secret_enc` saiu no item 17 — nome que promete algo
+ * que acontece em outro lugar.
+ *
+ * O que entrou no lugar foi o arquivo em si. A alternativa seria o CMS escrever
+ * direto no storage, e isso exigiria dar credencial de escrita ao processo que
+ * atende HTTP — a porta vizinha daquela que o `packer` mantem fechada ao nao
+ * publicar porta nenhuma (`worker.ts`: "uma falha de execucao remota no servico
+ * web vira conteudo clinico assinado chegando a aparelhos offline"). Com o
+ * binario aqui, o CMS grava o que ja sabe gravar, e quem publica continua sendo
+ * quem assina.
+ *
+ * De quebra, o binario herda de graca o que esta tabela ja tem: versao
+ * monotonica, travamento otimista e trilha.
  */
 export const asset = sqliteTable('asset', {
   ref: text('ref').primaryKey(),
   kind: text('kind', { enum: ['icon', 'image', 'audio'] }).notNull(),
+  /**
+   * Caminho logico dentro do pacote (`assets/icon.head.svg`).
+   *
+   * DERIVADO de `ref` e `kind` pela rota, nunca digitado: ele alimenta tres
+   * sumidouros — chave no S3, `url` do manifest e, no caminho `seed/`, um
+   * `join()` de sistema de arquivos. Um `..` aqui leria arquivo arbitrario para
+   * dentro de um pack ASSINADO.
+   */
   path: text('path').notNull(),
-  sha256: text('sha256').notNull(),
-  bytes: integer('bytes').notNull(),
-  storageKey: text('storage_key').notNull(),
+  /**
+   * Do arquivo, nao do que alguem digitou.
+   *
+   * `$defaultFn` e nao `.default()`: o primeiro nao emite DDL nenhum, enquanto o
+   * segundo faria o drizzle-kit RECRIAR esta tabela — `DROP TABLE asset`, que e
+   * pai de FK de oito tabelas e carrega o gatilho de versao. O sentinela vazio
+   * significa "sem binario ainda", e o packer recusa publicar assim.
+   */
+  sha256: text('sha256')
+    .notNull()
+    .$defaultFn(() => ''),
+  bytes: integer('bytes')
+    .notNull()
+    .$defaultFn(() => 0),
+  /**
+   * O arquivo. Anulavel de proposito.
+   *
+   * `asset` e o primeiro de tudo que se cadastra, porque oito tabelas apontam
+   * para ele. Exigir os bytes na criacao travaria a autoria inteira ate o
+   * designer entregar o arquivo, ou obrigaria a fabrica de CRUD a ter um caso
+   * especial para UMA entidade — que e onde o registro diz que o proximo defeito
+   * se esconde. A linha existe sem bytes; quem RECUSA publicar e o packer.
+   *
+   * Nunca sai em JSON nem entra na trilha: `crud.ts` filtra colunas de buffer, e
+   * `audit.ts` recusa serializa-las. A trilha guarda os dois `sha256`, que
+   * respondem "quem trocou quais bytes por quais" em 200 bytes.
+   */
+  binario: blob('binary', { mode: 'buffer' }),
   ...authoring(),
 });
 

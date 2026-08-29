@@ -45,11 +45,38 @@ export interface AuditEvent {
   ip?: string | null;
 }
 
+/**
+ * Bytes NUNCA entram na trilha, e recusar e melhor que descartar.
+ *
+ * `audit_entry` e append-only por gatilho: o que entra ali nao sai mais, nem
+ * pelo expurgo de retencao que a LGPD-RF07 ainda vai exigir. Um blob de asset
+ * gravado por engano seria permanente, e cresceria a tabela em megabytes por
+ * envio.
+ *
+ * Descartar em silencio seria pior que lancar: a trilha passaria a registrar um
+ * `after` incompleto sem que nada dissesse isso, e uma trilha que omite mente
+ * sobre o que viu. Quem chama decide o que registrar — no caso do asset, os dois
+ * `sha256`, que respondem "quem trocou quais bytes por quais" em 200 bytes.
+ */
+function recusarBytes(rotulo: string, valor: unknown, profundidade = 0): void {
+  if (valor === null || typeof valor !== 'object' || profundidade > 4) return;
+  if (ArrayBuffer.isView(valor) || valor instanceof ArrayBuffer) {
+    throw new Error(
+      `recordAudit: "${rotulo}" carrega bytes. A trilha e append-only — registre o ` +
+        'sha256, nao o conteudo.',
+    );
+  }
+  for (const item of Object.values(valor)) recusarBytes(rotulo, item, profundidade + 1);
+}
+
 export async function recordAudit(
   client: Client,
   salt: string,
   event: AuditEvent,
 ): Promise<void> {
+  recusarBytes('before', event.before);
+  recusarBytes('after', event.after);
+
   const db = createDb(client);
   await db.insert(auditEntry).values({
     id: randomUUID(),

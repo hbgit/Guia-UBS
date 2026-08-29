@@ -6,7 +6,7 @@
  * codegen. Nao existe segunda definicao do schema para sair de sincronia.
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -33,19 +33,35 @@ export interface BuildOptions {
    */
   dataSource?: { name: string; sql: string }[];
   /**
-   * Onde os binarios de asset estao. Padrao: `seed/`.
+   * Onde os binarios de asset estao no disco. Padrao: `seed/`.
    *
-   * Continua sendo `seed/` mesmo no caminho do banco, porque o upload de asset
-   * ainda nao existe (lacuna declarada no item 18): `asset.storage_key` aponta
-   * para objetos que ninguem enviou. Quando o upload chegar, este parametro
-   * passa a apontar para o storage.
+   * E o caminho do CLI e do CI, que rodam sem docker e sem banco de autoria.
    */
   assetRoot?: string;
+  /**
+   * Binarios ja em memoria, vindos do banco de autoria. Caminho do CMS.
+   *
+   * Mesma decisao de `dataSource`: ausente, o build vem de `seed/`; presente,
+   * vem do banco. **Duas fontes, uma para cada caminho, nunca sincronizadas** —
+   * o mesmo precedente da suite golden (YAML para o CI, `golden_case` para o
+   * CMS).
+   *
+   * Ate o item 25 este parametro nao existia, e o docblock do `assetRoot`
+   * prometia que "quando o upload chegar, este parametro passa a apontar para o
+   * storage". Nao passou: o CMS nao tem credencial com que escrever no storage,
+   * entao os bytes moram no banco e chegam aqui pela memoria, lidos por quem ja
+   * tem as duas credenciais.
+   */
+  assetBytes?: ReadonlyMap<string, Buffer>;
 }
 
 export interface BuildResult {
   dbPath: string;
-  assets: { ref: string; path: string; sha256: string; bytes: number }[];
+  /**
+   * `content` viaja junto para o `publish()` nao precisar voltar ao disco — e e
+   * o que permitiu `seed/` sumir dos dois chamadores.
+   */
+  assets: { ref: string; path: string; sha256: string; bytes: number; content: Buffer }[];
 }
 
 /** O DDL do drizzle-kit separa comandos com este marcador. */
@@ -129,21 +145,60 @@ export function buildPack(options: BuildOptions): BuildResult {
     const resolved: BuildResult['assets'] = [];
 
     for (const { ref, path } of assets) {
-      const filePath = join(assetRoot, path);
-      let bytes: number;
       let content: Buffer;
-      try {
-        content = readFileSync(filePath);
-        bytes = statSync(filePath).size;
-      } catch {
-        throw new Error(
-          `Asset "${ref}" aponta para ${path}, que nao existe em ${assetRoot}. ` +
-            'Se o build veio de seed/, rode `node seed/assets/generate-placeholders.mjs`.',
-        );
+
+      if (options.assetBytes) {
+        // Caminho do CMS. A mensagem de falta e OUTRA de proposito: mandar um
+        // operador do CMS rodar `generate-placeholders.mjs` o faria procurar o
+        // problema num diretorio que ele nem usa.
+        const doBanco = options.assetBytes.get(ref);
+        if (!doBanco) {
+          throw new Error(
+            `O asset "${ref}" nao tem binario. Envie o arquivo em /conteudo/assets ` +
+              'antes de submeter a release — o pack nao pode citar um arquivo que nao existe.',
+          );
+        }
+        content = doBanco;
+      } else {
+        // Caminho `seed/`: CLI e CI, sem docker e sem banco de autoria.
+        try {
+          content = readFileSync(join(assetRoot, path));
+        } catch {
+          throw new Error(
+            `Asset "${ref}" aponta para ${path}, que nao existe em ${assetRoot}. ` +
+              'Se o build veio de seed/, rode `node seed/assets/generate-placeholders.mjs`.',
+          );
+        }
       }
+
+      // `byteLength` nos DOIS caminhos: com `statSync` num e `byteLength` no
+      // outro, os dois poderiam divergir por um motivo que ninguem procuraria.
+      const bytes = content.byteLength;
       const sha256 = createHash('sha256').update(content).digest('hex');
+
+      /**
+       * No caminho do CMS, CONFERIR em vez de corrigir.
+       *
+       * No caminho `seed/` o SQL guarda `sha256 = ''` de proposito, e sobrescrever
+       * e o comportamento certo. No caminho do CMS o hash foi calculado pela rota
+       * de envio a partir dos MESMOS bytes: divergir significa que o blob e o
+       * metadado dessincronizaram, isto e, que houve escrita fora da rota.
+       * "Consertar" em silencio esconderia exatamente o evento que vale conhecer.
+       */
+      if (options.assetBytes) {
+        const gravado = db.prepare('SELECT sha256 FROM asset WHERE ref = ?').get(ref) as
+          | { sha256?: string }
+          | undefined;
+        if (gravado?.sha256 && gravado.sha256 !== sha256) {
+          throw new Error(
+            `O asset "${ref}" tem sha256 ${gravado.sha256} gravado, mas os bytes somam ` +
+              `${sha256}. Blob e metadado dessincronizaram — houve escrita fora da rota de envio.`,
+          );
+        }
+      }
+
       update.run(sha256, bytes, ref);
-      resolved.push({ ref, path, sha256, bytes });
+      resolved.push({ ref, path, sha256, bytes, content });
     }
 
     db.prepare(

@@ -1003,8 +1003,8 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 
 ##### Lacunas declaradas ao fim do item
 
-1. **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de piloto.**
-2. **Upload de asset não existe.** `asset` tem CRUD de metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível até isso fechar. O `putObject` (SigV4) já existe em `packer/src/release.ts` e é o ponto de partida.
+1. [DONE] **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de piloto.**
+2. [DOING] **Upload de asset não existe.** `asset` tem CRUD de metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível até isso fechar. O `putObject` (SigV4) já existe em `packer/src/release.ts` e é o ponto de partida.
 3. **O packer fixa `defaultOutcomeId: 'ROUTINE_UBS'` no código** ([packer/src/index.ts](../packer/src/index.ts)). O CMS deriva o padrão da menor severidade; os dois concordam hoje por coincidência de nomenclatura. Um município que nomeie o desfecho de rotina de outro jeito quebra o packer, não o CMS.
 
 
