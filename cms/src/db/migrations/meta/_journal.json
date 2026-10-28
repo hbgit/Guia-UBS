@@ -57,6 +57,13 @@
       "when": 1787961381714,
       "tag": "0007_sai_storage_key",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793216588513,
+      "tag": "0008_account_sem_issuer",
+      "breakpoints": true
     }
   ]
 }
