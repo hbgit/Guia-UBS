@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../tool/check_release_permissions.dart';
 import '../../tool/release_permissions.dart';
 
 String manifest(String body) =>
@@ -22,6 +25,8 @@ const List<String> _herdadas = [
 ];
 
 final String _herdadasXml = _herdadas.map(usesPermission).join();
+const String _toolsNs = 'xmlns:tools="http://schemas.android.com/tools"';
+
 final String _listaXml =
     _herdadasXml + usesPermission('android.permission.INTERNET');
 
@@ -109,5 +114,69 @@ void main() {
       isFalse,
     );
     expect(isStale(source: {}, merged: _herdadas.toSet()), isFalse);
+  });
+
+  test('tools:node="remove" na fonte não conta como pedido', () {
+    final declared = declaredPermissions(
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android" '
+      '$_toolsNs>'
+      '<uses-permission android:name="android.permission.INTERNET"/>'
+      '<uses-permission android:name="android.permission.WAKE_LOCK" '
+      'tools:node="remove"/>'
+      '<uses-permission android:name="android.permission.CAMERA" '
+      'tools:node="removeAll"/>'
+      '</manifest>',
+    );
+    expect(declared, {'android.permission.INTERNET'});
+  });
+
+  group('runCheck', () {
+    late Directory dir;
+    setUp(() => dir = Directory.systemTemp.createTempSync('perm'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    File write(String name, String xml) =>
+        File('${dir.path}/$name')..writeAsStringSync(xml);
+
+    test('fonte não encontrada sai 2, nunca pula o guarda', () {
+      final merged = write('merged.xml', manifest(_listaXml));
+      final err = StringBuffer();
+      final code = runCheck(
+        [merged.path],
+        sourcePath: '${dir.path}/nao-existe.xml',
+        out: StringBuffer(),
+        err: err,
+      );
+      expect(code, 2);
+      expect(err.toString(), contains('app/'));
+    });
+
+    test('fonte pede o que o mesclado não tem sai 3', () {
+      final merged = write('merged.xml', manifest(_listaXml));
+      final source = write(
+        'src.xml',
+        manifest(usesPermission('android.permission.CAMERA')),
+      );
+      final code = runCheck(
+        [merged.path],
+        sourcePath: source.path,
+        out: StringBuffer(),
+        err: StringBuffer(),
+      );
+      expect(code, 3);
+    });
+
+    test('lista fechada com fonte coerente sai 0', () {
+      final merged = write('merged.xml', manifest(_listaXml));
+      final source = write(
+        'src.xml',
+        manifest(usesPermission('android.permission.INTERNET')),
+      );
+      expect(
+        runCheck([merged.path],
+            sourcePath: source.path, out: StringBuffer(), err: StringBuffer()),
+        0,
+      );
+    });
   });
 }

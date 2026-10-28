@@ -46,6 +46,12 @@ const String defaultReleaseManifestPath = 'build/app/intermediates/'
 const String mainManifestSourcePath = 'android/app/src/main/AndroidManifest.xml';
 
 const String _androidNamespace = 'http://schemas.android.com/apk/res/android';
+const String _toolsNamespace = 'http://schemas.android.com/tools';
+
+/// Marcadores do merger que TIRAM a permissão do mesclado. É assim que se
+/// remove uma herdada de plugin; contá-la como pedido faria o guarda de build
+/// velho acusar, para sempre, um build novo.
+const Set<String> _removalNodes = {'remove', 'removeAll'};
 
 /// Elementos que PEDEM permissão. `uses-permission-sdk-23` concede em API 23+
 /// e escaparia de um filtro só por `uses-permission`. `<permission>` declara,
@@ -58,6 +64,9 @@ const Set<String> _requestElements = {
 
 /// Permissões pedidas por um manifest Android.
 ///
+/// Elementos com `tools:node="remove"` ou `"removeAll"` não são pedidos: na
+/// fonte, eles dizem ao merger para tirar a permissão.
+///
 /// Lança [FormatException] em pedido sem `android:name`: manifest malformado
 /// não pode virar "zero permissões, tudo certo".
 Set<String> declaredPermissions(String manifestXml) {
@@ -65,6 +74,8 @@ Set<String> declaredPermissions(String manifestXml) {
   final declared = <String>{};
   for (final element in document.descendantElements) {
     if (!_requestElements.contains(element.name.local)) continue;
+    final node = element.getAttribute('node', namespace: _toolsNamespace);
+    if (_removalNodes.contains(node)) continue;
     final name = element.getAttribute('name', namespace: _androidNamespace);
     if (name == null || name.isEmpty) {
       throw FormatException(
@@ -103,8 +114,10 @@ PermissionDiff diffPermissions(
 /// Compara CONTEÚDO, não data. O Gradle decide se a tarefa está atualizada
 /// pelo conteúdo dos insumos, e não reescreve a saída quando a fonte só foi
 /// tocada (um checkout, por exemplo): por `mtime`, o guarda acusaria build
-/// velho para sempre. O merger só acrescenta permissões dos plugins, então o
-/// mesclado sempre contém as da fonte; faltar alguma é build por refazer.
+/// velho para sempre. Fora as marcadas com `tools:node="remove"` (que
+/// [declaredPermissions] já ignora), o merger só ACRESCENTA permissões dos
+/// plugins, então o mesclado sempre contém as da fonte; faltar alguma é build
+/// por refazer.
 ///
 /// Limite conhecido: REMOVER uma permissão da fonte sem refazer o build passa
 /// despercebido, porque o mesclado antigo ainda a contém.
