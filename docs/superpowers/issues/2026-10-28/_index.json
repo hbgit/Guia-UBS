@@ -1,0 +1,338 @@
+[
+ {
+  "code": "P0-1",
+  "title": "APK de release não declara INTERNET: download de pack e de modelo impossível fora de debug",
+  "labels": [
+   "bug",
+   "app",
+   "P0"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P0-2",
+  "title": "Caso golden sem revisor clínico barra a publicação; os 24 casos do semente ganham revisor identificável",
+  "labels": [
+   "bug",
+   "backend",
+   "spec",
+   "P0"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P1-1",
+  "title": "Servir o GGUF do storage próprio, com os termos do Gemma nos termos de uso do app e a Política de Uso Proibido analisada em ADR",
+  "labels": [
+   "feature",
+   "llm",
+   "spec",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": [
+   "P0-1"
+  ]
+ },
+ {
+  "code": "P1-2",
+  "title": "Allowlist de endpoints fixada em teste e auditoria de tráfego registrada (LGPD-RF01/RT11)",
+  "labels": [
+   "test",
+   "ci",
+   "app",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": [
+   "P1-1",
+   "P1-3"
+  ]
+ },
+ {
+  "code": "P1-3",
+  "title": "Desligar o backup automático do Android e registrar que perder as preferências ao trocar de aparelho é intencional",
+  "labels": [
+   "bug",
+   "app",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": [
+   "P0-1"
+  ]
+ },
+ {
+  "code": "P1-4",
+  "title": "Pack de referência embutido no APK, assinado, verificado no boot e substituído pelo sync",
+  "labels": [
+   "feature",
+   "app",
+   "backend",
+   "spec",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P1-5",
+  "title": "Bench em aparelho de entrada real (4 GB, Cortex-A53/A55): carga, latência, total da triagem, RAM e fallback_rate",
+  "labels": [
+   "spike",
+   "llm",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P1-6",
+  "title": "Teste de integração em modo avião (critério da RNF-01)",
+  "labels": [
+   "test",
+   "app",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": [
+   "P1-4"
+  ]
+ },
+ {
+  "code": "P1-7",
+  "title": "Observar o selo \"assistente virtual\" em aparelho real (lacuna declarada da RF-15)",
+  "labels": [
+   "test",
+   "llm",
+   "app",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P1-8",
+  "title": "Aceite de termo de uso no primeiro login do CMS (LGPD-RF02/RF04/RT04/RT05)",
+  "labels": [
+   "feature",
+   "backend",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P1-9",
+  "title": "Nomeação do encarregado (DPO) e canal do titular (LGPD-RF08, art. 41)",
+  "labels": [
+   "documentation",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": []
+ },
+ {
+  "code": "P1-10",
+  "title": "DPA com operadores e inventário de dados (LGPD-RF06, RT11)",
+  "labels": [
+   "documentation",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": [
+   "P1-9"
+  ]
+ },
+ {
+  "code": "P1-11",
+  "title": "Ensaio de 72 h offline (RNF-07) e crash-free",
+  "labels": [
+   "test",
+   "app",
+   "P1"
+  ],
+  "milestone": "Piloto",
+  "deps": [
+   "P0-1",
+   "P1-6"
+  ]
+ },
+ {
+  "code": "P2-1",
+  "title": "CI constrói o APK de release, confere o manifest mesclado e mede o tamanho (RNF-03 \"pipeline de release\")",
+  "labels": [
+   "ci",
+   "infra",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": [
+   "P0-1"
+  ]
+ },
+ {
+  "code": "P2-2",
+  "title": "Auditoria de dependências Flutter e bloqueio de SDKs de ads/tracking em CI (LGPD-RF16)",
+  "labels": [
+   "ci",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-3",
+  "title": "Tradução sem travamento otimista: PUT …/traducoes/<lang> sem If-Match e sem ETag",
+  "labels": [
+   "bug",
+   "backend",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-4",
+  "title": "Importador de conteúdo seed/ → CMS",
+  "labels": [
+   "feature",
+   "backend",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-5",
+  "title": "Contingência de licença: medir um modelo Apache 2.0 de porte parecido com o Gemma 3 1B",
+  "labels": [
+   "spike",
+   "llm",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-6",
+  "title": "Telemetria fora da tela de privacidade enquanto estiver desligada",
+  "labels": [
+   "feature",
+   "app",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-7",
+  "title": "ADR: produtor e agregador de telemetria (pós-piloto)",
+  "labels": [
+   "spike",
+   "spec",
+   "backend",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-8",
+  "title": "Expurgo por retenção (LGPD-RF07/RT10), com proposta de tabela por classe para aprovação do encarregado",
+  "labels": [
+   "feature",
+   "backend",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": [
+   "P1-9"
+  ]
+ },
+ {
+  "code": "P2-9",
+  "title": "Bancada de latência de UI e gate: gate < 50 ms, idioma/tema ≤ 200 ms, cold start < 2,5 s",
+  "labels": [
+   "test",
+   "app",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-10",
+  "title": "Confirmar o \"aviso em áudio\" da tela de privacidade (CAP-13)",
+  "labels": [
+   "test",
+   "app",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P2-11",
+  "title": "Ansible e runbooks: incidente (LGPD-RF12), rotação de chave e revogação de pack",
+  "labels": [
+   "infra",
+   "documentation",
+   "P2"
+  ],
+  "milestone": null,
+  "deps": [
+   "P1-9"
+  ]
+ },
+ {
+  "code": "P2-12",
+  "title": "Delta packs (bsdiff) — v1.1",
+  "labels": [
+   "feature",
+   "app",
+   "backend",
+   "P2"
+  ],
+  "milestone": "v1.1",
+  "deps": []
+ },
+ {
+  "code": "P3-1",
+  "title": "Completar a auditoria open source de stack.md §9 com todos os pacotes do app e do plano de controle",
+  "labels": [
+   "documentation",
+   "spec",
+   "P3"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P3-2",
+  "title": "Alinhar stack.md e espec.md ao decidido: shim C, hono/client inviável, zod-openapi sem uso, condição do delta",
+  "labels": [
+   "tech-debt",
+   "spec",
+   "backend",
+   "P3"
+  ],
+  "milestone": null,
+  "deps": []
+ },
+ {
+  "code": "P3-3",
+  "title": "Justificar as 7 permissões herdadas de plugins e confirmar ausência de wakelock persistente (RNF-08)",
+  "labels": [
+   "documentation",
+   "app",
+   "P3"
+  ],
+  "milestone": null,
+  "deps": [
+   "P0-1"
+  ]
+ }
+]
