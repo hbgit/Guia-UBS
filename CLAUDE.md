@@ -57,6 +57,7 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **Um único `callbackDispatcher`** (`app/lib/sync/background_sync.dart`). `Workmanager().initialize()` aceita uma função, que recebe TODAS as tarefas; dois dispatchers significam que só um roda e o outro é silenciosamente descartado.
 - **Freio de sync é estado em disco, não em memória** (`app/lib/sync/sync_retry_state.dart`). O WorkManager cria um isolate por disparo — backoff e circuito guardados em campos de instância não existem em produção. O circuito é um *instante* ("fechado a partir de"), não um booleano.
 - **Adiar a troca por triagem em curso não é falha.** Se contasse no circuito, o app pararia de sincronizar justamente por estar sendo usado.
+- **Um escritor por destino é trava em arquivo `O_EXCL`, não `RandomAccessFile.lock`** (`app/lib/sync/destination_lock.dart`). O worker do WorkManager é outro isolate do MESMO processo, e o lock do Dart é por processo. O batimento existe porque `onStopped` destrói a engine sem `finally`. O nome começa com ponto para escapar do `dropUnreferenced`.
 
 ## Dados no aparelho
 
