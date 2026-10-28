@@ -85,7 +85,6 @@ async function main(): Promise<void> {
     packVersion: args.packVersion,
     schemaVersion: PACK_SCHEMA_VERSION,
     municipality: args.municipality,
-    defaultOutcomeId: 'ROUTINE_UBS',
     sourceCommit: process.env.GIT_COMMIT ?? 'dev',
   });
   console.log(`  ok    pack construido (${built.assets.length} assets)`);

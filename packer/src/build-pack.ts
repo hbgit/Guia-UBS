@@ -10,7 +10,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-import type { Outcome, Rule, RuleTerm } from '@guia-ubs/contract';
+import { desfechoPadrao, type Outcome, type Rule, type RuleTerm } from '@guia-ubs/contract';
 
 export interface BuildOptions {
   repoRoot: string;
@@ -18,7 +18,6 @@ export interface BuildOptions {
   packVersion: number;
   schemaVersion: string;
   municipality: string;
-  defaultOutcomeId: string;
   sourceCommit: string;
   /**
    * Sentencas de DADOS a carregar sobre o DDL.
@@ -201,6 +200,11 @@ export function buildPack(options: BuildOptions): BuildResult {
       resolved.push({ ref, path, sha256, bytes, content });
     }
 
+    // O desfecho padrao vem dos desfechos que ACABARAM de entrar no pack, nunca
+    // de quem chamou: a escala e os nomes pertencem ao pack, e um valor fixo
+    // aqui so concordaria com o conteudo por coincidencia de nomenclatura.
+    const defaultOutcomeId = desfechoPadrao(lerDesfechos(db));
+
     db.prepare(
       `INSERT INTO pack_meta
          (id, pack_version, schema_version, municipality_code, built_at,
@@ -211,7 +215,7 @@ export function buildPack(options: BuildOptions): BuildResult {
       options.schemaVersion,
       options.municipality,
       buildTimestamp(),
-      options.defaultOutcomeId,
+      defaultOutcomeId,
       options.sourceCommit,
     );
 
@@ -223,6 +227,17 @@ export function buildPack(options: BuildOptions): BuildResult {
   }
 }
 
+function lerDesfechos(db: DatabaseSync): Map<string, Outcome> {
+  const outcomes = new Map<string, Outcome>();
+  for (const row of db.prepare('SELECT id, severity_level FROM routing_outcome').all() as {
+    id: string;
+    severity_level: number;
+  }[]) {
+    outcomes.set(row.id, { id: row.id, severityLevel: row.severity_level });
+  }
+  return outcomes;
+}
+
 /** Le regras e desfechos de um pack ja construido — usado pela suite golden. */
 export function readRuleModel(dbPath: string): {
   rules: Rule[];
@@ -232,13 +247,7 @@ export function readRuleModel(dbPath: string): {
 } {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
-    const outcomes = new Map<string, Outcome>();
-    for (const row of db.prepare('SELECT id, severity_level FROM routing_outcome').all() as {
-      id: string;
-      severity_level: number;
-    }[]) {
-      outcomes.set(row.id, { id: row.id, severityLevel: row.severity_level });
-    }
+    const outcomes = lerDesfechos(db);
 
     const termsByRule = new Map<string, RuleTerm[]>();
     for (const row of db

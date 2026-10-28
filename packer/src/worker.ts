@@ -172,22 +172,6 @@ async function chavesRegistradas(client: Client) {
   }));
 }
 
-/**
- * Desfecho padrao = o de MENOR severidade.
- *
- * Mesma derivacao que o CMS usa na simulacao, e pelo mesmo motivo: "nenhuma regra
- * casou" significa o caso menos grave, e nao ha configuracao para inventar. O CLI
- * de `seed/` ainda fixa `ROUTINE_UBS` — divergencia registrada como lacuna.
- */
-async function desfechoPadrao(client: Client): Promise<string> {
-  const r = await client.execute(
-    'SELECT id FROM routing_outcome ORDER BY severity_level ASC LIMIT 1',
-  );
-  const linha = r.rows[0];
-  if (!linha) throw new Error('nao ha nenhum desfecho cadastrado');
-  return String(linha.id);
-}
-
 export interface ResultadoProcessamento {
   releaseId: string;
   estado: 'publicado' | 'bloqueado' | 'nao_reivindicada';
@@ -227,7 +211,6 @@ export async function processar(
       packVersion: release.packVersion,
       schemaVersion: release.schemaVersion || PACK_SCHEMA_VERSION,
       municipality: release.municipalityCode,
-      defaultOutcomeId: await desfechoPadrao(client),
       sourceCommit: process.env.GIT_COMMIT ?? 'cms',
       dataSource: dados,
     });

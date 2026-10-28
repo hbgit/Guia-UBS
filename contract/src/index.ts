@@ -14,6 +14,7 @@ export {
   type Manifest,
 } from './manifest.js';
 export {
+  desfechoPadrao,
   evaluate,
   ruleMatches,
   type Outcome,

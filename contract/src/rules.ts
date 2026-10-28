@@ -121,3 +121,37 @@ export function evaluate(
   }
   return { outcomeId: fallback.id, severityLevel: fallback.severityLevel, matchedRuleId: null };
 }
+
+/**
+ * Desfecho padrao = o de MENOR severidade.
+ *
+ * E o que `evaluate()` assume quando nenhuma regra casa, e nao ha configuracao
+ * para isso em lugar nenhum — nem coluna no banco de autoria, nem flag no
+ * packer. Inventar uma seria decidir por fora o que a semantica ja decide:
+ * "nenhuma regra casou" significa o caso menos grave. E o mesmo raciocinio do
+ * app, que deriva os extremos dos desfechos do proprio pack em vez de fixar
+ * limiares no binario.
+ *
+ * Mora no contrato pelo mesmo motivo do avaliador: ate o item 25 existiam TRES
+ * derivacoes — o CMS (simulacao), o worker (SQL no banco master) e o CLI do
+ * packer, que fixava `ROUTINE_UBS` e so concordava com os outros dois por
+ * coincidencia de nomenclatura.
+ *
+ * Empate de severidade desempata por `id`: o resultado entra em `pack_meta`
+ * e, por ela, no hash do pack. Depender da ordem das linhas tornaria o build
+ * nao reproduzivel.
+ */
+export function desfechoPadrao(outcomes: ReadonlyMap<string, Outcome>): string {
+  let menor: Outcome | null = null;
+  for (const desfecho of outcomes.values()) {
+    if (
+      menor === null ||
+      desfecho.severityLevel < menor.severityLevel ||
+      (desfecho.severityLevel === menor.severityLevel && desfecho.id < menor.id)
+    ) {
+      menor = desfecho;
+    }
+  }
+  if (menor === null) throw new Error('nao ha nenhum desfecho cadastrado');
+  return menor.id;
+}

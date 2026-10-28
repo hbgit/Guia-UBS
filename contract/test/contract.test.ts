@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { canonicalPayload, manifestSchema, type Manifest } from '../src/manifest.js';
+import { desfechoPadrao } from '../src/rules.js';
 import { isAcceptableBatch, K_ANONYMITY_MIN } from '../src/telemetry.js';
 
 const HASH_A = 'a'.repeat(64);
@@ -101,4 +102,36 @@ test('lote agregado valido e aceito', () => {
     metrics: { triage_completed_total: 120, triage_fallback_total: 3 },
   };
   assert.equal(isAcceptableBatch(batch), true);
+});
+
+// --- Desfecho padrao -------------------------------------------------------
+
+test('desfecho padrao e o de MENOR severidade, seja qual for o nome', () => {
+  // A escala e os nomes pertencem ao pack. Um municipio que chame o desfecho de
+  // rotina de outro jeito nao pode quebrar o packer.
+  const desfechos = new Map([
+    ['URGENTE', { id: 'URGENTE', severityLevel: 100 }],
+    ['ORIENTACAO_DOMICILIAR', { id: 'ORIENTACAO_DOMICILIAR', severityLevel: 1 }],
+    ['POSTO', { id: 'POSTO', severityLevel: 10 }],
+  ]);
+  assert.equal(desfechoPadrao(desfechos), 'ORIENTACAO_DOMICILIAR');
+});
+
+test('desfecho padrao desempata por id, nao por ordem de insercao', () => {
+  // O resultado entra em `pack_meta` e, por ela, no hash do pack. Depender da
+  // ordem em que o SELECT devolveu as linhas tornaria o build nao reproduzivel.
+  const a = new Map([
+    ['B', { id: 'B', severityLevel: 10 }],
+    ['A', { id: 'A', severityLevel: 10 }],
+  ]);
+  const b = new Map([
+    ['A', { id: 'A', severityLevel: 10 }],
+    ['B', { id: 'B', severityLevel: 10 }],
+  ]);
+  assert.equal(desfechoPadrao(a), 'A');
+  assert.equal(desfechoPadrao(b), 'A');
+});
+
+test('sem desfecho cadastrado nao ha padrao possivel', () => {
+  assert.throws(() => desfechoPadrao(new Map()), /nenhum desfecho/);
 });

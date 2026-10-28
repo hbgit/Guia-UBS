@@ -1005,7 +1005,7 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 
 1. [DONE] **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de piloto.**
 2. [DONE] **Upload de asset não existe.** `asset` tem CRUD de metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível até isso fechar. O `putObject` (SigV4) já existe em `packer/src/release.ts` e é o ponto de partida.
-3. **O packer fixa `defaultOutcomeId: 'ROUTINE_UBS'` no código** ([packer/src/index.ts](../packer/src/index.ts)). O CMS deriva o padrão da menor severidade; os dois concordam hoje por coincidência de nomenclatura. Um município que nomeie o desfecho de rotina de outro jeito quebra o packer, não o CMS.
+3. [DONE] **O packer fixa `defaultOutcomeId: 'ROUTINE_UBS'` no código** (fechada no item 26 — ver §5.15) ([packer/src/index.ts](../packer/src/index.ts)). O CMS deriva o padrão da menor severidade; os dois concordam hoje por coincidência de nomenclatura. Um município que nomeie o desfecho de rotina de outro jeito quebra o packer, não o CMS.
 
 
 #### 5.12 Resultado do item 19 — dual review, orquestração e telemetria (2026-08-24)
@@ -1046,7 +1046,7 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 2. **A telemetria não tem produtor**, por duas causas independentes: o app não envia (terceira chamada de rede exige ADR) e, mesmo que enviasse, seu lote seria recusado por falta de agregação. **Quem agrega é uma decisão de arquitetura ainda não tomada.**
 3. **Não há importador de CONTEÚDO** de `seed/` para o CMS — só de casos golden. Um CMS recém-implantado começa vazio, e a primeira release precisa ser montada pela API. A verificação deste item usou um conjunto mínimo por isso.
 4. **Upload de asset não existe.** O binário ainda vem de `seed/assets/`; `asset.storage_key` aponta para objetos que ninguém enviou.
-5. **`defaultOutcomeId` fixo no CLI do packer** (`ROUTINE_UBS`), enquanto o worker e o CMS o derivam da menor severidade. Concordam hoje por coincidência de nomenclatura.
+5. ~~**`defaultOutcomeId` fixo no CLI do packer**~~ **Fechada no item 26** — ver §5.15.
 6. **24 casos golden sem `reviewed_by`.** O packer e o importador avisam; bloqueia piloto.
 7. **Expurgo por retenção (LGPD-RF07) não implementado** — depende da tabela de retenção aprovada pelo encarregado.
 
@@ -1142,6 +1142,18 @@ Por isso a correção central não é o bloco no Caddy: é **`loadEnv()` derruba
 
 **O aplicativo não é afetado, e vale saber por quê:** `PACK_MANIFEST_URL` é constante de compilação apontando para o `storage`, sem pinning nem trust store próprio. Acrescentar um site do CMS não toca nada. Mexer em `CONTENT_DOMAIN`, esse sim, exigiria recompilar e redistribuir o APK — e por isso ficou de fora.
 
+
+#### 5.15 Resultado do item 26 — desfecho padrão derivado no packer (2026-10-28)
+
+Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande em categoria: o `default_outcome_id` que vai para `pack_meta` tinha **três** origens — o CMS derivava da menor severidade na simulação, o worker derivava por SQL no banco master, e o CLI de `seed/` fixava `'ROUTINE_UBS'`. Concordavam por coincidência de nomenclatura; um município que nomeasse o desfecho de rotina de outro jeito quebraria o packer, não o CMS.
+
+**A derivação mora no contrato, como o avaliador.** `desfechoPadrao()` saiu de `cms/src/services/rule-simulation.ts` para `contract/src/rules.ts`, pelo mesmo motivo que levou `evaluate()` para lá no item 18: duas cópias produzem dois vereditos. O CMS e o packer importam.
+
+**O `buildPack` deriva dos desfechos que ACABARAM de entrar no pack**, e o parâmetro `defaultOutcomeId` deixou de existir em `BuildOptions`. Não é só tirar a constante do CLI: quem chama o construtor não tem como saber o valor certo antes de o conteúdo estar carregado, e aceitar o valor de fora deixaria aberto exatamente o caminho pelo qual a constante entrou. O helper do worker (SQL no banco master) foi removido junto — ele lia a mesma tabela que o pack acabaria contendo.
+
+**Empate de severidade desempata por `id`.** O resultado entra em `pack_meta` e, por ela, no hash do pack. A versão do CMS escolhia o primeiro encontrado na iteração do `Map`, que vem da ordem do `SELECT` sem `ORDER BY`: num empate, duas builds do mesmo conteúdo poderiam divergir. Há teste para os dois sentidos de inserção.
+
+**Verificado:** teste de packer com um desfecho `AUTOCUIDADO` de severidade 1 acrescentado ao semente — o pack sai com ele como padrão, sem ninguém dizer o nome. `npm run pack:build` com `SOURCE_DATE_EPOCH` produz o **mesmo** `pack-88c2c35a99e1.db` de antes: para o semente, derivar e fixar coincidem, e o hash prova isso. 331 testes TypeScript (12 contrato + 289 cms + 30 packer), `typecheck` limpo. O app não muda: ele já lia `default_outcome_id` do pack e nunca soube de onde o valor vinha.
 
 ### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅

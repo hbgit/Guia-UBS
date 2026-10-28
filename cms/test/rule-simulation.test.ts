@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
-import { desfechoPadrao } from '../src/services/rule-simulation.js';
+import { desfechoPadrao } from '@guia-ubs/contract';
 import { freshApp, pedido, seedConteudo, sessaoDe, type Fixture } from './support/app.js';
 
 let f: Fixture;

@@ -10,7 +10,7 @@
  * Dart. Uma copia local mostraria um veredito aqui e outro na publicacao, o que
  * e pior do que nao ter simulacao nenhuma.
  */
-import { evaluate, type Outcome, type Rule } from '@guia-ubs/contract';
+import { desfechoPadrao, evaluate, type Outcome, type Rule } from '@guia-ubs/contract';
 import type { Client } from '@libsql/client';
 
 import type { RegraProposta } from './rule-validation.js';
@@ -91,23 +91,6 @@ async function carregarModelo(client: Client): Promise<ModeloDeRegras> {
   }));
 
   return { rules, outcomes, defaultOutcomeId: desfechoPadrao(outcomes) };
-}
-
-/**
- * Desfecho padrao = o de MENOR severidade.
- *
- * Nao ha coluna de configuracao para isso no banco de autoria, e inventar uma
- * seria decidir por fora o que a semantica ja decide: "nenhuma regra casou"
- * significa o caso menos grave. E o mesmo raciocinio do app, que deriva os
- * extremos dos desfechos do proprio pack em vez de fixar limiares no binario.
- */
-export function desfechoPadrao(outcomes: ReadonlyMap<string, Outcome>): string {
-  let menor: Outcome | null = null;
-  for (const desfecho of outcomes.values()) {
-    if (menor === null || desfecho.severityLevel < menor.severityLevel) menor = desfecho;
-  }
-  if (menor === null) throw new Error('nao ha nenhum desfecho cadastrado');
-  return menor.id;
 }
 
 /** Substitui (ou acrescenta) a regra proposta no conjunto. */

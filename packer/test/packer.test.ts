@@ -12,7 +12,7 @@ import {
   type KeyObject,
   verify as edVerify,
 } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -143,7 +143,6 @@ function loadArtifacts(): { manifest: Manifest; publicKey: KeyObject; packPath: 
     packVersion: 7,
     schemaVersion: PACK_SCHEMA_VERSION,
     municipality: '0000000',
-    defaultOutcomeId: 'ROUTINE_UBS',
     sourceCommit: 'test',
   });
 
@@ -212,13 +211,40 @@ test('a suite golden do pacote semente passa integralmente', () => {
     packVersion: 1,
     schemaVersion: PACK_SCHEMA_VERSION,
     municipality: '0000000',
-    defaultOutcomeId: 'ROUTINE_UBS',
     sourceCommit: 'test',
   });
   assert.deepEqual(validateReferential(built.dbPath), [], 'sem problema referencial');
   const report = validateGolden(lerGoldenDoYaml(REPO_ROOT), readRuleModel(built.dbPath));
   assert.equal(report.falseNegatives, 0, 'nenhum falso negativo clinico');
   assert.equal(report.passed, report.total, `golden ${report.passed}/${report.total}`);
+});
+
+test('o desfecho padrao do pack e DERIVADO da menor severidade, nao fixado no binario', () => {
+  // A escala e os nomes pertencem ao pack. Ate o item 25 o CLI fixava
+  // `ROUTINE_UBS`, e um municipio que nomeasse o desfecho de rotina de outro
+  // jeito quebrava o packer — nao o CMS, que ja derivava.
+  const seedDir = join(REPO_ROOT, 'seed');
+  const dataSource = readdirSync(seedDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((name) => ({ name, sql: readFileSync(join(seedDir, name), 'utf8') }));
+  dataSource.push({
+    name: 'extra.sql',
+    sql: `INSERT INTO routing_outcome (id, severity_level, card_id, venue_id)
+          VALUES ('AUTOCUIDADO', 1, 'card.routine', 'UBS')`,
+  });
+
+  const built = buildPack({
+    repoRoot: REPO_ROOT,
+    outDir: mkdtempSync(join(tmpdir(), 'gubs-padrao-')),
+    packVersion: 1,
+    schemaVersion: PACK_SCHEMA_VERSION,
+    municipality: '0000000',
+    sourceCommit: 'test',
+    dataSource,
+  });
+
+  assert.equal(readRuleModel(built.dbPath).defaultOutcomeId, 'AUTOCUIDADO');
 });
 
 test('build e reproduzivel sob SOURCE_DATE_EPOCH', () => {
@@ -236,8 +262,7 @@ test('build e reproduzivel sob SOURCE_DATE_EPOCH', () => {
         packVersion: 3,
         schemaVersion: PACK_SCHEMA_VERSION,
         municipality: '0000000',
-        defaultOutcomeId: 'ROUTINE_UBS',
-        sourceCommit: 'test',
+            sourceCommit: 'test',
       });
       return createHash('sha256').update(readFileSync(built.dbPath)).digest('hex');
     });
