@@ -241,16 +241,23 @@ class ResumableDownloader {
       );
     } finally {
       // Sempre: o batimento é um `Timer.periodic` e mantém o isolate vivo.
-      await lock.release();
+      // E sem lançar: um erro de E/S ao apagar a trava não pode substituir o
+      // desfecho (`fetch` nunca lança). O timer já foi parado antes do
+      // `delete`; uma trava que sobrar envelhece e vira órfã.
+      try {
+        await lock.release();
+      } on Object catch (e) {
+        _t('trava release falhou: $e');
+      }
     }
   }
 
   /// Interrupção sem `rename`: a trava deixou de ser nossa entre o fim do
   /// download e o nome definitivo. Os bytes ficam para quem a tem agora.
   DownloadInterrupted _lostBeforeRename(File partial) => DownloadInterrupted(
-        bytesSoFar: _diskLength(partial),
-        reason: 'trava usurpada antes do rename',
-      );
+    bytesSoFar: _diskLength(partial),
+    reason: 'trava usurpada antes do rename',
+  );
 
   Future<DownloadOutcome> _fetchUnlocked({
     required DestinationLock lock,
