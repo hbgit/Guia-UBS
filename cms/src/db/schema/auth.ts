@@ -126,7 +126,6 @@ export const account = sqliteTable(
   'account',
   {
     id: text('id').primaryKey(),
-    issuer: text('issuer').notNull(),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
     userId: text('user_id')
@@ -144,7 +143,11 @@ export const account = sqliteTable(
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
   (t) => [
-    uniqueIndex('account_issuer_account_uidx').on(t.issuer, t.accountId),
+    // O Better Auth 1.7.0-1.7.2 trazia uma coluna `issuer` e o unico
+    // (issuer, account_id); a 1.7.3 os removeu e nao poe unico nenhum. O par
+    // abaixo mantem a garantia que o indice antigo dava — uma credencial por
+    // operador — sem depender de coluna que a biblioteca nao escreve mais.
+    uniqueIndex('account_provider_account_uidx').on(t.providerId, t.accountId),
     index('account_user_idx').on(t.userId),
   ],
 );

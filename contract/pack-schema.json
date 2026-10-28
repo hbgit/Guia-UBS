@@ -82,23 +82,15 @@
       "additionalProperties": false,
       "properties": {
         "audioRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "body": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "cardId": {
@@ -134,13 +126,9 @@
           "type": "string"
         },
         "imageRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         }
       },
@@ -155,26 +143,18 @@
       "additionalProperties": false,
       "properties": {
         "audioRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "documentId": {
           "type": "string"
         },
         "hint": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "label": {
@@ -232,23 +212,15 @@
       "additionalProperties": false,
       "properties": {
         "audioRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "body": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "lang": {
@@ -289,13 +261,9 @@
           "type": "integer"
         },
         "municipalityCode": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "packVersion": {
@@ -307,13 +275,9 @@
           "type": "string"
         },
         "sourceCommit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         }
       },
@@ -358,13 +322,9 @@
       "additionalProperties": false,
       "properties": {
         "clinicalSource": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "id": {
@@ -379,13 +339,9 @@
           "type": "integer"
         },
         "rationale": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         }
       },
@@ -483,13 +439,9 @@
       "additionalProperties": false,
       "properties": {
         "audioRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "label": {
@@ -555,13 +507,9 @@
       "additionalProperties": false,
       "properties": {
         "audioRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "label": {
@@ -626,13 +574,9 @@
       "additionalProperties": false,
       "properties": {
         "audioRef": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
+          "type": [
+            "string",
+            "null"
           ]
         },
         "label": {

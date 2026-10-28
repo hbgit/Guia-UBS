@@ -9,9 +9,8 @@
  * para a rede inteira.
  *
  * A criacao entao e nossa, e escreve as duas linhas que o Better Auth escreveria:
- * o operador e a credencial. Os valores de `providerId`, `accountId` e `issuer`
- * NAO sao inventados aqui — `createLocalAccountIssuer` e a propria funcao da
- * biblioteca.
+ * o operador e a credencial, com os mesmos `providerId: 'credential'` e
+ * `accountId` igual ao id do operador que o `sign-up` da biblioteca usa.
  *
  * A guarda contra divergencia nao e a inspecao do formato: e um teste que CRIA
  * um operador por esta funcao e depois FAZ LOGIN com ele. Se a forma da
@@ -20,7 +19,6 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { createLocalAccountIssuer } from '@better-auth/core/db';
 import type { Client } from '@libsql/client';
 import { eq } from 'drizzle-orm';
 
@@ -68,7 +66,6 @@ export async function createOperator(
 
   await db.insert(account).values({
     id: randomUUID(),
-    issuer: createLocalAccountIssuer('credential'),
     accountId: id,
     providerId: 'credential',
     userId: id,

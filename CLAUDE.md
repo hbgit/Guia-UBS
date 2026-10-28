@@ -129,6 +129,7 @@ flutter test                    # suite completa
 flutter test test/triage/       # so um diretorio
 flutter test --plain-name "trecho do nome do teste"
 flutter build apk --release --target-platform=android-arm64
+dart run tool/check_release_permissions.dart   # lista fechada de permissoes do release (exige o build acima)
 tool/gen_launcher_icon.sh       # regenera os 15 PNGs do icone a partir do SVG
 tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o SVG
 tool/gen_about_logos.sh         # rasteriza os logos institucionais da tela Sobre
