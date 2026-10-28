@@ -441,7 +441,7 @@ void main() {
       // espera zero: desiste sem tocar no `.parcial` e sem pedir nada à rede.
       // Fixa o comportamento ATUAL: a disputa entra como B7 e conta no
       // circuito (`incrementCircuitCounter`), embora não seja falha de rede —
-      // ver a issue #PENDENTE. O que NÃO pode acontecer é a blacklist: o pack
+      // ver a issue #35. O que NÃO pode acontecer é a blacklist: o pack
       // é legítimo, só está ocupado.
       await store.ensureDirectory();
       final lock = await DestinationLock.acquire(store.packFile(packV1Hash));
