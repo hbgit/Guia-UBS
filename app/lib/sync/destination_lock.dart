@@ -54,6 +54,14 @@
 /// — e, no fim, o **SHA-256** do arquivo inteiro, que recusa qualquer
 /// resultado intercalado. A trava evita o desperdício; quem garante a
 /// integridade continua sendo o hash.
+///
+/// O mesmo vale para um salto do relógio de parede para a frente de mais de
+/// [LockTiming.staleAfter] (60 s): o `mtime` de uma trava viva passa a parecer
+/// velho, e um candidato pode tomá-la até o próximo batimento do dono (no
+/// máximo [LockTiming.heartbeat], 10 s), quando a cerca derruba o dono
+/// antigo. A cerca e o SHA-256 cobrem a integridade, e a cerca conferida
+/// também antes de apagar o `.parcial` ou de recusá-lo impede que o dono
+/// antigo destrua o trabalho do novo.
 library;
 
 import 'dart:async';

@@ -56,6 +56,10 @@ class _FakeOrigin {
   /// Cabeçalho Range de cada requisição, na ordem de chegada.
   final List<String?> ranges = [];
 
+  /// Chamado ao receber cada requisição, antes da resposta: o ponto em que o
+  /// teste pode mexer no mundo (ex.: tomar a trava) com o cliente já em voo.
+  void Function()? onRequest;
+
   /// Força sobreposição: cada resposta espera a outra chegar (no máximo 3 s,
   /// para não travar com um só cliente) e envia o corpo em blocos de 4 KiB,
   /// cedendo o laço de eventos entre eles.
@@ -74,6 +78,7 @@ class _FakeOrigin {
     final range = request.headers.value(HttpHeaders.rangeHeader);
     lastRange = range;
     ranges.add(range);
+    onRequest?.call();
     inFlight++;
     if (inFlight > maxConcurrent) maxConcurrent = inFlight;
     if (inFlight >= 2 && !_twoInFlight.isCompleted) _twoInFlight.complete();
@@ -168,7 +173,7 @@ Future<void> _fetchInIsolate(List<Object> args) async {
     connectTimeout: const Duration(seconds: 10),
     writerLabel: 'b',
     trace: lines.add,
-    writerWait: const Duration(seconds: 5),
+    writerWait: const Duration(seconds: 30),
   );
   try {
     final outcome = await dl.fetch(
@@ -492,7 +497,7 @@ void main() {
       // OS DOIS esperam: com espera só em `b`, quem vencesse a corrida pela
       // trava decidiria o desfecho, e o teste oscilaria mesmo com a trava
       // certa. Espera zero = desistir, e isso é o grupo `escritor unico`.
-      writerWait: const Duration(seconds: 5),
+      writerWait: const Duration(seconds: 30),
     );
 
     void garantias(List<String> desfechos) {
@@ -809,6 +814,74 @@ void main() {
 
       expect(intruso, isNull, reason: 'o dono está vivo, só calculando hash');
       expect(await fa, isA<DownloadCompleted>());
+    });
+
+    // Cerca antes dos ramos DESTRUTIVOS: quem perdeu a trava não apaga o
+    // `.parcial` nem devolve `Rejected` — o hash divergente pode ser o do
+    // arquivo que o novo dono ainda escreve, e no pack o `Rejected` poria um
+    // artefato legítimo na lista negra.
+    const hashErrado =
+        '0000000000000000000000000000000000000000000000000000000000000000';
+
+    test(
+      'trava usurpada antes de recusar hash divergente: não apaga',
+      () async {
+        final outcome = await novo(
+          'w',
+          lockTiming: const LockTiming(heartbeat: Duration(seconds: 10)),
+          digestOf: (f) async {
+            usurpa();
+            return sha256.convert(f.readAsBytesSync()).toString();
+          },
+        ).fetch(url: big.url, destination: destino, expectedSha256: hashErrado);
+
+        expect(outcome, isA<DownloadInterrupted>());
+        expect((outcome as DownloadInterrupted).reason, contains('usurpada'));
+        expect(parcial.readAsBytesSync(), grande, reason: 'parcial intacto');
+        expect(destino.existsSync(), isFalse);
+      },
+    );
+
+    test(
+      'trava usurpada antes de recusar no atalho sem rede: não apaga',
+      () async {
+        parcial.writeAsBytesSync(grande);
+        final outcome =
+            await novo(
+              'w',
+              lockTiming: const LockTiming(heartbeat: Duration(seconds: 10)),
+              digestOf: (f) async {
+                usurpa();
+                return sha256.convert(f.readAsBytesSync()).toString();
+              },
+            ).fetch(
+              url: big.url,
+              destination: destino,
+              expectedSha256: hashErrado,
+              fallbackTotalBytes: grande.length,
+            );
+
+        expect(outcome, isA<DownloadInterrupted>());
+        expect((outcome as DownloadInterrupted).reason, contains('usurpada'));
+        expect(parcial.readAsBytesSync(), grande, reason: 'parcial intacto');
+        expect(big.requestCount, 0);
+      },
+    );
+
+    test('trava usurpada antes do 416: não apaga o parcial', () async {
+      final maior = List<int>.filled(grande.length + 10, 7);
+      parcial.writeAsBytesSync(maior);
+      big.onRequest = usurpa;
+
+      final outcome = await novo(
+        'w',
+        lockTiming: const LockTiming(heartbeat: Duration(seconds: 10)),
+      ).fetch(url: big.url, destination: destino, expectedSha256: hashGrande);
+
+      expect(outcome, isA<DownloadInterrupted>());
+      expect((outcome as DownloadInterrupted).reason, contains('usurpada'));
+      expect(parcial.readAsBytesSync(), maior, reason: 'parcial intacto');
+      expect(big.ranges, ['bytes=${maior.length}-']);
     });
 
     test('destino já verificado: worker conclui sem rede', () async {

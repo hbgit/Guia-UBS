@@ -229,8 +229,8 @@ class ResumableDownloader {
         reason: 'outro escritor ativo neste destino',
       );
     }
-    _t('trava obtida espera=${waited.elapsedMilliseconds}');
     try {
+      _t('trava obtida espera=${waited.elapsedMilliseconds}');
       return await _fetchUnlocked(
         lock: lock,
         url: url,
@@ -252,11 +252,14 @@ class ResumableDownloader {
     }
   }
 
-  /// Interrupção sem `rename`: a trava deixou de ser nossa entre o fim do
-  /// download e o nome definitivo. Os bytes ficam para quem a tem agora.
-  DownloadInterrupted _lostBeforeRename(File partial) => DownloadInterrupted(
+  /// Interrupção sem efeito colateral: a trava deixou de ser nossa antes de
+  /// um passo que mexe no `.parcial` ou decide o destino dele — o `rename`, o
+  /// `delete` ou o `Rejected` que põe o artefato na lista negra. Os bytes ficam
+  /// para quem a tem agora: o hash divergente que vimos pode ser justamente o
+  /// do arquivo que o novo dono ainda está escrevendo.
+  DownloadInterrupted _lostLock(File partial) => DownloadInterrupted(
     bytesSoFar: _diskLength(partial),
-    reason: 'trava usurpada antes do rename',
+    reason: 'trava usurpada antes de renomear, apagar ou recusar',
   );
 
   Future<DownloadOutcome> _fetchUnlocked({
@@ -295,11 +298,13 @@ class ResumableDownloader {
       if (resumeFrom > 0 && resumeFrom == fallbackTotalBytes) {
         final digest = await _sha256Traced(partial, expectedSha256);
         if (_matches(digest, expectedSha256)) {
-          if (!lock.confirmHeld()) return _lostBeforeRename(partial);
+          if (!lock.confirmHeld()) return _lostLock(partial);
           await partial.rename(destination.path);
           return DownloadCompleted(destination, bytes: resumeFrom);
         }
         // Tamanho certo e conteúdo errado: não é retomada, é arquivo errado.
+        // Cerca antes: sem a trava, o "errado" pode ser o arquivo do novo dono.
+        if (!lock.confirmHeld()) return _lostLock(partial);
         await partial.delete();
         return DownloadRejected(
           'arquivo local com tamanho esperado mas SHA-256 divergente: $digest',
@@ -319,6 +324,10 @@ class ResumableDownloader {
 
       final digest = await _sha256Traced(partial, expectedSha256);
       if (!_matches(digest, expectedSha256)) {
+        // Cerca antes de apagar e de recusar: um escritor que perdeu a trava
+        // apagaria o `.parcial` do novo dono e, no pack, o `Rejected` poria na
+        // lista negra um artefato legítimo.
+        if (!lock.confirmHeld()) return _lostLock(partial);
         await partial.delete();
         return DownloadRejected(
           'SHA-256 nao confere: esperado $expectedSha256, obtido $digest',
@@ -329,12 +338,14 @@ class ResumableDownloader {
       // Rename no mesmo diretório é atômico: nenhum leitor jamais vê o nome
       // definitivo apontando para conteúdo não verificado.
       final bytes = partial.lengthSync();
-      if (!lock.confirmHeld()) return _lostBeforeRename(partial);
+      if (!lock.confirmHeld()) return _lostLock(partial);
       await partial.rename(destination.path);
       return DownloadCompleted(destination, bytes: bytes);
     } on Object catch (error) {
-      final soFar = partial.existsSync() ? partial.lengthSync() : 0;
-      return DownloadInterrupted(bytesSoFar: soFar, reason: '$error');
+      return DownloadInterrupted(
+        bytesSoFar: _diskLength(partial),
+        reason: '$error',
+      );
     }
   }
 
@@ -372,6 +383,8 @@ class ResumableDownloader {
         // O parcial é maior que o recurso — provavelmente o arquivo mudou no
         // servidor. Descartar e recomeçar na próxima janela.
         await response.drain<void>();
+        // Sem a trava, o parcial "grande demais" pode ser o do novo dono.
+        if (!lock.confirmHeld()) return _lostLock(partial);
         if (partial.existsSync()) await partial.delete();
         return const DownloadInterrupted(
           bytesSoFar: 0,

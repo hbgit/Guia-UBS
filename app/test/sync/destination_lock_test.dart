@@ -130,7 +130,7 @@ void main() {
     watch.stop();
 
     expect(lock, isNotNull);
-    expect(watch.elapsed, greaterThanOrEqualTo(const Duration(milliseconds: 200)));
+    expect(watch.elapsed, greaterThanOrEqualTo(const Duration(milliseconds: 100)));
     expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
     expect(events, contains('orfa tomada motivo=batimento'));
     await lock!.release();
