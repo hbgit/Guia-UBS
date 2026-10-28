@@ -85,8 +85,8 @@ class _FakeOrigin {
   }
 
   Future<void> _respond(HttpRequest request, String? range) async {
-    final cut = cutAfterBytes != null &&
-        (!cutFirstRequestOnly || requestCount == 1);
+    final cut =
+        cutAfterBytes != null && (!cutFirstRequestOnly || requestCount == 1);
     if (forceStatus != null) {
       request.response.statusCode = forceStatus!;
       await request.response.close();
@@ -593,11 +593,9 @@ void main() {
       await segura();
       final antes = parcial.statSync();
 
-      final outcome = await novo('w').fetch(
-        url: big.url,
-        destination: destino,
-        expectedSha256: hashGrande,
-      );
+      final outcome = await novo(
+        'w',
+      ).fetch(url: big.url, destination: destino, expectedSha256: hashGrande);
 
       expect(outcome, isA<DownloadInterrupted>());
       outcome as DownloadInterrupted;
@@ -625,11 +623,10 @@ void main() {
       );
       // Só depois do 1º progresso de A: aí A certamente detém a trava.
       await aComecou.future;
-      final fb = novo('b', writerWait: const Duration(seconds: 5)).fetch(
-        url: big.url,
-        destination: destino,
-        expectedSha256: hashGrande,
-      );
+      final fb = novo(
+        'b',
+        writerWait: const Duration(seconds: 5),
+      ).fetch(url: big.url, destination: destino, expectedSha256: hashGrande);
 
       expect(await fa, isA<DownloadInterrupted>());
       expect(await fb, isA<DownloadCompleted>());
@@ -639,24 +636,38 @@ void main() {
 
     test('espera reporta progresso do parcial alheio', () async {
       final lock = await segura();
+      // Só conta o que chegou ANTES de a trava ser solta: depois dela, o
+      // próprio `_download` reporta (65536, total) ao começar, e o teste
+      // passaria mesmo sem `onWaiting`.
+      final antesDeSoltar = <(int, int)>[];
       final calls = <(int, int)>[];
+      var solta = false;
       unawaited(
-        Future<void>.delayed(
-          const Duration(milliseconds: 100),
-          lock.release,
-        ),
+        Future<void>.delayed(const Duration(milliseconds: 100), () async {
+          solta = true;
+          await lock.release();
+        }),
       );
 
       final outcome = await novo('w', writerWait: const Duration(seconds: 1))
           .fetch(
-        url: big.url,
-        destination: destino,
-        expectedSha256: hashGrande,
-        fallbackTotalBytes: grande.length,
-        onProgress: (r, t) => calls.add((r, t)),
-      );
+            url: big.url,
+            destination: destino,
+            expectedSha256: hashGrande,
+            fallbackTotalBytes: grande.length,
+            onProgress: (r, t) {
+              calls.add((r, t));
+              if (!solta) antesDeSoltar.add((r, t));
+            },
+          );
 
       expect(outcome, isA<DownloadCompleted>());
+      expect(
+        antesDeSoltar,
+        contains((semente, grande.length)),
+        reason: 'a espera precisa mostrar o disco do outro escritor',
+      );
+      expect(big.requestCount, 1);
       final alheio = calls.indexOf((semente, grande.length));
       final primeiroMaior = calls.indexWhere((c) => c.$1 > semente);
       expect(alheio, greaterThanOrEqualTo(0), reason: '$calls');
@@ -664,7 +675,8 @@ void main() {
     });
 
     final naoLinux = !Platform.isLinux;
-    final root = !naoLinux &&
+    final root =
+        !naoLinux &&
         Process.runSync('id', ['-u']).stdout.toString().trim() == '0';
     test(
       'sem trava, nada é escrito',
@@ -674,11 +686,9 @@ void main() {
         addTearDown(() => Process.runSync('chmod', ['0755', ro.path]));
         final alvo = File('${ro.path}/m.gguf');
 
-        final outcome = await novo('w').fetch(
-          url: big.url,
-          destination: alvo,
-          expectedSha256: hashGrande,
-        );
+        final outcome = await novo(
+          'w',
+        ).fetch(url: big.url, destination: alvo, expectedSha256: hashGrande);
 
         expect(outcome, isA<DownloadInterrupted>());
         expect(File('${alvo.path}.parcial').existsSync(), isFalse);
@@ -687,8 +697,8 @@ void main() {
       skip: naoLinux
           ? 'chmod/0555 só no Linux'
           : root
-              ? 'root ignora 0555'
-              : false,
+          ? 'root ignora 0555'
+          : false,
     );
 
     test('cerca: trava perdida no meio interrompe sem renomear', () async {
@@ -697,25 +707,29 @@ void main() {
         ..blockDelay = const Duration(milliseconds: 5);
       var usurpada = false;
 
-      final outcome = await novo(
-        'w',
-        lockTiming: const LockTiming(heartbeat: Duration(milliseconds: 20)),
-      ).fetch(
-        url: big.url,
-        destination: destino,
-        expectedSha256: hashGrande,
-        onProgress: (_, _) {
-          if (!usurpada) {
-            usurpada = true;
-            usurpa();
-          }
-        },
-      );
+      final outcome =
+          await novo(
+            'w',
+            lockTiming: const LockTiming(heartbeat: Duration(milliseconds: 20)),
+          ).fetch(
+            url: big.url,
+            destination: destino,
+            expectedSha256: hashGrande,
+            onProgress: (_, _) {
+              if (!usurpada) {
+                usurpada = true;
+                usurpa();
+              }
+            },
+          );
 
       expect(outcome, isA<DownloadInterrupted>());
       // A cerca do laço, não a conferência antes do rename: a escrita parou
       // no meio do corpo.
-      expect((outcome as DownloadInterrupted).reason, contains('trava perdida'));
+      expect(
+        (outcome as DownloadInterrupted).reason,
+        contains('trava perdida'),
+      );
       expect(destino.existsSync(), isFalse);
     });
 
@@ -735,6 +749,35 @@ void main() {
       expect(destino.existsSync(), isFalse);
       expect(parcial.readAsBytesSync(), grande, reason: 'parcial intacto');
     });
+
+    test(
+      'trava usurpada durante o hash do atalho sem rede: não renomeia',
+      () async {
+        // Parcial completo (pendrive, ou app morto antes do rename): o atalho
+        // confere o hash sem rede. A conferência antes do rename vale aqui
+        // também.
+        parcial.writeAsBytesSync(grande);
+        final outcome =
+            await novo(
+              'w',
+              lockTiming: const LockTiming(heartbeat: Duration(seconds: 10)),
+              digestOf: (f) async {
+                usurpa();
+                return sha256.convert(f.readAsBytesSync()).toString();
+              },
+            ).fetch(
+              url: big.url,
+              destination: destino,
+              expectedSha256: hashGrande,
+              fallbackTotalBytes: grande.length,
+            );
+
+        expect(outcome, isA<DownloadInterrupted>());
+        expect(destino.existsSync(), isFalse);
+        expect(parcial.readAsBytesSync(), grande, reason: 'parcial intacto');
+        expect(big.requestCount, 0);
+      },
+    );
 
     test('dono com hash mais lento que staleAfter mantém a trava', () async {
       const timing = LockTiming(
@@ -771,11 +814,9 @@ void main() {
     test('destino já verificado: worker conclui sem rede', () async {
       destino.writeAsBytesSync(grande);
 
-      final outcome = await novo('worker').fetch(
-        url: big.url,
-        destination: destino,
-        expectedSha256: hashGrande,
-      );
+      final outcome = await novo(
+        'worker',
+      ).fetch(url: big.url, destination: destino, expectedSha256: hashGrande);
 
       expect(outcome, isA<DownloadCompleted>());
       expect(big.requestCount, 0);
