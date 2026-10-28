@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_contract_ddl_0001_content_sql", "label": "0001_content.sql", "file_type": "code", "source_file": "contract/ddl/0001_content.sql", "source_location": null}, {"id": "venue", "label": "`venue`", "file_type": "code", "source_file": "", "source_location": "", "origin_file": "$graphify-root$/contract/ddl/0001_content.sql"}], "edges": []}

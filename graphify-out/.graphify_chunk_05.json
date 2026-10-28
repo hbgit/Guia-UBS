@@ -1,0 +1,1058 @@
+{
+  "nodes": [
+    {
+      "id": "spec_design_prototipo_interativo",
+      "label": "Protótipo interativo Guia UBS (MVP v1.0)",
+      "file_type": "document",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "arquivo inteiro (HTML+CSS+JS autocontido)",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_selecao_de_idioma",
+      "label": "Tela de seleção de idioma (primeira abertura)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "div.langover#langover, botões data-lang pt|es",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_inicial",
+      "label": "Tela Inicial (home)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=home] — 'Como você está?' + CTA 'Estou com sintomas' + 4 ladrilhos",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_mapa_do_corpo",
+      "label": "Tela Mapa do Corpo (triagem passo 1)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=body] — svg.bodymap com zonas head/chest/belly/arm/leg",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_sintomas",
+      "label": "Tela Sintomas (triagem passo 2)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=symptoms] — 6 ladrilhos: dor, febre, falta de ar, sangramento, tontura, machucado leve; máx. 5 seleções",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_resultado",
+      "label": "Tela Resultado da triagem (passo 3)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=result] + renderResult()",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_emergencia",
+      "label": "Tela Emergência (acesso direto)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=emergency] + renderEmergency()",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_onde_ir",
+      "label": "Tela Onde ir (UBS vs UPA/Hospital)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=whereto] — place.green UBS, place.red UPA·Hospital",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_fluxo_da_ubs",
+      "label": "Tela Fluxo da UBS (recepção → acolhimento → consulta → farmácia)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=flow] — 4 fsteps numerados",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_tela_documentos",
+      "label": "Tela Documentos (o que levar)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=docs] — Cartão SUS, identidade/passaporte, comprovante de endereço",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_barra_inferior_de_tres_abas",
+      "label": "Barra inferior de três abas (Início · Onde ir · Documentos)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "nav.bottomnav — grid 1fr 1fr 1fr, navbtn min-height 64px",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_mapa_tab_of",
+      "label": "TAB_OF — mapa tela→aba da navegação linear",
+      "file_type": "code",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "const TAB_OF = { home, body, symptoms, result, emergency → home; whereto, flow → whereto; docs → docs }",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_navegacao_linear_sem_dead_ends",
+      "label": "Navegação linear sem dead ends",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "comentário '/* ---------- navigation (linear, no dead ends) ---------- */' + data-back/data-goto",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_semantica_fixa_de_cor",
+      "label": "Semântica fixa de cor (verde=UBS/rotina, vermelho=emergência, azul=informação)",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "tokens --green/--red/--blue; classes .tile, .tile-red, .tile-blue, .place.green, .place.red, .result.ok, .result.danger",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_ajuste_de_contraste_2026_08_19",
+      "label": "Escurecimento do vermelho e do âmbar por reprovação no teste de contraste",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "comentário em :root, linhas 15-28: #CE3A3A tinha razão 1,01 contra o verde #12805C (mesma luminância — daltonismo vermelho-verde não distinguia rotina de emergência); #B98A2F dava 2,91:1 contra o fundo, abaixo do mínimo 3:1 da WCAG 2.2 AA. Novos valores: --red #9E2626, --amberish #8F651A.",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_gate_deterministico_de_red_flag",
+      "label": "Gate determinístico de red flag (função gate)",
+      "file_type": "code",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "function gate(): falta de ar OU sangramento OU (peito + dor) ⇒ emergência. Comentário: 'evaluated BEFORE anything else (spec INV-1)'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_sintese_de_voz_tts",
+      "label": "Síntese de voz (TTS) com degradação para visual-only",
+      "file_type": "code",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "function speak()/stopSpeak() — 'mirrors the offline multimodal response, RF-06'; sem speechSynthesis retorna sem bloquear ('graceful: visual-only (INV-8)')",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_estado_fsm_a",
+      "label": "Estado do protótipo espelhando a FSM-A de triagem",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "const state = { lang, zone, syms:new Set() } — comentário 'mirrors FSM-A of the spec'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_i18n_pt_es",
+      "label": "Dicionário i18n pt/es do protótipo (STR)",
+      "file_type": "code",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "const STR = { pt: {...}, es: {...} } com locale de TTS pt-BR / es-ES",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_selo_de_procedencia",
+      "label": "Selo de procedência",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": ".selo — alinhado à esquerda enquanto o cartão é centralizado (lê como etiqueta), largura pelo conteúdo, sem sombra (sombra sugeriria que é acionável); primeiro elemento do cartão e primeiro anunciado pelo leitor de tela",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_lilas_como_papel_md3_terciario",
+      "label": "Lilás do selo como papel MD3 terciário (nunca hex fixo)",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "tokens --selo-borda/--selo-fundo/--selo-tinta: 'No app são tertiary / tertiaryContainer / onTertiaryContainer — nunca hex fixo lido pela tela'. O tingimento lilás vive só dentro do badge.",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_cor_do_cartao_e_a_gravidade",
+      "label": "A cor do cartão codifica a gravidade, não a procedência",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": ".cartao--rotina (verde) / .cartao--atencao (âmbar) / .cartao--emergencia (vermelho); nota da página: 'a cor do cartão continua codificando a gravidade, e nada aqui a toca'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_estado_regras_do_posto",
+      "label": "Estado (A) Orientação das regras do posto",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "figure (A): red flag decidiu, o assistente nem foi consultado (INV-1). Único estado SEM aviso de falibilidade — exceção declarada, porque ao lado de 'Ligue 192' o aviso enfraqueceria a única instrução que não admite hesitação.",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_estado_assistente_virtual",
+      "label": "Estado (B) Gerado por assistente virtual",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "figure (B): o modelo local escalou acima do gate; ícone smart_toy_outlined com cabeça geométrica, sem rosto expressivo; aviso estático sempre visível",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_estado_sem_o_assistente",
+      "label": "Estado (C) Regras do posto, sem o assistente",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "figure (C): cobre indisponível, com falha ou sem opinião — 'as três dizem a mesma coisa a quem lê'; ícone cloud_off, mesmo glifo de '100% offline' da inicial; rótulo mais longo, único que quebra em duas linhas com fonte ampliada",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "spec_design_selo_procedencia_aviso_de_falibilidade",
+      "label": "Aviso de falibilidade ('respostas automáticas podem conter erros')",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "p.aviso — fora do cartão, ancorado por proximidade; presente em (B) e (C), ausente em (A)",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "cms_web_index_casca_da_spa",
+      "label": "Casca da SPA do plano de controle",
+      "file_type": "code",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/cms/web/index.html",
+      "source_location": "div#raiz + script type=module src=/src/main.tsx, lang=pt-BR",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "cms_web_index_noindex_nofollow",
+      "label": "noindex/nofollow no plano de controle",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/cms/web/index.html",
+      "source_location": "meta name=robots — 'o plano de controle não é superfície pública: a stack.md rejeitou a Vercel (ADR-001) exatamente por não haver superfície web dinâmica voltada ao público, e um dia isto pode ficar atrás de um domínio'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "label": "Aviso de privacidade (pt) — minuta 2026-08-22",
+      "file_type": "document",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "documento inteiro; marcado MINUTA, sem revisão jurídica",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_es_aviso_de_privacidad",
+      "label": "Aviso de privacidad (es) — borrador 2026-08-22",
+      "file_type": "document",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_es.md",
+      "source_location": "documento inteiro; marcado BORRADOR",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_sintoma_morre_em_memoria",
+      "label": "Sintoma não é gravado — a sequência morre em memória",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§O que este aplicativo não coleta — 'existem apenas enquanto a tela está aberta... descartados quando a triagem termina'; dado sensível de saúde (art. 5º, II)",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_lista_do_que_fica_no_aparelho",
+      "label": "Lista do que fica guardado no aparelho (seis preferências)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§O que fica guardado no aparelho — idioma, cores, tamanho de letra, opt-in de números de uso, permissão de dados móveis, preparo do primeiro acesso; 'existe um teste automático que reprova a publicação se as duas deixarem de coincidir'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_numeros_de_uso",
+      "label": "Números de uso (telemetria agregada, opt-out apaga o contado)",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§Números de uso — sem identificador de aparelho, sem localização, sem conteúdo tocado; desligar apaga o que já havia sido contado",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_duas_chamadas_de_rede",
+      "label": "As duas únicas chamadas de rede, fora do caminho do usuário",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§Uso da rede — conteúdo novo revisado em segundo plano e download do modelo no primeiro acesso; integridade conferida antes de aceitar; falha não impede o app de funcionar",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_lei_13709_2018",
+      "label": "Lei 13.709/2018 (LGPD) — arts. 5º II e 18",
+      "file_type": "document",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "citada em §O que este aplicativo não coleta (art. 5º, II) e §Seus direitos (art. 18)",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_privacidade_pt_direitos_exercidos_no_aparelho",
+      "label": "Direitos do titular exercidos direto no aparelho (apaga tudo em dois toques)",
+      "file_type": "rationale",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§Seus direitos — 'Como não existe cadastro, esses direitos são exercidos direto no aparelho... sem depender de ninguém'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_termos_pt_termos_de_uso",
+      "label": "Termos de uso (pt) — minuta 2026-08-22",
+      "file_type": "document",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "documento inteiro; marcado MINUTA",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_termos_es_terminos_de_uso",
+      "label": "Términos de uso (es) — borrador 2026-08-22",
+      "file_type": "document",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_es.md",
+      "source_location": "documento inteiro; marcado BORRADOR",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_termos_pt_nao_faz_diagnostico",
+      "label": "Não faz diagnóstico e não substitui profissional de saúde",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "§O que este aplicativo não é — orientação educativa; havendo sinal de gravidade, procurar atendimento ou ligar 192 imediatamente, sem usar o app para decidir se vale a pena ir",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_termos_pt_conteudo_assinado_com_revisao_clinica",
+      "label": "Conteúdo em pacotes assinados com revisão clínica prévia",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "§Conteúdo — enquanto a revisão não estiver concluída, o app exibe aviso de conteúdo preliminar",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_assets_legal_termos_pt_uso_offline",
+      "label": "Uso offline — conteúdo novo chega quando houver rede",
+      "file_type": "concept",
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "§Uso offline — 'até lá, continua valendo o que já está no aparelho'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "spec_design_prototipo_interativo",
+      "target": "spec_design_tela_selecao_de_idioma",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "div.langover",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_prototipo_interativo",
+      "target": "spec_design_tela_inicial",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "section[data-screen=home]",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_selecao_de_idioma",
+      "target": "spec_design_tela_inicial",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "click em .langbtn esconde a overlay, deixando a home ativa",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_inicial",
+      "target": "spec_design_tela_mapa_do_corpo",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "#startTriage → show('body')",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_mapa_do_corpo",
+      "target": "spec_design_tela_sintomas",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "#toSymptoms → show('symptoms')",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_sintomas",
+      "target": "spec_design_tela_resultado",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "#toResult → show('result')",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_inicial",
+      "target": "spec_design_tela_emergencia",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "ladrilho tile-red data-goto=emergency",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_inicial",
+      "target": "spec_design_tela_onde_ir",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "ladrilho tile-blue data-goto=whereto",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_inicial",
+      "target": "spec_design_tela_documentos",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "ladrilho tile-blue data-goto=docs",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_inicial",
+      "target": "spec_design_tela_fluxo_da_ubs",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "ladrilho data-goto=flow ('Como funciona a UBS')",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_onde_ir",
+      "target": "spec_design_tela_fluxo_da_ubs",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": ".place.green data-goto=flow; o botão voltar de flow aponta para whereto",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_onde_ir",
+      "target": "spec_design_tela_emergencia",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": ".place.red data-goto=emergency",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_resultado",
+      "target": "spec_design_tela_documentos",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": ".nextrow tile data-goto=docs ('Quais documentos?')",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_resultado",
+      "target": "spec_design_tela_fluxo_da_ubs",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": ".nextrow tile data-goto=flow ('Como é o atendimento?')",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_resultado",
+      "target": "spec_design_gate_deterministico_de_red_flag",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "renderResult(): const danger = gate()",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_gate_deterministico_de_red_flag",
+      "target": "spec_design_estado_fsm_a",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "gate() lê state.syms e state.zone",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_tela_emergencia",
+      "target": "spec_design_gate_deterministico_de_red_flag",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "renderEmergency() usa resultCard(true) — o mesmo cartão que o gate produziria",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_mapa_tab_of",
+      "target": "spec_design_barra_inferior_de_tres_abas",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "show(): navbtn.on ← TAB_OF[name]",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_mapa_tab_of",
+      "target": "spec_design_navegacao_linear_sem_dead_ends",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "toda tela pertence a uma aba e toda tela não-raiz tem data-back",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_ajuste_de_contraste_2026_08_19",
+      "target": "spec_design_semantica_fixa_de_cor",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "comentário justifica os hex de --red e --amberish que sustentam a semântica",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_semantica_fixa_de_cor",
+      "target": "spec_design_tela_resultado",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": ".result.ok verde vs .result.danger vermelho",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_sintese_de_voz_tts",
+      "target": "spec_design_i18n_pt_es",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "u.lang = STR[state.lang].tts; textos *_say vêm do mesmo dicionário",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_sintese_de_voz_tts",
+      "target": "spec_design_tela_resultado",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "renderResult() fala automaticamente dg_say/ok_say",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_i18n_pt_es",
+      "target": "spec_design_tela_selecao_de_idioma",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html",
+      "source_location": "applyLang() aplica STR[state.lang] em todo [data-i18n]",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_selo_de_procedencia",
+      "target": "spec_design_selo_procedencia_estado_regras_do_posto",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "figure (A)",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_selo_de_procedencia",
+      "target": "spec_design_selo_procedencia_estado_assistente_virtual",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "figure (B)",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_selo_de_procedencia",
+      "target": "spec_design_selo_procedencia_estado_sem_o_assistente",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "figure (C)",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_lilas_como_papel_md3_terciario",
+      "target": "spec_design_selo_procedencia_selo_de_procedencia",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "comentário sobre --selo-* e nota da página",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_cor_do_cartao_e_a_gravidade",
+      "target": "spec_design_selo_procedencia_lilas_como_papel_md3_terciario",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "nota: 'O tingimento lilás vive só dentro do badge: a cor do cartão continua codificando a gravidade'",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_cor_do_cartao_e_a_gravidade",
+      "target": "spec_design_semantica_fixa_de_cor",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "mesmos tokens --green/--red e os mesmos hex de design.html (#12805C, #9E2626, #8F651A)",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_aviso_de_falibilidade",
+      "target": "spec_design_selo_procedencia_estado_assistente_virtual",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "p.aviso presente na figure (B)",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_aviso_de_falibilidade",
+      "target": "spec_design_selo_procedencia_estado_sem_o_assistente",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "p.aviso presente na figure (C)",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_estado_regras_do_posto",
+      "target": "spec_design_gate_deterministico_de_red_flag",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "legenda (A): 'a regra de segurança decidiu e o assistente nem foi consultado (INV-1)' — o mesmo gate que design.html implementa",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_selo_de_procedencia",
+      "target": "spec_design_prototipo_interativo",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "protótipo companheiro: mesma paleta de tokens e referência ao glifo '100% offline' da tela inicial",
+      "weight": 1.0
+    },
+    {
+      "source": "spec_design_selo_procedencia_estado_sem_o_assistente",
+      "target": "spec_design_sintese_de_voz_tts",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html",
+      "source_location": "ambos resolvem 'componente opcional ausente não pode bloquear nem enganar o usuário' — degradação anunciada em vez de falha silenciosa",
+      "weight": 1.0
+    },
+    {
+      "source": "cms_web_index_noindex_nofollow",
+      "target": "cms_web_index_casca_da_spa",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/cms/web/index.html",
+      "source_location": "comentário HTML acima do meta robots",
+      "weight": 1.0
+    },
+    {
+      "source": "cms_web_index_noindex_nofollow",
+      "target": "app_assets_legal_termos_pt_conteudo_assinado_com_revisao_clinica",
+      "relation": "conceptually_related_to",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.25,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/cms/web/index.html",
+      "source_location": "o plano de controle é onde a revisão clínica acontece, mas o arquivo não o diz",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "target": "app_assets_legal_privacidade_pt_sintoma_morre_em_memoria",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§O que este aplicativo não coleta",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "target": "app_assets_legal_privacidade_pt_lista_do_que_fica_no_aparelho",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§O que fica guardado no aparelho",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "target": "app_assets_legal_privacidade_pt_numeros_de_uso",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§Números de uso",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "target": "app_assets_legal_privacidade_pt_duas_chamadas_de_rede",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§Uso da rede",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "target": "app_assets_legal_privacidade_pt_lei_13709_2018",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "art. 5º, II e art. 18 da Lei 13.709/2018",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_direitos_exercidos_no_aparelho",
+      "target": "app_assets_legal_privacidade_pt_lei_13709_2018",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "§Seus direitos — art. 18",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_sintoma_morre_em_memoria",
+      "target": "app_assets_legal_privacidade_pt_lei_13709_2018",
+      "relation": "cites",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "'Dado sobre saúde é dado pessoal sensível (art. 5º, II da Lei 13.709/2018)'",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_es_aviso_de_privacidad",
+      "target": "app_assets_legal_privacidade_pt_aviso_de_privacidade",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_es.md",
+      "source_location": "tradução seção a seção do mesmo texto, mesma data de versão 2026-08-22",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_es_terminos_de_uso",
+      "target": "app_assets_legal_termos_pt_termos_de_uso",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_es.md",
+      "source_location": "tradução seção a seção do mesmo texto, mesma data de versão 2026-08-22",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_termos_de_uso",
+      "target": "app_assets_legal_termos_pt_nao_faz_diagnostico",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "§O que este aplicativo não é",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_termos_de_uso",
+      "target": "app_assets_legal_termos_pt_conteudo_assinado_com_revisao_clinica",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "§Conteúdo",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_termos_de_uso",
+      "target": "app_assets_legal_termos_pt_uso_offline",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "§Uso offline",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_uso_offline",
+      "target": "app_assets_legal_privacidade_pt_duas_chamadas_de_rede",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "'conteúdo novo chega quando houver rede' é a primeira das duas chamadas descritas no aviso de privacidade",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_nao_faz_diagnostico",
+      "target": "spec_design_selo_procedencia_aviso_de_falibilidade",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "ambos limitam a autoridade da orientação e mandam ligar 192 diante de gravidade — um no documento legal, o outro na própria tela de resultado",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_nao_faz_diagnostico",
+      "target": "spec_design_gate_deterministico_de_red_flag",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "'Se houver sinal de gravidade, o aplicativo manda procurar emergência' descreve exatamente o comportamento do gate",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_sintoma_morre_em_memoria",
+      "target": "spec_design_estado_fsm_a",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "o Set de sintomas do protótipo é volátil, como o aviso promete",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_privacidade_pt_lista_do_que_fica_no_aparelho",
+      "target": "spec_design_i18n_pt_es",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md",
+      "source_location": "'o idioma que você escolheu' é a preferência que a seleção de idioma do protótipo produz",
+      "weight": 1.0
+    },
+    {
+      "source": "app_assets_legal_termos_pt_conteudo_assinado_com_revisao_clinica",
+      "target": "spec_design_selo_procedencia_estado_regras_do_posto",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/termos_pt.md",
+      "source_location": "as 'regras do posto' do selo são conteúdo do pacote assinado e revisado que os termos descrevem",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "fluxo_de_triagem_iconografico",
+      "label": "Fluxo de triagem iconográfico em três passos com gate antes do resultado",
+      "nodes": [
+        "spec_design_tela_inicial",
+        "spec_design_tela_mapa_do_corpo",
+        "spec_design_tela_sintomas",
+        "spec_design_tela_resultado",
+        "spec_design_gate_deterministico_de_red_flag",
+        "spec_design_estado_fsm_a"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design.html"
+    },
+    {
+      "id": "tres_estados_de_procedencia",
+      "label": "Três estados de procedência, um por mecanismo, com o selo e o aviso de falibilidade",
+      "nodes": [
+        "spec_design_selo_procedencia_selo_de_procedencia",
+        "spec_design_selo_procedencia_estado_regras_do_posto",
+        "spec_design_selo_procedencia_estado_assistente_virtual",
+        "spec_design_selo_procedencia_estado_sem_o_assistente",
+        "spec_design_selo_procedencia_aviso_de_falibilidade"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/spec/design_selo_procedencia.html"
+    },
+    {
+      "id": "superficie_de_privacidade_do_aplicativo",
+      "label": "Superfície de privacidade: o que não se coleta, o que fica guardado, telemetria, rede e a lei",
+      "nodes": [
+        "app_assets_legal_privacidade_pt_sintoma_morre_em_memoria",
+        "app_assets_legal_privacidade_pt_lista_do_que_fica_no_aparelho",
+        "app_assets_legal_privacidade_pt_numeros_de_uso",
+        "app_assets_legal_privacidade_pt_duas_chamadas_de_rede",
+        "app_assets_legal_privacidade_pt_direitos_exercidos_no_aparelho",
+        "app_assets_legal_privacidade_pt_lei_13709_2018"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/home/rock/Documents/Dev/APPs/Guia-UBS/app/assets/legal/privacidade_pt.md"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}
