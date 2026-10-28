@@ -79,6 +79,10 @@ Future<void> main() async {
     downloader: ResumableDownloader(
       writerLabel: 'primeiro-plano',
       trace: debugPrint,
+      // Primeiro plano ESPERA o worker (issue 31): ele está baixando o mesmo
+      // arquivo, e a barra acompanha o `.parcial` dele enquanto isso. O worker
+      // fica com o padrão zero e desiste — o WorkManager reagenda.
+      writerWait: const Duration(minutes: 30),
     ),
   )..allowMeteredNetworks = stored.allowMeteredDownload;
 

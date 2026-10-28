@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/core/disk_space.dart';
+import 'package:guia_ubs/sync/destination_lock.dart';
 import 'package:guia_ubs/sync/model_downloader.dart';
 import 'package:guia_ubs/sync/resumable_downloader.dart';
 
@@ -23,6 +24,12 @@ class _FakeDownloader implements ResumableDownloader {
 
   @override
   DownloadTrace? get trace => null;
+
+  @override
+  Duration get writerWait => Duration.zero;
+
+  @override
+  LockTiming get lockTiming => const LockTiming();
 
   @override
   Future<DownloadOutcome> fetch({
@@ -143,6 +150,43 @@ void main() {
     ).ensureAvailable();
 
     expect((result as ModelUnavailable).reason, ModelUnavailableReason.rejected);
+  });
+
+  test('modelo já verificado: o worker conclui sem rede (tarefa devolve true)',
+      () async {
+    // Configuração do worker (`model_background_sync.dart`): espera zero pela
+    // trava. Com o modelo íntegro em disco, ele precisa terminar em
+    // `ModelReady` — que o `runModelSyncTask` traduz em `true`, sem
+    // reagendamento — e sem uma requisição sequer.
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    var requests = 0;
+    server.listen((r) {
+      requests++;
+      r.response
+        ..statusCode = HttpStatus.internalServerError
+        ..close();
+    });
+    final dest = File('${tmp.path}/modelo.gguf')..writeAsBytesSync(payload);
+    final real = ResumableDownloader(writerLabel: 'worker');
+
+    final downloader = ModelDownloader(
+      artifact: ModelArtifact(
+        url: 'http://${server.address.host}:${server.port}/modelo.gguf',
+        sha256: hash,
+        sizeBytes: payload.length,
+        fileName: 'modelo.gguf',
+      ),
+      destination: dest,
+      downloader: real,
+      requiredFreeBytes: 1 << 62,
+    );
+    addTearDown(downloader.close);
+
+    final result = await downloader.ensureAvailable();
+
+    expect(result, isA<ModelReady>());
+    expect(requests, 0);
   });
 
   group('checkDiskSpace', () {

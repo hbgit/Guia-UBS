@@ -26,6 +26,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:meta/meta.dart';
 
+import 'destination_lock.dart';
+
 /// Notificação de progresso: bytes recebidos e total esperado.
 ///
 /// O total pode ser 0 quando o servidor não informa `Content-Length` e o
@@ -98,6 +100,9 @@ class ResumableDownloader {
     this.connectTimeout = const Duration(seconds: 15),
     this.writerLabel = '?',
     this.trace,
+    this.writerWait = Duration.zero,
+    this.lockTiming = const LockTiming(),
+    @visibleForTesting this._digestOf,
   }) : _client = client ?? HttpClient();
 
   final HttpClient _client;
@@ -119,6 +124,22 @@ class ResumableDownloader {
   /// com o `grep` do `logcat` usado para diagnosticar escritas concorrentes.
   final DownloadTrace? trace;
 
+  /// Quanto esperar por outro escritor do MESMO destino antes de desistir
+  /// (issue 31).
+  ///
+  /// O primeiro plano espera (o usuário está olhando a barra, e o outro
+  /// escritor está fazendo exatamente o trabalho que ele quer); o worker e o
+  /// `SyncService` usam o padrão zero e desistem — a próxima janela do
+  /// WorkManager tenta de novo, retomando do que estiver em disco.
+  final Duration writerWait;
+
+  /// Ritmo da [DestinationLock]: batimento, órfã e intervalo de espera.
+  final LockTiming lockTiming;
+
+  /// Substituto do SHA-256 real, só para testes (hash lento, usurpação
+  /// durante o hash).
+  final Future<String> Function(File file)? _digestOf;
+
   void _t(String s) => trace?.call('gubs-dl w=$writerLabel $s');
 
   /// Busca [url] para [destination], retomando um `.parcial` se existir.
@@ -128,6 +149,11 @@ class ResumableDownloader {
   /// diferente do esperado — espelho comprometido, cache envenenado,
   /// truncamento silencioso — o arquivo é descartado.
   ///
+  /// **Um escritor por destino** (issue 31): o corpo inteiro roda sob uma
+  /// [DestinationLock], válida entre isolates. Quem não obtém a trava dentro
+  /// de [writerWait] devolve [DownloadInterrupted] sem abrir nem apagar o
+  /// `.parcial` — os bytes são do outro escritor, que continua trabalhando.
+  ///
   /// **Nunca lança.** Toda falha vira um [DownloadOutcome].
   Future<DownloadOutcome> fetch({
     required Uri url,
@@ -136,7 +162,7 @@ class ResumableDownloader {
     DownloadProgress? onProgress,
     int fallbackTotalBytes = 0,
   }) async {
-    final outcome = await _fetchUnlocked(
+    final outcome = await _fetchLocked(
       url: url,
       destination: destination,
       expectedSha256: expectedSha256,
@@ -153,7 +179,81 @@ class ResumableDownloader {
     return outcome;
   }
 
+  /// Obtém a trava e roda [_fetchUnlocked] INTEIRO com ela: até o
+  /// `resumeFrom` precisa ser lido já com exclusão, senão dois escritores
+  /// partem do mesmo offset e anexam os mesmos bytes.
+  Future<DownloadOutcome> _fetchLocked({
+    required Uri url,
+    required File destination,
+    required String expectedSha256,
+    DownloadProgress? onProgress,
+    int fallbackTotalBytes = 0,
+  }) async {
+    final partial = File('${destination.path}.parcial');
+    int partialLength() {
+      try {
+        return partial.existsSync() ? partial.lengthSync() : 0;
+      } on FileSystemException {
+        return 0;
+      }
+    }
+
+    final DestinationLock? lock;
+    final waited = Stopwatch()..start();
+    try {
+      // A trava mora ao lado do destino: sem o diretório, não há onde criá-la.
+      await destination.parent.create(recursive: true);
+      lock = await DestinationLock.acquire(
+        destination,
+        wait: writerWait,
+        timing: lockTiming,
+        // Enquanto o outro escritor trabalha, a barra acompanha o disco dele.
+        onWaiting: () {
+          if (partial.existsSync()) {
+            onProgress?.call(partialLength(), fallbackTotalBytes);
+          }
+        },
+        onEvent: (e) => _t('trava $e'),
+      );
+    } on Object catch (error) {
+      // Sem trava, nada é escrito: nem o `.parcial`, nem uma requisição.
+      return DownloadInterrupted(
+        bytesSoFar: partialLength(),
+        reason: 'trava indisponivel: $error',
+      );
+    }
+    if (lock == null) {
+      _t('trava ocupada desiste');
+      return DownloadInterrupted(
+        bytesSoFar: partialLength(),
+        reason: 'outro escritor ativo neste destino',
+      );
+    }
+    _t('trava obtida espera=${waited.elapsedMilliseconds}');
+    try {
+      return await _fetchUnlocked(
+        lock: lock,
+        url: url,
+        destination: destination,
+        expectedSha256: expectedSha256,
+        onProgress: onProgress,
+        fallbackTotalBytes: fallbackTotalBytes,
+      );
+    } finally {
+      // Sempre: o batimento é um `Timer.periodic` e mantém o isolate vivo.
+      await lock.release();
+    }
+  }
+
+  /// Interrupção sem `rename`: a trava deixou de ser nossa entre o fim do
+  /// download e o nome definitivo. Os bytes ficam para quem a tem agora.
+  DownloadInterrupted _lostBeforeRename(File partial) => DownloadInterrupted(
+        bytesSoFar: _diskLength(partial),
+        reason: 'trava usurpada antes do rename',
+      );
+
   Future<DownloadOutcome> _fetchUnlocked({
+    required DestinationLock lock,
     required Uri url,
     required File destination,
     required String expectedSha256,
@@ -188,6 +288,7 @@ class ResumableDownloader {
       if (resumeFrom > 0 && resumeFrom == fallbackTotalBytes) {
         final digest = await _sha256Traced(partial, expectedSha256);
         if (_matches(digest, expectedSha256)) {
+          if (!lock.confirmHeld()) return _lostBeforeRename(partial);
           await partial.rename(destination.path);
           return DownloadCompleted(destination, bytes: resumeFrom);
         }
@@ -200,6 +301,7 @@ class ResumableDownloader {
       }
 
       final failure = await _download(
+        lock,
         url,
         partial,
         resumeFrom,
@@ -220,6 +322,7 @@ class ResumableDownloader {
       // Rename no mesmo diretório é atômico: nenhum leitor jamais vê o nome
       // definitivo apontando para conteúdo não verificado.
       final bytes = partial.lengthSync();
+      if (!lock.confirmHeld()) return _lostBeforeRename(partial);
       await partial.rename(destination.path);
       return DownloadCompleted(destination, bytes: bytes);
     } on Object catch (error) {
@@ -231,6 +334,7 @@ class ResumableDownloader {
   /// Baixa para [partial] a partir de [resumeFrom]. Devolve `null` em sucesso,
   /// ou o [DownloadOutcome] que explica por que não deu.
   Future<DownloadOutcome?> _download(
+    DestinationLock lock,
     Uri url,
     File partial,
     int resumeFrom,
@@ -296,6 +400,9 @@ class ResumableDownloader {
     var anomalyReported = false;
     try {
       await response.timeout(idleTimeout).forEach((chunk) {
+        // Cerca: o batimento descobriu que a trava não é mais nossa. Parar
+        // de anexar ANTES do próximo byte; o `catch` de fora vira interrupção.
+        if (!lock.isHeld) throw StateError('trava perdida');
         sink.add(chunk);
         received += chunk.length;
         onProgress?.call(received, total);
@@ -338,7 +445,7 @@ class ResumableDownloader {
   /// Hash com rastro: a duração alimenta a escolha de `staleAfter` do trinco.
   Future<String> _sha256Traced(File file, String expected) async {
     final watch = Stopwatch()..start();
-    final digest = await _sha256Of(file);
+    final digest = await (_digestOf ?? _sha256Of)(file);
     watch.stop();
     final verdict = _matches(digest, expected) ? 'ok' : 'divergente';
     _t(
