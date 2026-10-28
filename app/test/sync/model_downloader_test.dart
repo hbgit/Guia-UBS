@@ -19,6 +19,12 @@ class _FakeDownloader implements ResumableDownloader {
   int calls = 0;
 
   @override
+  String get writerLabel => 'fake';
+
+  @override
+  DownloadTrace? get trace => null;
+
+  @override
   Future<DownloadOutcome> fetch({
     required Uri url,
     required File destination,

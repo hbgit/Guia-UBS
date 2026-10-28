@@ -277,4 +277,86 @@ void main() {
 
     expect(outcome, isA<DownloadInterrupted>());
   });
+
+  group('rastro', () {
+    late List<String> lines;
+    late ResumableDownloader traced;
+    File destM() => File('${tmp.path}/m.gguf');
+
+    setUp(() {
+      lines = [];
+      traced = ResumableDownloader(
+        idleTimeout: const Duration(seconds: 5),
+        connectTimeout: const Duration(seconds: 5),
+        writerLabel: 't',
+        trace: lines.add,
+      );
+    });
+    tearDown(() => traced.close());
+
+    test('retomada registra o offset de partida', () async {
+      File(
+        '${destM().path}.parcial',
+      ).writeAsBytesSync(payload.sublist(0, 4096));
+      await traced.fetch(
+        url: origin.url,
+        destination: destM(),
+        expectedSha256: goodHash,
+      );
+      expect(lines, contains('gubs-dl w=t inicio off=4096 destino=m.gguf'));
+      expect(lines.any((l) => l.startsWith('gubs-dl w=t sha ok')), isTrue);
+      expect(
+        lines,
+        contains('gubs-dl w=t fim desfecho=Completed bytes=${payload.length}'),
+      );
+    });
+
+    test('download solitário não acusa anomalia', () async {
+      await traced.fetch(
+        url: origin.url,
+        destination: destM(),
+        expectedSha256: goodHash,
+      );
+      expect(lines.any((l) => l.contains('ANOMALIA')), isFalse);
+    });
+
+    test('retomada solitária não acusa anomalia', () async {
+      File(
+        '${destM().path}.parcial',
+      ).writeAsBytesSync(payload.sublist(0, 4096));
+      await traced.fetch(
+        url: origin.url,
+        destination: destM(),
+        expectedSha256: goodHash,
+      );
+      expect(lines.any((l) => l.contains('ANOMALIA')), isFalse);
+    });
+
+    test('sha registra a duração', () async {
+      await traced.fetch(
+        url: origin.url,
+        destination: destM(),
+        expectedSha256: goodHash,
+      );
+      expect(
+        lines.any(
+          (l) => RegExp(r'^gubs-dl w=t sha ok bytes=\d+ ms=\d+$').hasMatch(l),
+        ),
+        isTrue,
+      );
+    });
+
+    test('hash divergente aparece no rastro', () async {
+      await traced.fetch(
+        url: origin.url,
+        destination: destM(),
+        expectedSha256: '00' * 32,
+      );
+      expect(
+        lines.any((l) => l.startsWith('gubs-dl w=t sha divergente')),
+        isTrue,
+      );
+      expect(lines.any((l) => l.contains('fim desfecho=Rejected')), isTrue);
+    });
+  });
 }

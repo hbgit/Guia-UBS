@@ -33,6 +33,9 @@ import 'package:meta/meta.dart';
 /// progresso indeterminado em vez de inventar uma porcentagem.
 typedef DownloadProgress = void Function(int received, int total);
 
+/// Destino das linhas de diagnóstico do download (ver [ResumableDownloader]).
+typedef DownloadTrace = void Function(String line);
+
 /// Resultado de uma tentativa de download.
 @immutable
 sealed class DownloadOutcome {
@@ -93,6 +96,8 @@ class ResumableDownloader {
     HttpClient? client,
     this.idleTimeout = const Duration(seconds: 30),
     this.connectTimeout = const Duration(seconds: 15),
+    this.writerLabel = '?',
+    this.trace,
   }) : _client = client ?? HttpClient();
 
   final HttpClient _client;
@@ -102,6 +107,19 @@ class ResumableDownloader {
 
   /// Tempo máximo para estabelecer a conexão.
   final Duration connectTimeout;
+
+  /// Quem está escrevendo (ex.: `worker`, `primeiro-plano`) nas linhas de rastro.
+  ///
+  /// Dois isolates podem baixar o mesmo modelo; sem rótulo, o `logcat` não diz
+  /// de qual deles veio cada linha.
+  final String writerLabel;
+
+  /// Recebe as linhas `gubs-dl w=<rótulo> ...`. Só contadores, nomes de
+  /// arquivo e durações: nenhum dado de pessoa (INV-2). O formato é contrato
+  /// com o `grep` do `logcat` usado para diagnosticar escritas concorrentes.
+  final DownloadTrace? trace;
+
+  void _t(String s) => trace?.call('gubs-dl w=$writerLabel $s');
 
   /// Busca [url] para [destination], retomando um `.parcial` se existir.
   ///
@@ -118,21 +136,49 @@ class ResumableDownloader {
     DownloadProgress? onProgress,
     int fallbackTotalBytes = 0,
   }) async {
+    final outcome = await _fetchUnlocked(
+      url: url,
+      destination: destination,
+      expectedSha256: expectedSha256,
+      onProgress: onProgress,
+      fallbackTotalBytes: fallbackTotalBytes,
+    );
+    // Único ponto de saída do rastro: toda rota de retorno passa por aqui.
+    final (name, bytes) = switch (outcome) {
+      DownloadCompleted(:final bytes) => ('Completed', bytes),
+      DownloadInterrupted(:final bytesSoFar) => ('Interrupted', bytesSoFar),
+      DownloadRejected() => ('Rejected', 0),
+    };
+    _t('fim desfecho=$name bytes=$bytes');
+    return outcome;
+  }
+
+  Future<DownloadOutcome> _fetchUnlocked({
+    required Uri url,
+    required File destination,
+    required String expectedSha256,
+    DownloadProgress? onProgress,
+    int fallbackTotalBytes = 0,
+  }) async {
     final partial = File('${destination.path}.parcial');
 
     try {
       if (destination.existsSync()) {
         // Já temos o arquivo. Conferimos mesmo assim: o disco pode ter
         // corrompido, e reler é barato perto da consequência.
-        final digest = await _sha256Of(destination);
+        final digest = await _sha256Traced(destination, expectedSha256);
         if (_matches(digest, expectedSha256)) {
-          return DownloadCompleted(destination, bytes: destination.lengthSync());
+          return DownloadCompleted(
+            destination,
+            bytes: destination.lengthSync(),
+          );
         }
         await destination.delete();
       }
 
       await destination.parent.create(recursive: true);
       final resumeFrom = partial.existsSync() ? partial.lengthSync() : 0;
+      _t('inicio off=$resumeFrom destino=${destination.uri.pathSegments.last}');
 
       // Atalho SEM REDE: o parcial já tem o tamanho esperado. Acontece quando
       // o arquivo veio de um pendrive (importação OTG) ou quando o download
@@ -140,7 +186,7 @@ class ResumableDownloader {
       // requisição inútil — e, no caso do pendrive, evita exigir rede que o
       // posto não tem.
       if (resumeFrom > 0 && resumeFrom == fallbackTotalBytes) {
-        final digest = await _sha256Of(partial);
+        final digest = await _sha256Traced(partial, expectedSha256);
         if (_matches(digest, expectedSha256)) {
           await partial.rename(destination.path);
           return DownloadCompleted(destination, bytes: resumeFrom);
@@ -162,7 +208,7 @@ class ResumableDownloader {
       );
       if (failure != null) return failure;
 
-      final digest = await _sha256Of(partial);
+      final digest = await _sha256Traced(partial, expectedSha256);
       if (!_matches(digest, expectedSha256)) {
         await partial.delete();
         return DownloadRejected(
@@ -197,6 +243,9 @@ class ResumableDownloader {
     }
 
     final response = await request.close().timeout(connectTimeout);
+    _t(
+      'http status=${response.statusCode} range=${resumeFrom > 0 ? resumeFrom : '-'}',
+    );
 
     var offset = resumeFrom;
     switch (response.statusCode) {
@@ -243,17 +292,59 @@ class ResumableDownloader {
     final sink = partial.openWrite(
       mode: offset > 0 ? FileMode.append : FileMode.write,
     );
+    var nextMark = received - (received % _progressMark) + _progressMark;
+    var anomalyReported = false;
     try {
       await response.timeout(idleTimeout).forEach((chunk) {
         sink.add(chunk);
         received += chunk.length;
         onProgress?.call(received, total);
+
+        // `received` é o total ABSOLUTO esperado no disco (offset + esta
+        // resposta). O buffer do IOSink só deixa o arquivo ATRÁS desse total;
+        // disco à frente dele é prova de que outro escritor anexou bytes.
+        if (!anomalyReported) {
+          final onDisk = _diskLength(partial);
+          if (onDisk > received) {
+            anomalyReported = true;
+            _t('ANOMALIA recebidos=$received disco=$onDisk');
+          }
+        }
+        if (received >= nextMark) {
+          nextMark = received - (received % _progressMark) + _progressMark;
+          _t('progresso recebidos=$received disco=${_diskLength(partial)}');
+        }
       });
       await sink.flush();
     } finally {
       await sink.close();
     }
     return null;
+  }
+
+  /// Tamanho em disco, 0 se ainda não existe: o `openWrite` cria o arquivo de
+  /// forma assíncrona, e o rastro não pode derrubar o download por isso.
+  int _diskLength(File f) {
+    try {
+      return f.lengthSync();
+    } on FileSystemException {
+      return 0;
+    }
+  }
+
+  /// Intervalo (64 MiB) entre linhas de `progresso` no rastro.
+  static const _progressMark = 1 << 26;
+
+  /// Hash com rastro: a duração alimenta a escolha de `staleAfter` do trinco.
+  Future<String> _sha256Traced(File file, String expected) async {
+    final watch = Stopwatch()..start();
+    final digest = await _sha256Of(file);
+    watch.stop();
+    final verdict = _matches(digest, expected) ? 'ok' : 'divergente';
+    _t(
+      'sha $verdict bytes=${file.lengthSync()} ms=${watch.elapsedMilliseconds}',
+    );
+    return digest;
   }
 
   Future<String> _sha256Of(File file) async {

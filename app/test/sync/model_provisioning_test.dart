@@ -22,6 +22,12 @@ class _FakeDownloader implements ResumableDownloader {
   DownloadOutcome Function(File destination, DownloadProgress? onProgress)?
       outcome;
   int calls = 0;
+
+  @override
+  String get writerLabel => 'fake';
+
+  @override
+  DownloadTrace? get trace => null;
   final List<Uri> requested = [];
 
   @override

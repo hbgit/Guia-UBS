@@ -32,6 +32,7 @@ import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
 import 'sync/pack_background_sync.dart';
+import 'sync/resumable_downloader.dart';
 import 'triage/engine/llama_engine.dart';
 import 'ui/app_scope.dart';
 import 'ui/router_provider.dart';
@@ -75,6 +76,10 @@ Future<void> main() async {
     artifact: activeModel,
     destinationDirectory: modelsDirectory,
     networkClass: currentNetworkClass,
+    downloader: ResumableDownloader(
+      writerLabel: 'primeiro-plano',
+      trace: debugPrint,
+    ),
   )..allowMeteredNetworks = stored.allowMeteredDownload;
 
   runApp(
