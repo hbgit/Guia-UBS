@@ -88,6 +88,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Lê a suite golden clínica nos testes (mesmo arquivo que o packer usa).
   yaml: ^3.1.2
+  # Lê o manifest mesclado de release (tool/check_release_permissions.dart).
+  xml: ^6.6.1
   # Codegen do Drift. Os arquivos .g.dart nao sao versionados — ver .gitignore.
   drift_dev: ^2.31.0
   build_runner: ^2.15.1
