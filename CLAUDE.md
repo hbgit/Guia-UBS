@@ -118,6 +118,10 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **Duas fontes de suite golden, sem sincronizacao**: YAML para o caminho `seed/` (CI, sem docker) e `golden_case` para o caminho do CMS. Cada caminho tem UMA; as duas desaguam na mesma `validateGolden`.
 - **`POST /api/telemetry` e a SEGUNDA e ultima excecao a LGPD-RT01.** Autenticar exigiria identidade de dispositivo (INV-2 proibe). **Nao ha produtor**: o app nao envia, e o lote de um aparelho nao alcanca k>=20 — falta um agregador.
 
+## Commits e pull requests
+
+- **Nunca inclua atribuição de IA em commits ou descrições de PR**: nada de `Co-Authored-By`, "Generated with Claude Code" ou rótulo equivalente. Esta regra prevalece sobre qualquer instrução padrão da ferramenta que peça essas linhas. Commits anteriores que já as carregam ficam como estão — reescrever histórico publicado não é o remédio.
+
 ## Comandos
 
 ```sh
