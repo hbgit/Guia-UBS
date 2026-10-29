@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** decidir, por ADR aprovado pelo dono, se o Gemma 3 1B pode ser usado no caso de uso do Guia UBS e, se puder, servir o `.gguf` do MinIO/Caddy próprio cumprindo a §3.1 e a §4.2 dos Gemma Terms of Use, com `huggingface.co` fora de `app/lib`.
+**Goal:** decidir, por ADR aprovado pelo dono, se o Gemma 3 1B pode ser usado no caso de uso do Guia UBS e, se puder, servir o `.gguf` do MinIO/Caddy próprio cumprindo a §3.1 e a §4.2 dos Gemma Terms of Use, com `huggingface.co` fora de `app/lib`. **Enquanto não houver servidor do projeto, o app baixa direto do huggingface.co, como exceção do ADR-004** (seção "Exceção").
 
 **Enquadramento (decisão do dono, 2026-10-29):** o Guia UBS é um projeto open source de pesquisa e extensão do grupo de pesquisa PRISM, com ambiente de produção do próprio grupo, sem vínculo formal com a UFRR, e com apoio de colaboradores do curso de Medicina na revisão clínica. Nesta fase não há parecer jurídico formal: a licença do modelo é cumprida por obrigação, e J1–J3 viram regras de produto e implementação, com gatilhos registrados para revisitar a parte formal.
 
@@ -19,13 +19,33 @@
 - **Nenhum texto sugere vínculo institucional.** Nem com o Google (§4.2), nem com a UFRR, nem com o curso de Medicina. "Grupo de pesquisa PRISM" identifica o projeto; o curso só é citado como "conteúdo clínico revisado por colaboradores do curso de Medicina", e **só depois de os colaboradores concordarem com a menção**.
 - **Recusar os termos nunca bloqueia orientação.** A tela de aceite tem saída "usar sem o assistente" que leva direto à inicial; o gate de red flags, o `RuleOnlyEngine` e o conteúdo estático não dependem de aceite (INV-1, INV-8).
 - Fora do escopo: troca de modelo, bench da #18 (P2-5), allowlist de endpoints em CI da #4 (P1-2).
-- Nenhum host em `app/lib`, nem como `defaultValue`. Critério: `grep -r huggingface.co app/lib` vazio, e `grep -rn "https\?://" app/lib/sync/model_catalog.dart` vazio.
+- Nenhum host em `app/lib`, nem como `defaultValue`, **inclusive com a exceção do HF** (o host entra pelo build). Critério: `grep -r huggingface.co app/lib` vazio, e `grep -rn "https\?://" app/lib/sync/model_catalog.dart` vazio.
 - O texto do Notice e todo trecho exigido pelos termos ficam **literais, em inglês**. Traduções são cortesia e dizem, por escrito, que a versão em inglês prevalece.
 - O SHA-256 publicado é **exatamente** `8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135` (806 058 240 B), o mesmo de `model_catalog.dart:26`. Conferido no Hugging Face em 2026-10-29: o `lfs.oid` de `gemma-3-1b-it-Q4_K_M.gguf` é esse valor.
 - `network_security_config` do release **não muda** (hoje não existe arquivo; não criar um que afrouxe nada).
 - Documentos novos em pt-BR; commits sem atribuição de IA (CLAUDE.md).
 - Rota, variável de ambiente ou script novo exige linha em `docs/operacao.md` no mesmo commit (`cms/test/doc-operacao.test.ts`).
 - Branch: `feat/3-gemma-storage-proprio`, a partir de `develop`.
+
+## Exceção: o modelo baixado direto do huggingface.co (decisão do dono, 2026-10-29)
+
+**Esta seção prevalece sobre o resto do plano onde houver conflito.** Enquanto não houver domínio nem servidor do projeto, o app baixa o modelo **direto do Hugging Face**, como **exceção registrada no ADR-004**, e não do storage próprio. As Tasks 0, 1 e 2 já entregues ficam: a exceção usa o mesmo mecanismo (`MODEL_URL` por `--dart-define`), e o storage próprio vira a **saída da exceção**, pronta para quando houver servidor.
+
+**Como a exceção entra sem reabrir o que já foi feito:**
+- **A URL continua fora de `app/lib`.** O host entra pelo build (`config/defines.<modo>.json`), então o critério da issue `grep -r huggingface.co app/lib` vazio continua valendo e o app continua sem host padrão escondido.
+- **Revisão fixa, não `main`.** A URL da exceção é `https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/f9c28bcd85737ffc5aef028638d3341d49869c27/gemma-3-1b-it-Q4_K_M.gguf`: o commit `f9c28bc` do repositório da `ggml-org` (último em 2025-03-12). Com `resolve/main/`, um push da `ggml-org` poderia trocar o arquivo sob o mesmo nome; o SHA-256 do app recusaria, mas a frota ficaria sem modelo sem ninguém ter mudado nada aqui.
+- **A exceção é uma URL só, não um host.** `tool/model_url_check.dart` aceita `huggingface.co` só para essa URL exata, e só enquanto o catálogo for o Gemma 3 1B Q4_K_M (`8ccc5cd1…a135`). Outro repositório, `resolve/main/` ou outro modelo continuam reprovando (Task 1b).
+- **Integridade não muda.** O SHA-256 está no app; o HF não consegue entregar outro arquivo como se fosse este.
+
+**Medido em 2026-10-29:** a URL fixada responde `302` para `us.aws.cdn.hf.co` (CDN na AWS, EUA), que honra `Range` (`206`, `Content-Range: bytes 100-199/806058240`, `Content-Length: 100`). No emulador, a #31 já registrou `206` com offset maior que zero seguindo esse redirecionamento (`spec/arquitetura.md`, resultado da issue 31). São **dois hosts** no caminho, `huggingface.co` e o da CDN, e a allowlist da #4 precisa dos dois (o nome da CDN pode variar: a #4 decide se fixa o domínio `hf.co`).
+
+**O que a exceção custa, e o ADR-004 registra:**
+1. **Diverge de três decisões**, agora de propósito e com prazo: §9 (100% self-host), PRD §4.1 e LGPD-RF17(d)/RT11 (fornecedor inventariado, endpoint fixo).
+2. **Transferência internacional de dado pessoal.** Cada aparelho entrega ao Hugging Face (EUA/França) e à CDN (AWS, EUA) o **IP** e o `User-Agent` na hora do download. Não é sintoma nem identificador do app, mas IP é dado pessoal, e a LGPD trata a transferência internacional nos arts. 33 a 36. É o mesmo motivo pelo qual o ADR-001 rejeitou o Vercel. Exige: linha no inventário de fornecedores da `spec/lgpd.md` (RF06, RT11), menção no aviso de privacidade pt/es (hoje ele diz só "para baixar o modelo de linguagem no primeiro acesso", sem dizer de quem) e **validação pelo encarregado (DPO)**, marcada como pendente como as outras do documento.
+3. **Disponibilidade de terceiro.** Se a `ggml-org` apagar o repositório, ou o HF mudar a URL, o download falha e o app segue pelo `RuleOnlyEngine` (INV-8). Nenhum aparelho recebe arquivo errado.
+4. **Termos do Gemma.** Com o arquivo vindo do HF, quem transmite é o HF, não o projeto, e a §3.1 (*Distribution*) fica em dúvida. **O plano mantém tudo o que já foi decidido** (Notice, cópia dos termos, cláusula, "li e concordo"), por três motivos: a §3.2 (restrições de uso) vale para o uso pelo projeto de qualquer jeito; o repasse por pendrive continua sendo distribuição; e a saída da exceção volta a ser distribuição. O que muda: o Notice e as cópias **não** vão ao lado do arquivo no HF (o projeto não controla aquele repositório); vão no app, que é por onde a pessoa recebe o aviso.
+
+**Fim da exceção (gatilhos, no ADR-004):** domínio e servidor do projeto definidos (então publicar pela Task 2 e trocar o `MODEL_URL`; os aparelhos já provisionados **não** baixam de novo, porque a identidade é o SHA-256); a `ggml-org` ou o HF tirarem o arquivo do ar; objeção do encarregado (DPO) à transferência internacional; ou o app crescer além do piloto.
 
 ## Divergências encontradas (issue × código × termos vigentes)
 
@@ -47,6 +67,10 @@ Registradas aqui em vez de seguidas às cegas. Cada uma tem destino no plano.
 | D13 | **Gemma 4, conferido em 2026-10-29.** A licença é Apache 2.0 (`gemma.ai/resources/apache-2/`) e o Appendix dos Gemma Terms of Use não o lista. Há **cinco** modelos, não quatro: E2B (2,3 B efetivos, 5,1 B com embeddings), E4B, 12B, 26B-A4B (MoE) e 31B. **O E2B não cabe no ADR-003:** o `gemma-4-E2B-it-Q4_0.gguf` da `ggml-org` tem **2,84 GB** e o QAT Q4_0 do próprio Google, **3,35 GB**, contra teto de 1,2 GB para APK + modelo + pack. O llama.cpp está fixado em `b6100` (ADR-002, agosto de 2025), anterior ao Gemma 4 (repositórios de abril de 2026), então a troca exige subir a tag e revalidar o shim. Apache 2.0 tira a Política de Uso e a cláusula, mas não zera as obrigações: a §4 pede cópia da licença, aviso em arquivo modificado e o NOTICE de origem, se houver. O "Intended Use Statement" de `gemma.ai` não é condição de licença. | modelo | ADR-004, seção "Alternativa de licença": registrada e **não perseguida** (decisão do dono); a #18 segue em ~1 B |
 | D14 | **O app ainda soa como classificação de risco.** O cartão `card.routine` do pack semente diz *"Não é emergência."* (`seed/002_content.sql`), ou seja, uma afirmação de classificação negativa, contra a regra "direção única". `privacidade_pt.md:14` diz "quando a **triagem** termina". As strings de UI (`app_pt.arb`) já não usam "triagem": só as chaves usam. | conteúdo | **#48** (P1), aberta em 2026-10-29; o conteúdo do pack muda pelo portão de revisão clínica da #2, não neste branch |
 | D15 | **A tela "Sobre" mostra o logo do Telessaúde UFRR** (`aboutLogos`, `assets/branding/about_telessaude_ufrr.png`) sob "Realização". Com "sem vínculo formal com a UFRR", logotipo de instituição ao lado de orientação de saúde pode ser lido como aval. | UI | **Decisão do dono: fica**, com justificativa no ADR-004 (Task 0 Step 3). O e-mail `prismufrr@gmail.com` também carrega "ufrr" e entra na mesma justificativa |
+| D17 | **A issue pede "download no aparelho a partir do endpoint próprio"**; com a exceção, o download é do HF. | escopo | Critério alterado para "a partir da URL da exceção, com SHA-256 conferido"; texto para a #3 em "Pendências" |
+| D18 | **O ADR-004 já commitado (`6d98617`) diz "origem: bucket `content-packs`"** e não prevê a exceção. | ADR | Task 0c |
+| D19 | **`model_url_check` recusa `huggingface.co`** (Task 1, já entregue). | código | Task 1b: exceção de uma URL exata |
+| D20 | **O aviso de privacidade não diz de quem o modelo é baixado**, e o download do HF leva o IP para fora do país. | lgpd | Task 4c |
 | D16 | **O ADR atribuía a responsabilidade da §3.3 ao "operador (município)".** Não há município operador: quem distribui é o projeto. | ADR | Task 0 Step 3 |
 | D10 | `app/tool/fetch_model.sh` também cita `huggingface.co`. Fica: é ferramenta de bancada fora de `app/lib`, e é a origem *upstream* do script de publicação. | código | nenhum (registrado) |
 
@@ -393,7 +417,7 @@ Cada linha vira uma asserção com mensagem própria; o script imprime `ok  <con
 Run: `docker compose -f infra/compose.yaml up -d`; publicar um manifest de pack (`npm run pack:publish`, ou um `manifest.json` qualquer em `content-packs/0000000/`) e aplicar `mc anonymous set download local/content-packs/0000000`, reproduzindo o estado medido; depois rodar o caminho de política do `publish-model.sh` sobre um arquivo aleatório de 8 MiB numa chave de teste `models/teste-<sha>.bin` e `npm run model:check -- http://127.0.0.1:8081/content-packs/models/teste-<sha>.bin <sha> 8388608 --manifest http://127.0.0.1:8081/content-packs/0000000/manifest.json`.
 Expected: todas as linhas `ok`, exceto o 405, que só avisa em dev; `--verify` ok; o manifest responde 200. Apagar a chave de teste e restaurar a política do backup.
 
-- [ ] **Step 6 (só com ADR aprovado): publicar o Gemma no ambiente de verificação da Task 5**
+- [ ] **Step 6 (só no fim da exceção do HF, com servidor do projeto): publicar o Gemma**
 
 Run: `npm run model:publish -- app/assets/models/gemma-3-1b.gguf`
 Expected: `ok` em todas as conferências e `sha256 8ccc5cd1…a135` no download pelo edge.
@@ -405,6 +429,76 @@ Expected: `ok` em todas as conferências e `sha256 8ccc5cd1…a135` no download 
 ```bash
 git add infra/ package.json docs/operacao.md cms/test/infra-topologia.test.ts packer/test/publish-model.test.ts packer/test/models-policy.test.ts .gitignore
 git commit -m "feat(infra): objeto models/ no storage, com publicacao e conferencia de Range (#3)"
+```
+
+---
+
+### Task 0c: ADR-004 registra a exceção do huggingface.co
+
+*Antes da aprovação: o ADR ainda está PROPOSTO, e é sobre este texto que o dono decide.*
+
+**Files:**
+- Modify: `spec/stack.md` (ADR-004)
+
+- [ ] **Step 1:** Acrescentar ao ADR-004 a seção **"Exceção: download direto do huggingface.co"**, com o conteúdo da seção homônima deste plano: motivo (não há domínio nem servidor), URL fixada na revisão `f9c28bcd85737ffc5aef028638d3341d49869c27`, a regra "uma URL, não um host", a medição de 302/206, os dois hosts, os custos 1 a 4 e os gatilhos de fim.
+- [ ] **Step 2:** Ajustar o que a exceção torna impreciso no texto já commitado: em "Decisões → Origem e espelho", dizer que a origem **durante a exceção** é o HF e que o bucket `content-packs` é a origem **ao fim dela**; em "Contexto", trocar "contraria três decisões" por "contraria três decisões; a exceção mantém a divergência, com prazo"; em "Desfecho desfavorável", acrescentar que o Task 2 continua sendo a saída.
+- [ ] **Step 3:** Registrar na seção LGPD do ADR que a validação do encarregado (DPO) sobre a transferência internacional está **pendente**, como as demais pendências de DPO de `spec/lgpd.md`.
+- [ ] **Step 4: Commit**
+
+```bash
+git add spec/stack.md
+git commit -m "docs(adr): ADR-004 registra o download direto do huggingface.co como excecao (#3)"
+```
+
+---
+
+### Task 1b: `model_url_check` aceita a URL da exceção, e só ela
+
+*Pode começar junto com a 0c: não depende da aprovação, como a Task 1.*
+
+**Files:**
+- Modify: `app/tool/model_url_check.dart`, `app/config/defines.example.json`, `app/lib/sync/model_catalog.dart` (só o comentário: "storage do projeto" → "storage do projeto, ou a exceção do ADR-004")
+- Modify: `docs/operacao.md` §2.10 (a exceção e como sair dela)
+- Test: `app/test/tool/model_url_check_test.dart`
+
+**Interfaces:**
+- Produces:
+  - `const String huggingFaceExceptionUrl = 'https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/f9c28bcd85737ffc5aef028638d3341d49869c27/gemma-3-1b-it-Q4_K_M.gguf';` e `const String huggingFaceExceptionSha256 = '8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135';` em `app/tool/model_url_check.dart` (fora de `app/lib`, de propósito).
+  - `modelUrlProblem` passa a aceitar `huggingFaceExceptionUrl` **exatamente**, e só quando `expectedSha256 == huggingFaceExceptionSha256`. A regra do sufixo `-<sha256>.gguf` continua valendo para o storage próprio.
+
+- [ ] **Step 1: Testes que falham**
+
+```dart
+test('a URL da excecao passa, no release', () {
+  expect(problem(huggingFaceExceptionUrl), 'ok');
+});
+test('huggingface em resolve/main reprova: a excecao e uma revisao fixa', () {
+  expect(problem(huggingFaceExceptionUrl.replaceFirst(RegExp('resolve/[0-9a-f]{40}'), 'resolve/main')),
+      contains('revisao fixa'));
+});
+test('outro repositorio do huggingface reprova', () {
+  expect(problem(huggingFaceExceptionUrl.replaceFirst('ggml-org', 'outra-org')), contains('ADR-004'));
+});
+test('a excecao nao vale para outro modelo', () {
+  expect(modelUrlProblem(huggingFaceExceptionUrl, release: true, expectedSha256: '0' * 64),
+      contains('ADR-004'));
+});
+test('a excecao e do modelo ativo', () {
+  expect(huggingFaceExceptionSha256, activeModel.sha256);
+});
+```
+O teste `'huggingface reprova: o modelo vem do storage proprio'`, já existente, continua passando (ele usa outro caminho).
+
+- [ ] **Step 2:** `cd app && flutter test test/tool/model_url_check_test.dart` → FAIL (`huggingFaceExceptionUrl` indefinido).
+- [ ] **Step 3: Implementar.** A checagem da exceção vem logo depois de "absoluta": URL igual à constante e SHA igual → `null`. Host `huggingface.co` em qualquer outra forma: mensagem que cita a exceção (*"huggingface.co só na URL exata da exceção do ADR-004, fixada numa revisão"*), com "revisao fixa" quando o caminho tem `resolve/main`. `config/defines.example.json` passa a trazer a URL da exceção, que é a que os builds usam enquanto ela durar.
+- [ ] **Step 4:** `flutter test test/tool/ && flutter analyze --fatal-infos && grep -r huggingface.co lib; echo "grep exit=$?"` → PASS e `grep exit=1`.
+- [ ] **Step 5: Sabotagem.** Trocar a revisão na constante por `main` → reprova "revisão fixa" (o teste de `resolve/main` passaria a aceitar). Mudar o SHA da constante → reprova "a exceção é do modelo ativo". Reverter.
+- [ ] **Step 6: Manual.** Em `docs/operacao.md` §2.10, antes da publicação: *"Enquanto não há servidor do projeto, os builds usam a exceção do ADR-004 (`MODEL_URL` = a URL fixada do Hugging Face, em `app/config/defines.example.json`). Para sair dela: publicar com `npm run model:publish` e trocar o `MODEL_URL`; aparelhos já provisionados não baixam de novo."*
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/tool/model_url_check.dart app/test/tool/model_url_check_test.dart app/config/defines.example.json app/lib/sync/model_catalog.dart docs/operacao.md
+git commit -m "feat(app): model_url_check aceita a URL fixada do huggingface.co como excecao (#3)"
 ```
 
 ---
@@ -433,10 +527,10 @@ git commit -m "feat(infra): objeto models/ no storage, com publicacao e conferen
   Gemma is provided under and subject to the Gemma Terms of Use found at gemma.ai/resources/terms
   Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
 
-  Notice of modification: gemma-3-1b-it-Q4_K_M.gguf is not an original Google file. It was converted to the GGUF format and quantized to Q4_K_M by ggml-org (https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF) from google/gemma-3-1b-it, and is redistributed by Guia UBS without further modification.
+  Notice of modification: gemma-3-1b-it-Q4_K_M.gguf is not an original Google file. It was converted to the GGUF format and quantized to Q4_K_M by ggml-org (https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF) from google/gemma-3-1b-it, and Guia UBS downloads or redistributes it without further modification.
   SHA-256: 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135
   ```
-  (Duas frases: decisão D-A. Parágrafo de modificação: decisão D-B.)
+  (Duas frases: decisão D-A. Parágrafo de modificação: decisão D-B, com "downloads or redistributes" por causa da exceção: o app baixa do HF e o pendrive redistribui.)
 - `gemma_terms_en.md` / `gemma_prohibited_use_en.md`: `<!-- versao: <data da leitura> -->`, uma linha `Source: <URL> — Last modified: <data> — retrieved <data>`, e o texto **integral e literal**, só convertido para o markdown mínimo do parser (`#`, `##`, parágrafo, `- `). Obter salvando o HTML num diretório próprio do scratchpad e convertendo; conferir à mão contra a página que nenhuma cláusula ficou de fora (§1 a §5 mais o Appendix; itens 1 a 4 da Política).
 - Escopo alterado (D11, publicado na #3). Os quatro arquivos de cortesia começam com `<!-- versao -->`, a marca MINUTA e o aviso de prevalência: *"Este texto é cortesia. O que vale é o original em inglês, que está logo abaixo nesta tela e em gemma.ai/resources/terms; em caso de divergência, prevalece a versão em inglês."* (es: *"…prevalece la versión en inglés."*).
   - `gemma_terms_{pt,es}.md`: título "Gemma: resumo dos termos de uso (cortesia)", seção `## Resumo dos termos` (es `## Resumen de los términos`), em linguagem simples e **explicitamente não tradução**: o que o modelo é, que o uso segue os termos do Google, que as restrições valem para quem usa e para quem repassa, que o Google pode restringir o uso, que a responsabilidade pela saída é de quem distribui e usa, e que não há endosso.
@@ -671,14 +765,35 @@ git commit -m "feat(app): li e concordo a cada versao dos termos; recusar deslig
 
 ---
 
-### Task 5: verificação em emulador com HTTPS de verdade e registro no §5
+### Task 4c: aviso de privacidade e inventário LGPD dizem de quem vem o modelo
 
-*Só com ADR aprovado e Tasks 1–4b no branch, e com o domínio de staging existente.* Critério: download no aparelho a partir do endpoint próprio, com SHA-256 conferido, registrado em `spec/arquitetura.md` §5.
+*Só com ADR aprovado.* Atende a D20.
 
 **Files:**
-- Modify: `spec/arquitetura.md` (nova `#### 5.18 Resultado da P1-1 (issue #3) — modelo servido do storage próprio (<data>)`, ou a próxima livre)
+- Modify: `app/assets/legal/privacidade_{pt,es}.md` (seção "Uso da rede"; nova versão datada), `spec/lgpd.md` (inventário de fornecedores, RF06/RT11, com "pendente de validação do encarregado (DPO)")
+- Test: `app/test/ui/more/legal_documents_test.dart`
 
-**Como o teste usa HTTPS sem afrouxar o release.** O `10.0.2.2` alcança o host, mas um certificado confiável para o app release só existe por dois caminhos, e o plano usa o primeiro:
+- [ ] **Step 1: Teste que falha:** `'privacidade_$idioma diz de quem vem o modelo e que o IP sai do pais'` → o texto (espaços normalizados) contém `Hugging Face`, contém `fora do Brasil` / `fuera de Brasil`, e contém `endereço IP` / `dirección IP`.
+- [ ] **Step 2:** `flutter test test/ui/more/legal_documents_test.dart` → FAIL.
+- [ ] **Step 3:** Em "Uso da rede", no item do modelo: *"para baixar o modelo de linguagem no primeiro acesso. Enquanto o projeto não tem servidor próprio, ele vem do Hugging Face, um serviço fora do Brasil, que recebe o endereço IP do aparelho no momento do download, como qualquer site. Nenhum sintoma nem dado de uso vai junto."* (es equivalente). Em `spec/lgpd.md`: Hugging Face Inc. e a CDN (AWS) como fornecedores do download do modelo, dado tratado (IP e `User-Agent`, no download), transferência internacional (arts. 33 a 36), prazo (até o fim da exceção do ADR-004), **pendente de validação do encarregado (DPO)**.
+- [ ] **Step 4:** `flutter test test/ui/more/` → PASS. **Sabotagem:** remover "fora do Brasil" do `privacidade_pt.md` → reprova o teste de `pt`. Reverter.
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/assets/legal/privacidade_pt.md app/assets/legal/privacidade_es.md app/test/ui/more/legal_documents_test.dart spec/lgpd.md
+git commit -m "docs(lgpd): aviso de privacidade diz que o modelo vem do Hugging Face, fora do Brasil (#3)"
+```
+
+---
+
+### Task 5: verificação em emulador com HTTPS de verdade e registro no §5
+
+*Só com ADR aprovado e Tasks 1–4c no branch.* **Não depende mais do domínio:** com a exceção, o endpoint é a URL fixada do HF, que já tem certificado público. Critério (D17): download no aparelho a partir da URL da exceção, com SHA-256 conferido, registrado em `spec/arquitetura.md` §5.
+
+**Files:**
+- Modify: `spec/arquitetura.md` (nova `#### 5.18 Resultado da P1-1 (issue #3) — modelo pela exceção do Hugging Face, sem host no código (<data>)`, ou a próxima livre)
+
+**Como o teste usa HTTPS sem afrouxar o release.** Durante a exceção, trivialmente: `huggingface.co` e a CDN têm certificado público, que o trust store do sistema já aceita, e o `network_security_config` não muda. O texto abaixo vale para a **saída da exceção** (storage próprio), e fica aqui para quando houver domínio:
 
 **Caminho escolhido pelo dono: staging com certificado público.** Um subdomínio **do domínio que será usado em produção** (ex.: `conteudo-staging.<domínio>`), servido pelo `infra/Caddyfile` de **produção** com certificado Let's Encrypt. O emulador resolve DNS público, confia na CA pública pelo trust store do sistema, e o APK release é o mesmo que iria para a loja. Nenhum arquivo do app muda.
 
@@ -693,10 +808,10 @@ git commit -m "feat(app): li e concordo a cada versao dos termos; recusar deslig
 
 `http://` não é usado: o `model_url_check` recusa `http` no release (Task 1).
 
-- [ ] **Step 1: Endpoint pronto.** Subir o compose no staging, publicar com `npm run model:publish` (Task 2, Step 6) e rodar `npm run model:check -- https://<staging>/content-packs/models/gemma-3-1b-it-Q4_K_M-8ccc5cd1…a135.gguf 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135 806058240`.
-Expected: todas as linhas `ok`, inclusive o `405` (Caddyfile de produção).
+- [ ] **Step 1: Endpoint pronto.** Conferir a URL da exceção com o mesmo `Accept-Encoding: gzip` do app, seguindo o redirecionamento: `curl -sS -o /dev/null -D - -L -H 'Accept-Encoding: gzip' -H 'Range: bytes=100-199' 'https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/f9c28bcd85737ffc5aef028638d3341d49869c27/gemma-3-1b-it-Q4_K_M.gguf'`.
+Expected: `302` para a CDN, depois `206`, `Content-Range: bytes 100-199/806058240`, `Content-Length: 100`, sem `Content-Encoding`. (O `model:check` da Task 2 é para o storage próprio: as conferências de listagem, chave vizinha e escrita não se aplicam a um terceiro.)
 
-- [ ] **Step 2: Build release.** `config/defines.release.json` com essa URL; `cd app && tool/build_apk.sh release`.
+- [ ] **Step 2: Build release.** `config/defines.release.json` com a URL da exceção (copiar de `config/defines.example.json`); `cd app && tool/build_apk.sh release`.
 Expected: `model_url_check` ok; APK gerado. Anotar o SHA-256 do APK e o commit.
 
 - [ ] **Step 3: Aparelho limpo.** `adb uninstall` do pacote, `adb install`, `adb logcat -c`, abrir o app, concluir idioma e tocar "Baixar agora" no onboarding (ver o Notice na tela antes, Task 4).
@@ -704,12 +819,12 @@ Expected: `model_url_check` ok; APK gerado. Anotar o SHA-256 do APK e o commit.
 - [ ] **Step 4: Evidência.** `adb logcat -d | grep gubs-dl > <scratchpad>/p1-1-logcat.txt` (fora do repositório, como as evidências da #31; as linhas relevantes vão citadas no §5).
 Expected: `w=primeiro-plano inicio off=0`, `http status=200 range=-`, `sha ok bytes=806058240`, `fim desfecho=Completed`. Com `adb root`: `ls -l` em `files/models/` mostra `gemma-3-1b-q4.gguf` com 806 058 240 B e `.verificado`, sem `.parcial` nem `.trava`. A tela clínica libera.
 
-- [ ] **Step 5: Retomada pelo endpoint próprio.** Reinstalar, cortar a rede do AVD (`adb shell svc wifi disable; svc data disable`) durante o download, religar.
+- [ ] **Step 5: Retomada pela URL da exceção.** Reinstalar, cortar a rede do AVD (`adb shell svc wifi disable; svc data disable`) durante o download, religar.
 Expected: segunda linha `http status=206 range=<offset > 0>`, `sha ok bytes=806058240`, sem `ANOMALIA`.
 
 - [ ] **Step 6: Aparelho que já tem o modelo não baixa de novo.** Construir um APK **sem** `MODEL_URL` (`flutter build apk --release --target-platform=android-arm64` direto, sem o `build_apk.sh`, que recusaria) **assinado com a mesma chave** do APK do Step 2 (hoje `debug.keystore`, como na P0-1; conferir com `apksigner verify --print-certs` nos dois). Com chave diferente, o `adb install -r` falha com `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, e desinstalar apagaria o modelo que o passo quer preservar. Instalar por cima com `adb install -r`: o boot vai a `ready` sem linha `http status`, porque o `.verificado` confere (Review Focus 2).
 
-- [ ] **Step 7: Registrar no §5.18:** AVD, system image, nível de API, ABI, build (modo, commit, SHA-256 do APK, certificado de assinatura), data, endpoint (sem segredo), como o certificado foi emitido (HTTP-01 ou DNS-01), as linhas do logcat, o resultado das sabotagens das Tasks 1, 3, 4 e 4b, o resultado da Task 4b no aparelho, a medição da política do MinIO (D6) e as pendências: #45, #46, o destino da A-1, o checklist da loja (§4.2).
+- [ ] **Step 7: Registrar no §5.18:** AVD, system image, nível de API, ABI, build (modo, commit, SHA-256 do APK, certificado de assinatura), data, a URL da exceção e a revisão fixada, os hosts vistos no caminho (`huggingface.co` e a CDN, para a #4), as linhas do logcat, o resultado das sabotagens das Tasks 1, 3, 4 e 4b, o resultado da Task 4b no aparelho, a medição da política do MinIO (D6) e as pendências: #45, #46, o destino da A-1, o checklist da loja (§4.2).
 
 - [ ] **Step 8: Verificação final**
 
@@ -720,7 +835,7 @@ Expected: `exit=1`; tudo verde.
 
 ```bash
 git add spec/arquitetura.md
-git commit -m "docs(arquitetura): download do modelo pelo storage proprio verificado em emulador (#3)"
+git commit -m "docs(arquitetura): download do modelo pela excecao do huggingface.co verificado em emulador (#3)"
 ```
 
 ---
@@ -730,7 +845,7 @@ git commit -m "docs(arquitetura): download do modelo pelo storage proprio verifi
 | Critério de aceite da issue | Tasks e passos |
 |---|---|
 | ADR aprovado pelo dono e referenciado em `spec/stack.md` §1.1 | 0 (redação e submissão), 0b Steps 1–2 |
-| Download no aparelho a partir do endpoint próprio, com SHA-256 conferido, registrado em `arquitetura.md` §5 | 2 Steps 4 e 6, 5 Steps 1–7 |
+| Download no aparelho, com SHA-256 conferido, registrado em `arquitetura.md` §5 — **pela URL da exceção do HF (D17)** | 1b; 5 Steps 1–7 |
 | `grep -r huggingface.co app/lib` vazio | 1 Steps 1, 4 e 5; 5 Step 8 |
 | `legal_documents_test.dart` cobre os documentos novos | 0 Step 5; 3 Steps 1 e 5 |
 | Teste de que `termos_{pt,es}.md` contém a seção | 4 Steps 1 e 5 |
@@ -742,7 +857,7 @@ git commit -m "docs(arquitetura): download do modelo pelo storage proprio verifi
 | Escopo 5 (publicação documentada) | 2 Step 3 |
 | Pedidos do prompt: identidade por SHA-256 | 1 Steps 1 e 3; 5 Step 6 |
 | Pedidos do prompt: §4.2 endosso | 3 (`no_endorsement_test`), 2 Step 3 (loja) |
-| Pedidos do prompt: HTTPS no emulador sem afrouxar o release | 5 (staging com certificado público) |
+| Pedidos do prompt: HTTPS no emulador sem afrouxar o release | 5 (durante a exceção, certificado público do HF; staging só na saída) |
 | Pedidos do prompt: vermelho primeiro e sabotagem | Steps 1–2 e de sabotagem das Tasks 0, 1, 2, 3, 4 e 4b |
 | Revisão 1: não endosso com menção neutra × texto descritivo | 3 (`no_endorsement_test`) |
 | Revisão 2: sem URL, só caminhos sem rede | 1 Steps 1, 3 e 5 |
@@ -757,7 +872,8 @@ git commit -m "docs(arquitetura): download do modelo pelo storage proprio verifi
 | J1/J2 como regras de produto R1–R3 | 0 Step 3; aplicação ao conteúdo na #48 |
 | Gatilhos para revisitar a parte formal | 0 Step 3 |
 | Gemma 4 como alternativa de licença (registrada, não perseguida) | 0 Step 3, 0b Step 3 |
-| Domínio e servidor | 5, pré-requisito; `docs/operacao.md` |
+| Domínio e servidor | saída da exceção (Task 2 Step 6); `docs/operacao.md` |
+| Exceção do huggingface.co (URL fixada, só ela; custos e fim registrados) | 0c, 1b, 4c; seção "Exceção" |
 
 ## Decisões do dono (2026-10-29)
 
@@ -774,14 +890,17 @@ git commit -m "docs(arquitetura): download do modelo pelo storage proprio verifi
 | A-1 como decisão de design | **#47** (P1), aberta em 2026-10-29 |
 | D-A: Notice com as duas frases, `gemma.ai` primeiro | Task 3 |
 | D-B: aprovada | Task 3 |
-| HTTPS: staging com certificado público, subdomínio do domínio de produção | Task 5 |
+| HTTPS: staging com certificado público, subdomínio do domínio de produção | Task 5 na saída da exceção |
 | D3 e D6 em issues próprias | **#45** (P1) e **#46** (P2) |
 | E-mail do projeto: `prismufrr@gmail.com` | Task 0 Step 5; exceção nomeada no guarda de "UFRR" |
 | Logo do Telessaúde UFRR fica; papel do PET Telessaúde UFRR: diagnóstico da necessidade social e desenvolvimento da solução, articulando docentes e monitores discentes | ADR-004 transcreve a frase literalmente; Task 3 não mexe em `aboutLogos` |
 | #18 continua em ~1 B; Gemma 4 não perseguido agora | ADR-004, "Alternativa de licença"; D13 |
 | Issue de enquadramento educacional | **#48** (P1), aberta em 2026-10-29 |
-| Domínio e servidor: a definir | Task 5 bloqueada até lá |
+| Domínio e servidor: a definir | Exceção do HF até lá; Task 5 não espera mais por eles |
+| **Modelo baixado direto do huggingface.co, como exceção** | Seção "Exceção"; Tasks 0c, 1b e 4c; D17–D20 |
 
 ## Pendências do dono (bloqueiam passos específicos)
 
-1. **Domínio e servidor** (ainda a definir). Bloqueia só a Task 5 e o piloto; as Tasks 0 a 4b não dependem deles.
+1. **Domínio e servidor** (ainda a definir). Não bloqueiam mais esta issue: definem o **fim da exceção**.
+2. **Texto para a #3 (critério de aceite que muda, D17):** *"Exceção (decisão do dono, 2026-10-29, ADR-004): enquanto o projeto não tem domínio nem servidor, o modelo é baixado direto do Hugging Face, numa URL fixada na revisão `f9c28bc` do repositório da `ggml-org`, passada por `--dart-define` (o host continua fora de `app/lib`). O critério 'download a partir do endpoint próprio' passa a ser 'download a partir da URL da exceção, com SHA-256 conferido'. O storage próprio (já implementado) é a saída da exceção."* Publico quando você confirmar.
+3. **Validação do encarregado (DPO)** sobre a transferência internacional do IP no download (Task 4c a registra como pendente; não bloqueia o plano, mas é gatilho de fim da exceção se houver objeção).
