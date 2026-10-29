@@ -139,8 +139,8 @@ flutter test                    # suite completa
 flutter test test/triage/       # so um diretorio
 flutter test --plain-name "trecho do nome do teste"
 flutter build apk --release --target-platform=android-arm64
-tool/build_apk.sh release       # idem, conferindo MODEL_URL antes (exige config/defines.release.json; modelo em config/defines.example.json)
-flutter run --dart-define-from-file=config/defines.debug.json   # app com MODEL_URL; sem ele o assistente fica "nao configurado"
+tool/build_apk.sh release       # idem, conferindo MODEL_URL e PACK_MANIFEST_URL antes (exige config/defines.release.json; modelo em config/defines.example.json, que o release recusa de proposito)
+flutter run --dart-define-from-file=config/defines.debug.json   # app com MODEL_URL e PACK_MANIFEST_URL; sem eles, assistente e conteudo ficam "nao configurados" (o Sobre avisa)
 dart run tool/check_release_permissions.dart   # lista fechada de permissoes do release (exige o build acima)
 tool/gen_launcher_icon.sh       # regenera os 15 PNGs do icone a partir do SVG
 tool/gen_launcher_icon.sh --check   # confere que os PNGs no disco batem com o SVG

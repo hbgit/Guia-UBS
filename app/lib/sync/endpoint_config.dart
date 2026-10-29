@@ -15,13 +15,17 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
+/// O mesmo que o `kDebugMode` do Flutter, sem importar o Flutter: este
+/// arquivo também roda no guarda de build (`dart run tool/...`), onde
+/// `package:flutter/foundation` não carrega (precisa de `dart:ui`).
+const bool _debugBuild = !bool.fromEnvironment('dart.vm.product') &&
+    !bool.fromEnvironment('dart.vm.profile');
 
 /// `true` quando [url] é absoluta, `http`/`https` e com host; com
 /// [requireHttps] (padrão: fora do debug, isto é, release E profile), só
 /// `https`. O debug aceita `http` porque o emulador fala com o edge de dev em
 /// `http://10.0.2.2`.
-bool isUsableEndpoint(Uri url, {bool requireHttps = !kDebugMode}) {
+bool isUsableEndpoint(Uri url, {bool requireHttps = !_debugBuild}) {
   if (!url.isAbsolute || url.host.isEmpty) return false;
   if (url.scheme == 'https') return true;
   return url.scheme == 'http' && !requireHttps;
