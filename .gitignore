@@ -38,3 +38,6 @@ build/shim-arm64/
 app/.dart_tool/
 app/build/
 app/.flutter-plugins*
+
+# Backups da politica do bucket gravados por infra/scripts/publish-model.sh
+infra/scripts/.policy-backup/
