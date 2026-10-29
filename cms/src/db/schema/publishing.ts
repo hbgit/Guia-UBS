@@ -2,8 +2,9 @@
  * Publicacao: ciclo de vida do pack, aprovacao clinica e suite golden
  * (arquitetura.md 4.3-C).
  */
-import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { CATEGORIAS_COREN_ACEITAS, CONSELHOS, UFS } from '@guia-ubs/contract';
+import { sql, type SQL } from 'drizzle-orm';
+import { check, integer, sqliteTable, text, unique, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { ADMIN_ROLES, adminUser } from './auth.js';
 import { municipality } from './content.js';
@@ -63,6 +64,13 @@ export const packRelease = sqliteTable(
      * indistinguivel de "o job esta trabalhando".
      */
     claimedAt: text('claimed_at'),
+    /**
+     * Quando o portao golden barrou esta release pela ultima vez — carimbado pelo
+     * BANCO (`strftime`), nunca pelo processo, porque e comparado com
+     * `audit_entry.occurred_at`, que tambem e. Nulo enquanto nao ha bloqueio.
+     * Quem le e grava e o worker (P0-2, D11).
+     */
+    blockedAt: text('blocked_at'),
     createdBy: text('created_by')
       .notNull()
       .references(() => adminUser.id),
@@ -115,12 +123,27 @@ export const approval = sqliteTable(
 );
 
 /**
+ * `col IN ('a', 'b', ...)` a partir de uma constante do contrato.
+ *
+ * A lista NUNCA e digitada aqui: conselho ou UF acrescentados ao contrato chegam
+ * ao `CHECK` por `npm run cms:generate`, e `cms:check` reprova se ninguem rodou.
+ * Os valores sao literais do proprio repositorio, por isso o `sql.raw`.
+ */
+function emLista(coluna: AnySQLiteColumn, valores: readonly string[]): SQL {
+  return sql`${coluna} IN (${sql.raw(valores.map((v) => `'${v}'`).join(', '))})`;
+}
+
+/**
  * Caso clinico da suite golden, versionado NO BANCO — junto das regras que ele
  * protege, e nao num arquivo que evolui em outro ritmo.
  *
  * `tokens_json` e uma composicao de sintomas ficticia, escrita pelo revisor
  * clinico. Nao ha aqui nenhuma sequencia de sintomas de pessoa real: o app nao
  * persiste nem transmite a dele (INV-2 / LGPD-RF13).
+ *
+ * Nao ha coluna de revisor. "Revisado" e ter ao menos `MIN_REVISORES` linhas em
+ * `golden_case_review` — a antiga `reviewed_by` era FK para OPERADOR do CMS, e
+ * quem revisa e um profissional que pode nem ter conta (P0-2, D6).
  */
 export const goldenCase = sqliteTable('golden_case', {
   id: text('id').primaryKey(),
@@ -130,9 +153,90 @@ export const goldenCase = sqliteTable('golden_case', {
   addedBy: text('added_by')
     .notNull()
     .references(() => adminUser.id),
-  reviewedBy: text('reviewed_by').references(() => adminUser.id),
   active: integer('active').notNull().default(1),
 });
+
+/**
+ * Atestado de um profissional que revisa casos golden (P0-2, D3/D6).
+ *
+ * E o atestado de uma PESSOA, nao uma conta: nao autentica nada, e por isso nao
+ * e a "segunda tabela de identidade" que o `CLAUDE.md` veta. Quem o registrou e o
+ * `actor_id` da trilha, alem de `created_by`.
+ *
+ * `id` vem do registro publico `seed/golden/atestados.yaml` (`AT-NNNN`), nunca e
+ * gerado aqui: cada CMS implantado recebe o mesmo ID para o mesmo profissional.
+ * Nome e registro so existem neste banco (PII_COLUMNS); o repositorio guarda o
+ * ID, o conselho, a UF e o hash do termo.
+ */
+export const goldenAttestation = sqliteTable(
+  'golden_attestation',
+  {
+    id: text('id').primaryKey(),
+    nome: text('nome').notNull(),
+    conselho: text('conselho', { enum: CONSELHOS }).notNull(),
+    uf: text('uf', { enum: UFS }).notNull(),
+    categoria: text('categoria'),
+    registro: text('registro').notNull(),
+    termoSha256: text('termo_sha256').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => adminUser.id),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    /** Um profissional, um ID: senao uma pessoa contaria como duas no quorum. */
+    unique('golden_attestation_profissional').on(t.conselho, t.uf, t.registro),
+    /** Um termo assinado, um atestado. */
+    unique('golden_attestation_termo').on(t.termoSha256),
+    check('golden_attestation_conselho_valid', emLista(t.conselho, CONSELHOS)),
+    check('golden_attestation_uf_valid', emLista(t.uf, UFS)),
+    /**
+     * COREN so de enfermeiro; CRM sem categoria. A inscricao de COREN carrega a
+     * categoria (`-TE` e tecnico), e tecnico nao revisa triagem.
+     *
+     * O `IS NOT NULL` nao e redundante: `NULL IN (...)` da NULL, e CHECK que da
+     * NULL PASSA. Sem ele, COREN sem categoria entraria.
+     */
+    check(
+      'golden_attestation_categoria_valid',
+      sql`(${t.conselho} = 'COREN' AND ${t.categoria} IS NOT NULL AND ${emLista(t.categoria, CATEGORIAS_COREN_ACEITAS)}) OR (${t.conselho} = 'CRM' AND ${t.categoria} IS NULL)`,
+    ),
+    check(
+      'golden_attestation_termo_hex',
+      sql`length(${t.termoSha256}) = 64 AND ${t.termoSha256} NOT GLOB '*[^0-9a-f]*'`,
+    ),
+  ],
+);
+
+/**
+ * Revisao de um caso golden por um atestado. APPEND-ONLY.
+ *
+ * "Nunca remove nem troca quem atestou" e estrutural: o gatilho recusa UPDATE e
+ * DELETE. Revisao registrada errada nao se corrige aqui — fica para a issue de
+ * revogacao auditada (P0-2, D4).
+ *
+ * `reviewed_at` e a data em que o PROFISSIONAL revisou (AAAA-MM-DD, do termo);
+ * `recorded_at`, quando o operador `recorded_by` a transcreveu. Uma por pessoa
+ * por caso: a mesma revisao duas vezes contaria em dobro.
+ */
+export const goldenCaseReview = sqliteTable(
+  'golden_case_review',
+  {
+    id: text('id').primaryKey(),
+    caseId: text('case_id')
+      .notNull()
+      .references(() => goldenCase.id),
+    attestationId: text('attestation_id')
+      .notNull()
+      .references(() => goldenAttestation.id),
+    reviewedAt: text('reviewed_at').notNull(),
+    recordedBy: text('recorded_by')
+      .notNull()
+      .references(() => adminUser.id),
+    recordedAt: text('recorded_at').notNull(),
+  },
+  (t) => [unique('golden_case_review_case_attestation').on(t.caseId, t.attestationId)],
+);
 
 /** Resultado de uma execucao da suite. Falha bloqueia a assinatura (PRD risco R5). */
 export const goldenRun = sqliteTable('golden_run', {

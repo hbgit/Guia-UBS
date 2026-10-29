@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
 import { pseudonymize, subjectKey } from '../src/auth/pseudonymize.js';
+import { recordAudit } from '../src/services/audit.js';
 import {
   auditRows,
   ativar2fa,
@@ -151,4 +152,25 @@ test('a trilha continua append-only por gatilho, com o app rodando', async () =>
     () => f.client.execute("UPDATE audit_entry SET action = 'nada'"),
     /append-only/,
   );
+});
+
+test('occurred_at vem do relogio do banco e tem o formato ISO com milissegundos', async () => {
+  // O worker compara `occurred_at` com `blocked_at`, que o banco carimba. Dois
+  // relogios — o do processo do CMS e o do `sqld` — tornariam a comparacao
+  // dependente de quanto um esta adiantado em relacao ao outro.
+  const antes = String(
+    (await f.client.execute("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now') AS t")).rows[0]!.t,
+  );
+  await recordAudit(f.client, TEST_ENV.hashSalt, {
+    actorId: null,
+    action: 'relogio_teste',
+    entityType: 'teste',
+    entityId: 'relogio-1',
+  });
+  const r = await f.client.execute(
+    "SELECT occurred_at FROM audit_entry WHERE entity_id = 'relogio-1'",
+  );
+  const quando = String(r.rows[0]!.occurred_at);
+  assert.match(quando, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.ok(quando >= antes, `${quando} e anterior ao relogio do banco (${antes})`);
 });

@@ -40,6 +40,21 @@ test('toda tabela append-only tem linha de exemplo no suporte de teste', () => {
   }
 });
 
+test('o piso das tabelas append-only nao encolhe (remover da constante tambem tiraria o gatilho)', () => {
+  // A constante alimenta o gerador de gatilhos E o `describe` abaixo: tirar uma
+  // tabela dela remove o gatilho e o teste do gatilho juntos, e tudo fica verde.
+  // Este piso e literal de proposito — encolher a lista exige editar aqui.
+  const piso = ['audit_entry', 'consent_record', 'approval', 'golden_case_review'];
+  const nomes = APPEND_ONLY_TABLES.map(({ table }) => getTableName(table));
+  for (const nome of piso) {
+    assert.ok(nomes.includes(nome), `"${nome}" saiu de APPEND_ONLY_TABLES`);
+    const gatilhos = fixture.db
+      .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ?")
+      .get(nome) as { n: number };
+    assert.ok(gatilhos.n >= 2, `"${nome}" sem gatilho de UPDATE e DELETE no banco`);
+  }
+});
+
 for (const { table, requirement } of APPEND_ONLY_TABLES) {
   const name = getTableName(table);
 

@@ -53,6 +53,22 @@ BEGIN
   SELECT RAISE(ABORT, 'approval e append-only (arquitetura.md 4.3-C)');
 END;
 --> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_no_update`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_no_update`
+BEFORE UPDATE ON `golden_case_review`
+BEGIN
+  SELECT RAISE(ABORT, 'golden_case_review e append-only (PRD R5 / P0-2)');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_no_delete`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_no_delete`
+BEFORE DELETE ON `golden_case_review`
+BEGIN
+  SELECT RAISE(ABORT, 'golden_case_review e append-only (PRD R5 / P0-2)');
+END;
+--> statement-breakpoint
 DROP TRIGGER IF EXISTS `municipality_version_monotonic`;
 --> statement-breakpoint
 CREATE TRIGGER `municipality_version_monotonic`

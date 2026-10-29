@@ -20,6 +20,7 @@ import { mensagemDoErro } from './db/errors.js';
 import type { Env } from './env.js';
 import { contentRoutes } from './routes/content.js';
 import { approvalRoutes } from './routes/approvals.js';
+import { goldenRoutes } from './routes/golden.js';
 import { meRoutes } from './routes/me.js';
 import { releaseRoutes } from './routes/releases.js';
 import { telemetryRoutes } from './routes/telemetry.js';
@@ -85,6 +86,7 @@ export function createApp({
   protegido.route('/rules', ruleRoutes(client, env.hashSalt));
   protegido.route('/releases', releaseRoutes(client, env.hashSalt));
   protegido.route('/approvals', approvalRoutes(client, env.hashSalt));
+  protegido.route('/golden-cases', goldenRoutes(client, env.hashSalt));
 
   app.route('/api', protegido);
 

@@ -24,7 +24,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { Client } from '@libsql/client';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { createDb } from '../db/client.js';
 import { approval, packRelease, type RELEASE_STATUSES } from '../db/schema/publishing.js';
@@ -264,12 +264,23 @@ export async function registrarDecisao(
  * mesmo pack e publicariam um por cima do outro.
  */
 export async function reivindicar(client: Client, releaseId: string): Promise<boolean> {
+  // Relogio do banco, como no worker: o claim vira `blocked_at` (D11).
   return moverSeEstiverEm(client, releaseId, 'approved', 'building', {
-    claimedAt: new Date().toISOString(),
+    claimedAt: sql`strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
   });
 }
 
-/** `building -> approved`, para destravar release cujo job morreu. */
+/**
+ * Devolve a release a fila do job. Dois casos, os dois auditados:
+ *
+ * - `building -> approved`: destrava release cujo job morreu.
+ * - `approved` com `blocked_at`: limpa o bloqueio do portao (P0-2, D11). Uma
+ *   correcao que nao passa pela trilha — o registro publico de atestados, um
+ *   redeploy do worker — nao reabre a release sozinha, e sem isto ela ficaria
+ *   fora da fila para sempre. Nao e transicao da FSM: o estado nao muda, e por
+ *   isso nao esta em `TRANSICOES`. Release aprovada sem bloqueio segue
+ *   respondendo transicao invalida.
+ */
 export async function devolverParaFila(
   client: Client,
   salt: string,
@@ -278,6 +289,30 @@ export async function devolverParaFila(
 ): Promise<ResultadoTransicao> {
   const atual = await lerRelease(client, releaseId);
   if (!atual) return { estado: 'ausente' };
+  if (atual.status === 'approved' && atual.blockedAt !== null) {
+    const db = createDb(client);
+    const limpas = await db
+      .update(packRelease)
+      .set({ blockedAt: null })
+      .where(
+        and(
+          eq(packRelease.id, releaseId),
+          eq(packRelease.status, 'approved'),
+          eq(packRelease.blockedAt, atual.blockedAt),
+        ),
+      )
+      .returning({ id: packRelease.id });
+    if (limpas.length !== 1) return { estado: 'transicao_invalida', atual: atual.status };
+    await recordAudit(client, salt, {
+      actorId: atorId,
+      action: 'release_requeue',
+      entityType: 'pack_release',
+      entityId: releaseId,
+      before: { status: 'approved', blockedAt: atual.blockedAt },
+      after: { status: 'approved', blockedAt: null },
+    });
+    return { estado: 'ok', de: 'approved', para: 'approved' };
+  }
   if (!transicaoPermitida(atual.status, 'approved', 'admin')) {
     return { estado: 'transicao_invalida', atual: atual.status };
   }

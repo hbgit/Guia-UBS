@@ -13,8 +13,8 @@
 /// ```sh
 /// openssl genpkey -algorithm ed25519 -out /tmp/ci.pem
 /// openssl pkey -in /tmp/ci.pem -pubout -outform DER | tail -c 32 | xxd -p -c 32
-/// PACK_SIGNING_KEY_PATH=/tmp/ci.pem npm run pack:build
-/// dart run tool/verify_manifest.dart ../packer/out/manifest.json <hex>
+/// node --import tsx ../packer/test/support/manifest-interop.ts --key /tmp/ci.pem --out /tmp/interop
+/// dart run tool/verify_manifest.dart /tmp/interop/manifest.json <hex>
 /// ```
 library;
 

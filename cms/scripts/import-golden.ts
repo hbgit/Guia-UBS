@@ -1,17 +1,14 @@
 /**
- * Importa os casos golden do YAML para a tabela `golden_case`.
+ * Importa os casos golden do YAML para a tabela `golden_case` (P0-2).
  *
- * Roda UMA vez, na implantacao. Dali em diante a tabela e a fonte do caminho do
- * CMS — que e o motivo de ela existir: o revisor clinico acrescenta caso pela
- * interface, sem abrir PR no repositorio.
+ * Mesma regra do packer e das rotas: caso sem revisao clinica valida e RECUSADO,
+ * e a importacao e tudo-ou-nada — um recusado ou conflito e nada escrito. A
+ * revisao so e ACRESCIDA: revisor que o YAML nao traz permanece, e data nunca e
+ * trocada. Os atestados citados precisam ter sido registrados antes no CMS
+ * (POST /api/golden-cases/atestados) com o ID de `seed/golden/atestados.yaml`.
  *
- * O YAML continua sendo a fonte do caminho `seed/`, que o CI roda em toda PR.
- * Sao duas FONTES para dois CAMINHOS, nao duas copias da mesma coisa — nao ha
- * sincronizacao para envelhecer, e este script nao a cria: ele so semeia.
- *
- * Idempotente: reimportar nao duplica nem sobrescreve caso ja existente. Um caso
- * editado no CMS nao pode ser revertido por reimportacao, senao o trabalho do
- * revisor sumiria numa reimplantacao.
+ * O YAML continua sendo a fonte do caminho `seed/`, que o CI roda em toda PR;
+ * a tabela e a fonte do caminho do CMS. Reimportar e idempotente.
  *
  * Uso: npm run cms:import-golden -- --autor <id do operador>
  */
@@ -23,14 +20,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { createDatabaseClient } from '../src/db/client.js';
 import { loadEnv } from '../src/env.js';
-
-interface CasoYaml {
-  id: string;
-  tokens: string[];
-  expect: string;
-  note?: string;
-  reviewed_by?: string | null;
-}
+import { importarGolden, type CasoGoldenYaml } from '../src/services/golden-import.js';
 
 const { values } = parseArgs({ options: { autor: { type: 'string' } } });
 if (!values.autor) {
@@ -39,44 +29,35 @@ if (!values.autor) {
 }
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
-const arquivo = join(REPO_ROOT, 'seed', 'golden', 'clinical_cases.yaml');
-const casos = (parseYaml(readFileSync(arquivo, 'utf8')) as { cases?: CasoYaml[] }).cases ?? [];
+const lerYaml = (nome: string) =>
+  parseYaml(readFileSync(join(REPO_ROOT, 'seed', 'golden', nome), 'utf8')) as Record<
+    string,
+    unknown
+  > | null;
+const casos = ((lerYaml('clinical_cases.yaml')?.cases as CasoGoldenYaml[] | undefined) ?? []);
+const registro = (lerYaml('atestados.yaml')?.atestados as unknown[] | undefined) ?? [];
 
 const env = loadEnv();
 const client = createDatabaseClient(env.databaseUrl);
 
-let inseridos = 0;
-let existentes = 0;
-let semRevisor = 0;
-
 try {
-  for (const caso of casos) {
-    if (!caso.reviewed_by) semRevisor += 1;
-    const r = await client.execute({
-      sql: `INSERT INTO golden_case
-              (id, tokens_json, expected_outcome_id, clinical_source, added_by, reviewed_by, active)
-            VALUES (?, ?, ?, ?, ?, NULL, 1)
-            ON CONFLICT(id) DO NOTHING
-            RETURNING id`,
-      args: [
-        caso.id,
-        JSON.stringify(caso.tokens),
-        caso.expect,
-        caso.note ?? 'importado de seed/golden/clinical_cases.yaml',
-        values.autor,
-      ],
-    });
-    if (r.rows.length === 1) inseridos += 1;
-    else existentes += 1;
+  const r = await importarGolden(
+    client,
+    env.hashSalt,
+    { casos, registro },
+    { autor: values.autor, agora: new Date() },
+  );
+  console.log(`  inseridos              ${r.inseridos.length}`);
+  console.log(`  revisores acrescentados ${r.revisoresAcrescentados.length}`);
+  console.log(`  mantidos               ${r.mantidos.length}`);
+  for (const c of r.conflitos) console.log(`  conflito  ${c.id}: ${c.motivo}`);
+  for (const x of r.recusados) {
+    console.log(`  recusado  ${x.id}`);
+    for (const p of x.problemas) console.log(`            - ${p}`);
   }
-
-  console.log(`  importados  ${inseridos}`);
-  console.log(`  ja existiam ${existentes} (nao sobrescritos)`);
-  if (semRevisor > 0) {
-    // O packer ja avisa disso a cada build; repetir aqui poe o numero na frente
-    // de quem esta implantando, que e quem pode agir.
-    console.log(`\n  aviso ${semRevisor} caso(s) sem revisor clinico nomeado.`);
-    console.log('        Bloqueia o piloto, nao o build (arquitetura.md 5.12).');
+  if (r.recusados.length > 0 || r.conflitos.length > 0) {
+    console.error('\nNada foi escrito: a importacao e tudo-ou-nada.');
+    process.exitCode = 1;
   }
 } finally {
   client.close();

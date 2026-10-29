@@ -8,14 +8,25 @@
  * log, sem sintoma ate o dia em que importa.
  */
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { after, before, test } from 'node:test';
+
+import { createClient } from '@libsql/client';
 
 import { getTableName, is } from 'drizzle-orm';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
-import { migrationStatements, triggerStatementsFromDisk } from '../src/db/client.js';
+import {
+  migrationStatements,
+  splitStatements,
+  triggerStatementsFromDisk,
+} from '../src/db/client.js';
 import * as schema from '../src/db/schema/index.js';
 import { buildTriggerSql, triggerStatements } from '../src/db/triggers.js';
+import { preCondicao0009 } from '../scripts/migrate.js';
 import { freshDatabase, seedIdentity, type TestDatabase } from './support/db.js';
 
 let fixture: TestDatabase;
@@ -121,4 +132,120 @@ test('as migracoes trazem tabelas antes dos gatilhos', () => {
   const primeiroGatilho = statements.findIndex((s) => s.startsWith('DROP TRIGGER'));
   const ultimaTabela = statements.map((s) => s.startsWith('CREATE TABLE')).lastIndexOf(true);
   assert.ok(primeiroGatilho > ultimaTabela, 'ha gatilho sendo criado antes da ultima tabela');
+});
+
+// ---------------------------------------------------------------------------
+// 0009: golden_case perde `reviewed_by`, revisao vira tabela append-only
+// ---------------------------------------------------------------------------
+
+const MIGRATIONS_DIR = join(import.meta.dirname, '..', 'src', 'db', 'migrations');
+
+/**
+ * Sentencas de UMA migracao, pelo indice do journal — a ordem que o migrador do
+ * drizzle usa em producao, e nao a do diretorio.
+ */
+function migracao(idx: number): string[] {
+  const journal = JSON.parse(
+    readFileSync(join(MIGRATIONS_DIR, 'meta', '_journal.json'), 'utf8'),
+  ) as { entries: { idx: number; tag: string }[] };
+  const entrada = journal.entries.find((e) => e.idx === idx);
+  assert.ok(entrada, `migracao ${idx} fora do journal`);
+  return splitStatements(readFileSync(join(MIGRATIONS_DIR, `${entrada.tag}.sql`), 'utf8'));
+}
+
+/** Banco como estava em producao antes da 0009: 0000..0008 MAIS os gatilhos. */
+function bancoAte0008(): DatabaseSync {
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys = ON');
+  for (let i = 0; i <= 8; i += 1) for (const s of migracao(i)) db.exec(s);
+  // Os gatilhos de entao: os de hoje menos os da tabela que a 0009 cria.
+  for (const s of triggerStatementsFromDisk()) {
+    if (!s.includes('golden_case_review')) db.exec(s);
+  }
+  db.exec(`INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
+           VALUES ('admin-1', 'op@exemplo.invalid', 'Operador', 'editor', 0, 0)`);
+  return db;
+}
+
+test('golden_case ativo e sem revisor sobrevive a 0009', () => {
+  const db = bancoAte0008();
+  try {
+    db.exec(`INSERT INTO golden_case
+               (id, tokens_json, expected_outcome_id, clinical_source, added_by, reviewed_by, active)
+             VALUES ('g-1', '["chest","pain"]', 'EMERGENCY', 'ficticio', 'admin-1', NULL, 1)`);
+
+    for (const s of migracao(9)) db.exec(s);
+
+    const linha = db.prepare("SELECT * FROM golden_case WHERE id = 'g-1'").get();
+    assert.deepEqual(
+      { ...linha },
+      {
+        id: 'g-1',
+        tokens_json: '["chest","pain"]',
+        expected_outcome_id: 'EMERGENCY',
+        clinical_source: 'ficticio',
+        added_by: 'admin-1',
+        active: 1,
+      },
+    );
+    const revisoes = db.prepare('SELECT COUNT(*) AS n FROM golden_case_review').get() as {
+      n: number;
+    };
+    assert.equal(revisoes.n, 0, 'a migracao nao inventa revisao');
+  } finally {
+    db.close();
+  }
+});
+
+test('todo gatilho do triggers.sql existe no banco depois de migrar', () => {
+  // O caminho de `runMigrations()` num banco que JA existia: migracao pendente
+  // (que reconstroi `golden_case`) e entao os gatilhos. Um banco novo nao
+  // exercita a reconstrucao, e e nela que um gatilho some.
+  const db = bancoAte0008();
+  try {
+    for (const s of migracao(9)) db.exec(s);
+    for (const s of triggerStatementsFromDisk()) db.exec(s);
+
+    const existentes = new Set(
+      (
+        db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all() as {
+          name: string;
+        }[]
+      ).map((r) => r.name),
+    );
+    const esperados = triggerStatementsFromDisk()
+      .filter((s) => s.startsWith('DROP TRIGGER'))
+      .map((s) => s.match(/`(.+)`/)![1]!);
+    assert.ok(esperados.includes('golden_case_review_no_update'));
+    assert.ok(esperados.includes('golden_case_review_no_delete'));
+    for (const nome of esperados) assert.ok(existentes.has(nome), `gatilho "${nome}" ausente`);
+  } finally {
+    db.close();
+  }
+});
+
+test('pre-condicao da 0009 acusa reviewed_by preenchido', async () => {
+  // A 0009 descarta a coluna. Um revisor gravado nela sumiria em silencio — e
+  // `reviewed_by` era FK para operador, nao atestado: nao ha para onde copiar.
+  const diretorio = mkdtempSync(join(tmpdir(), 'gubs-0009-'));
+  const client = createClient({ url: `file:${join(diretorio, 'cms.db')}` });
+  try {
+    for (let i = 0; i <= 8; i += 1) for (const s of migracao(i)) await client.execute(s);
+    await client.execute(`INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
+                          VALUES ('admin-1', 'op@exemplo.invalid', 'Operador', 'editor', 0, 0)`);
+    await client.execute(`INSERT INTO golden_case
+               (id, tokens_json, expected_outcome_id, added_by, reviewed_by, active)
+             VALUES ('g-revisado', '["chest"]', 'EMERGENCY', 'admin-1', 'admin-1', 1),
+                    ('g-pendente', '["chest"]', 'EMERGENCY', 'admin-1', NULL, 1)`);
+
+    assert.deepEqual(await preCondicao0009(client), ['g-revisado']);
+
+    // Depois da 0009 a coluna nao existe, e a pre-condicao nao pode quebrar.
+    await client.execute("UPDATE golden_case SET reviewed_by = NULL WHERE id = 'g-revisado'");
+    for (const s of migracao(9)) await client.execute(s);
+    assert.deepEqual(await preCondicao0009(client), []);
+  } finally {
+    client.close();
+    rmSync(diretorio, { recursive: true, force: true });
+  }
 });
