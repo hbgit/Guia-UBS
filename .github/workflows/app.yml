@@ -81,8 +81,11 @@ jobs:
           openssl genpkey -algorithm ed25519 -out "$RUNNER_TEMP/ci-key.pem"
           pub=$(openssl pkey -in "$RUNNER_TEMP/ci-key.pem" -pubout -outform DER \
             | tail -c 32 | od -An -tx1 | tr -d ' \n')
-          PACK_SIGNING_KEY_PATH="$RUNNER_TEMP/ci-key.pem" npm run pack:build
-          cd app && dart run tool/verify_manifest.dart ../packer/out/manifest.json "$pub"
+          # Manifest SINTETICO: `pack:build` recusa assinar sem revisao clinica
+          # (#2), e este job testa a serializacao, nao o conteudo.
+          node --import tsx packer/test/support/manifest-interop.ts \
+            --key "$RUNNER_TEMP/ci-key.pem" --out "$RUNNER_TEMP/interop"
+          cd app && dart run tool/verify_manifest.dart "$RUNNER_TEMP/interop/manifest.json" "$pub"
 
   # Guarda da fronteira nativa (stack.md ADR-002).
   #
