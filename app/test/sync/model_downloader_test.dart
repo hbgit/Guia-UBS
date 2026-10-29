@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/core/disk_space.dart';
 import 'package:guia_ubs/sync/destination_lock.dart';
+import 'package:guia_ubs/sync/endpoint_config.dart';
 import 'package:guia_ubs/legal/terms.dart';
 import 'package:guia_ubs/sync/model_background_sync.dart';
 import 'package:guia_ubs/sync/model_downloader.dart';
@@ -198,6 +199,13 @@ void main() {
           sizeBytes: payload.length,
           fileName: 'modelo.gguf',
         );
+
+    test('em release, MODEL_URL http conta como nao configurada (#45)', () {
+      expect(
+        isUsableEndpoint(Uri.parse('http://h/x.gguf'), requireHttps: true),
+        isFalse,
+      );
+    });
 
     test('URL vazia ou relativa nao conta como configurada', () {
       expect(semUrl().isConfigured, isFalse);
