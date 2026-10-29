@@ -932,6 +932,7 @@ publique uma versão nova e corrigida.
 | **Sem importador de conteúdo** | `cms:import-golden` traz os casos clínicos, mas não há equivalente para o conteúdo de `seed/`. Um CMS recém-implantado começa vazio, e a primeira release é montada pela API, item a item |
 | **Sem upload de asset** | `asset` guarda metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível |
 | **Sem expurgo por retenção** | A LGPD-RF07 exige prazo de retenção com expurgo; o procedimento está desenhado mas não implementado — depende da tabela de retenção aprovada pelo encarregado |
+| **Termos de uso mudaram para o piloto** | A versão de 2026-10-29 dos termos do app incorpora as restrições de uso do Gemma ([ADR-004](../spec/stack.md)). O app pede "li e concordo" a cada versão nova, mas o termo de consentimento do piloto UAT (LGPD-RF02) não está no repositório: a mudança precisa ser lida em voz alta aos participantes já inscritos, no idioma de cada um |
 | **Casos golden sem revisão clínica** | Os 24 casos semeados não têm revisor. Desde a P0-2 o packer (`build` sem `--dry-run`, `publish`) e o worker **bloqueiam** e nada é assinado; `pack:check` apenas avisa. Roteiro da revisão: [`revisao-golden.md`](revisao-golden.md) |
 
 ---

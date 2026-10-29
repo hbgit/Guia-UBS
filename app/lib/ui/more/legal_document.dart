@@ -160,6 +160,12 @@ Future<List<LegalDocument>> loadLegalDocuments(
 /// pedem, e ele não muda.
 const String gemmaNoticeAsset = 'assets/legal/gemma_notice.txt';
 
+/// A primeira linha de [gemmaNoticeAsset], para os portões que não podem
+/// esperar uma leitura de asset (onboarding, "li e concordo"). Um teste
+/// confere que é idêntica à do arquivo.
+const String gemmaNoticeLine = 'Gemma is provided under and subject to the '
+    'Gemma Terms of Use found at gemma.ai/resources/terms';
+
 /// Os documentos do Gemma, na ordem da tela: o resumo e a Política traduzidos
 /// (cortesia), depois os dois originais em inglês, que são os que valem.
 ///

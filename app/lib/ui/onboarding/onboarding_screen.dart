@@ -13,12 +13,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../sync/model_provisioning.dart';
+import '../more/legal_document.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
     required this.provisioning,
     required this.onReady,
     this.pickLocalModel,
+    this.openGemmaTerms,
     super.key,
   });
 
@@ -31,6 +33,10 @@ class OnboardingScreen extends StatefulWidget {
   /// tela não dependa do plugin de picker.
   final Future<File?> Function()? pickLocalModel;
 
+  /// Abre o Notice e os termos do Gemma (ADR-004). Injetado: o onboarding
+  /// fica fora do roteador e não sabe empilhar tela.
+  final VoidCallback? openGemmaTerms;
+
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
@@ -42,7 +48,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     widget.provisioning.checkPrerequisites();
   }
 
+  /// A importação por pendrive também é distribuição do Gemma (ADR-004): o
+  /// Notice aparece ANTES de escolher o arquivo, como aparece antes do
+  /// download.
+  bool _confirmingImport = false;
+
+  void _askImport() => setState(() => _confirmingImport = true);
+
   Future<void> _importFromStorage() async {
+    setState(() => _confirmingImport = false);
     final picker = widget.pickLocalModel;
     if (picker == null) return;
     final file = await picker();
@@ -86,6 +100,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _body(BuildContext context, SetupState state) {
+    if (_confirmingImport && state.blocksClinicalScreen) {
+      return _ImportConfirm(
+        onChoose: _importFromStorage,
+        onBack: () => setState(() => _confirmingImport = false),
+        openTerms: widget.openGemmaTerms,
+      );
+    }
     return switch (state.stage) {
       SetupStage.checking => const _Centered(
           icon: Icons.wifi_find,
@@ -96,7 +117,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       SetupStage.awaitingConsent => _Consent(
           sizeBytes: state.totalBytes,
           onAccept: widget.provisioning.startDownload,
-          onImport: widget.pickLocalModel == null ? null : _importFromStorage,
+          onImport: widget.pickLocalModel == null ? null : _askImport,
+          openTerms: widget.openGemmaTerms,
         ),
       SetupStage.downloading => _Progress(state: state),
       SetupStage.verifying => const _Centered(
@@ -119,7 +141,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       SetupStage.blocked => _Blocked(
           state: state,
           onRetry: widget.provisioning.startDownload,
-          onImport: widget.pickLocalModel == null ? null : _importFromStorage,
+          onImport: widget.pickLocalModel == null ? null : _askImport,
           onContinueWithout: widget.provisioning.continueWithoutModel,
         ),
     };
@@ -166,11 +188,13 @@ class _Consent extends StatelessWidget {
     required this.sizeBytes,
     required this.onAccept,
     this.onImport,
+    this.openTerms,
   });
 
   final int sizeBytes;
   final VoidCallback onAccept;
   final VoidCallback? onImport;
+  final VoidCallback? openTerms;
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +216,9 @@ class _Consent extends StatelessWidget {
           'módulo de idiomas ($gb GB). Deseja iniciar agora?',
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
+        _GemmaNotice(openTerms: openTerms),
+        const SizedBox(height: 24),
         FilledButton(
           // Alvo de toque ≥ 64 dp: o app é usado por quem tem pouca intimidade
           // com telas, às vezes de pé, no posto.
@@ -354,6 +380,87 @@ class _Blocked extends StatelessWidget {
           'casos que não são de emergência.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+/// A frase do Notice e o acesso aos termos do Gemma (ADR-004, §3.1).
+///
+/// Literal e em inglês, como os termos exigem; quem não lê inglês tem o
+/// botão, que abre o resumo e a Política em pt/es antes dos originais.
+class _GemmaNotice extends StatelessWidget {
+  const _GemmaNotice({required this.openTerms});
+
+  final VoidCallback? openTerms;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          gemmaNoticeLine,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          key: const ValueKey('onboarding-gemma-terms'),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(64)),
+          onPressed: openTerms,
+          child: const Text('Termos do Gemma'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Antes do seletor de arquivo: o mesmo aviso do download.
+class _ImportConfirm extends StatelessWidget {
+  const _ImportConfirm({
+    required this.onChoose,
+    required this.onBack,
+    required this.openTerms,
+  });
+
+  final VoidCallback onChoose;
+  final VoidCallback onBack;
+  final VoidCallback? openTerms;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.usb, size: 96, semanticLabel: 'Pendrive'),
+        const SizedBox(height: 24),
+        Text(
+          'Importar de um pendrive',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'O arquivo do assistente vem com termos de uso. Quem o repassa a '
+          'outro aparelho entrega junto o aviso e os termos.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        _GemmaNotice(openTerms: openTerms),
+        const SizedBox(height: 24),
+        FilledButton(
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(64)),
+          onPressed: onChoose,
+          child: const Text('Escolher arquivo'),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          style: TextButton.styleFrom(minimumSize: const Size.fromHeight(64)),
+          onPressed: onBack,
+          child: const Text('Voltar'),
         ),
       ],
     );

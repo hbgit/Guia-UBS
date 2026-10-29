@@ -35,6 +35,29 @@ teléfono.
 
 La aplicación es gratuita, no tiene publicidad y no vende ningún dato.
 
+## Modelo de lenguaje (Gemma)
+
+El asistente de esta aplicación usa Gemma, un modelo de lenguaje de Google, que
+funciona dentro del teléfono. El uso de Gemma está sujeto a los Gemma Terms of
+Use.
+
+Las restricciones de uso de la Sección 3.2 de los Gemma Terms of Use, incluida
+la Gemma Prohibited Use Policy, forman parte de estos términos. Valen para quien
+usa la aplicación y para quien entrega el modelo a otra persona, por ejemplo por
+pendrive. No está permitido usar la aplicación ni el modelo para los usos que
+ellas prohíben.
+
+Quien entrega el modelo entrega junto el aviso de abajo y una copia de los Gemma
+Terms of Use.
+
+El texto completo está en la aplicación, en Más, Acerca de, Modelo de lenguaje:
+el original en inglés, que es el que vale, y un resumen y una traducción de la
+política en español, como cortesía.
+
+Google no desarrolló, no revisó y no respalda esta aplicación.
+
+Gemma is provided under and subject to the Gemma Terms of Use found at gemma.ai/resources/terms
+
 ## Responsable
 
 Guia UBS, proyecto de investigación y extensión desarrollado por el grupo de

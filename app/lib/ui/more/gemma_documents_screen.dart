@@ -26,7 +26,11 @@ final gemmaDocumentsProvider = FutureProvider.family<GemmaDocuments, String>(
 );
 
 class GemmaDocumentsScreen extends ConsumerWidget {
-  const GemmaDocumentsScreen({super.key});
+  const GemmaDocumentsScreen({this.onBack, super.key});
+
+  /// Voltar quando a tela é aberta por cima de um portão (onboarding), fora do
+  /// roteador. Nulo: o voltar padrão da casca.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,6 +40,7 @@ class GemmaDocumentsScreen extends ConsumerWidget {
 
     return GubsScaffold(
       title: l.gemmaDocumentsTitle,
+      onBack: onBack,
       child: docs.when(
         // Sem indicador animado: ver o comentário de LegalDocumentsScreen.
         loading: () => const SizedBox.shrink(),

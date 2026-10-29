@@ -196,6 +196,43 @@ void main() {
       });
     }
 
+    test('a linha do Notice no app e a primeira linha do arquivo', () async {
+      // O onboarding mostra a frase sem ler o asset (leitura assincrona num
+      // portao de primeiro acesso). A constante e o arquivo nao podem divergir.
+      final arquivo = await rootBundle.loadString(gemmaNoticeAsset);
+      expect(arquivo.split('\n').first, gemmaNoticeLine);
+    });
+
+    for (final (idioma, secao, faz) in [
+      ('pt', '## Modelo de linguagem (Gemma)', 'fazem parte destes termos'),
+      ('es', '## Modelo de lenguaje (Gemma)', 'forman parte de estos términos'),
+    ]) {
+      test('termos_$idioma incorporam as restricoes de uso do Gemma como '
+          'clausula', () async {
+        // §3.1(1): as restricoes da §3.2 (que incorporam a Politica) entram
+        // como clausula vinculante no acordo que rege o uso do app.
+        final t = (await rootBundle.loadString('assets/legal/termos_$idioma.md'))
+            .replaceAll(RegExp(r'[ \t]*\n(?!\n|#|- )[ \t]*'), ' ');
+        expect(t, contains(secao));
+        expect(t, contains('Gemma Prohibited Use Policy'));
+        expect(t, contains(gemmaNoticeLine));
+        expect(t, contains(faz));
+      });
+    }
+
+    test('a versao dos termos avancou com a clausula', () async {
+      for (final idioma in ['pt', 'es']) {
+        final docs = await loadLegalDocuments(idioma);
+        final termos =
+            docs.firstWhere((d) => d.asset.endsWith('termos_$idioma.md'));
+        // Comparado com a ultima versao DISTRIBUIDA (2026-08-22). A de
+        // 2026-10-29 sem a clausula so existiu neste branch.
+        expect(termos.versionDate!.compareTo('2026-08-22'), greaterThan(0),
+            reason: 'termos com clausula nova precisam de versao nova: e ela '
+                'que dispara o "li e concordo" (Task 4b)');
+      }
+    });
+
     test('idioma sem traducao recua para pt', () {
       expect(gemmaAssetsFor('fr'), gemmaAssetsFor('pt'));
       expect(gemmaAssetsFor('es').first, contains('_es'));
