@@ -181,7 +181,7 @@ Item 15 [FEITO]
 
 * [TODO] Não esperei uma janela periódica real disparar (6h). O que verifiquei foi o REGISTRO e as restrições; a execução do ciclo em background continua sem prova de campo.
 
-* [TODO] `packManifestUrl` aponta para o MinIO local por padrão. Precisa de `--dart-define` no build de produção, como as chaves de assinatura.
+* [FEITO na #45] ~~`packManifestUrl` aponta para o MinIO local por padrão.~~ Sem padrão; sem o define, o sync não toca a rede e o build de release recusa (`spec/arquitetura.md` §5.19).
 
 * 417 → 438 testes.
 
