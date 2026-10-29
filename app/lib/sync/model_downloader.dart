@@ -95,7 +95,7 @@ class ModelArtifact {
   /// reaproveitar silenciosamente o arquivo antigo.
   final String fileName;
 
-  Uri get uri => Uri.parse(url);
+  Uri get uri => parseEndpoint(url);
 
   /// `true` quando [url] é uma origem utilizável neste build: absoluta, com
   /// host e, fora do debug, `https` (`endpoint_config.dart`, #45).

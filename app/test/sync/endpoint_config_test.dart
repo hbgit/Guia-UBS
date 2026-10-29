@@ -30,6 +30,20 @@ void main() {
     });
   });
 
+  group('URL malformada (revisao final, I-1)', () {
+    // `Uri.parse` LANCA para estas. Num build cru (sem o guarda), a excecao
+    // subia do setup do modelo e deixava o onboarding num spinner eterno.
+    const malformadas = [' https://h/x', 'https://h:abc/x', 'https://[x/a'];
+
+    for (final url in malformadas) {
+      test('"$url" vira nao configurada, sem lancar', () {
+        expect(() => parseEndpoint(url), returnsNormally);
+        expect(isUsableEndpoint(parseEndpoint(url), requireHttps: false),
+            isFalse);
+      });
+    }
+  });
+
   group('isLocalOrReservedHost', () {
     const reservados = [
       'localhost', '127.0.0.1', '127.8.9.1', '::1', '[::1]', '0.0.0.0',

@@ -19,6 +19,7 @@ library;
 import 'package:workmanager/workmanager.dart';
 
 import '../core/app_paths.dart';
+import 'endpoint_config.dart';
 import 'pack_store.dart';
 import 'pack_sync_scheduler.dart';
 import 'sync_service.dart';
@@ -39,13 +40,16 @@ import 'sync_service.dart';
 /// `--dart-define-from-file=config/defines.<modo>.json`, como o `MODEL_URL`.
 const String packManifestUrl = String.fromEnvironment('PACK_MANIFEST_URL');
 
+/// [packManifestUrl] como `Uri`, vazio quando malformada (nunca lança).
+final Uri packManifestUri = parseEndpoint(packManifestUrl);
+
 /// Executa um ciclo da FSM-B.
 ///
 /// Não é o dispatcher: o WorkManager tem UM ponto de entrada, em
 /// `background_sync.dart`.
 Future<bool> runPackSyncTask() async {
     final service = SyncService(
-      manifestUrl: Uri.parse(packManifestUrl),
+      manifestUrl: packManifestUri,
       store: PackStore(await packsDirectory()),
       // Sem UI, sem sessão de triagem: a FSM-A está em repouso por construção.
       quiescence: () => true,

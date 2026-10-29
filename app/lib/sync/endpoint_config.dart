@@ -21,6 +21,13 @@ import 'dart:io';
 const bool _debugBuild = !bool.fromEnvironment('dart.vm.product') &&
     !bool.fromEnvironment('dart.vm.profile');
 
+/// [url] como `Uri`, ou um `Uri` vazio quando ela é malformada. **Nunca
+/// lança.** `Uri.parse` lança para `" https://h/x"` ou `https://h:abc/x`, e
+/// num build feito sem o guarda a exceção subia do setup do modelo e deixava o
+/// onboarding num spinner eterno (revisão final da #45). Vazio = não
+/// configurado, pelo mesmo caminho de uma URL ausente.
+Uri parseEndpoint(String url) => Uri.tryParse(url) ?? Uri();
+
 /// `true` quando [url] é absoluta, `http`/`https` e com host; com
 /// [requireHttps] (padrão: fora do debug, isto é, release E profile), só
 /// `https`. O debug aceita `http` porque o emulador fala com o edge de dev em

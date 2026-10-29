@@ -207,6 +207,43 @@ void main() {
       );
     });
 
+    test('MODEL_URL malformada: notConfigured, sem lancar (I-1)', () async {
+      final a = ModelArtifact(
+        url: 'https://h:abc/x.gguf',
+        sha256: hash,
+        sizeBytes: payload.length,
+        fileName: 'modelo.gguf',
+      );
+      expect(a.isConfigured, isFalse);
+      final fake = _FakeDownloader((_) => throw StateError('nao devia buscar'));
+      final result = await ModelDownloader(
+        artifact: a,
+        destination: File('${tmp.path}/modelo.gguf'),
+        downloader: fake,
+        requiredFreeBytes: 0,
+      ).ensureAvailable();
+      expect((result as ModelUnavailable).reason,
+          ModelUnavailableReason.notConfigured);
+    });
+
+    test('MODEL_URL malformada com modelo em disco: ModelReady (I-1)',
+        () async {
+      final dest = File('${tmp.path}/modelo.gguf')..writeAsBytesSync(payload);
+      final downloader = ModelDownloader(
+        artifact: ModelArtifact(
+          url: ' https://h/x.gguf',
+          sha256: hash,
+          sizeBytes: payload.length,
+          fileName: 'modelo.gguf',
+        ),
+        destination: dest,
+        downloader: ResumableDownloader(writerLabel: 'teste'),
+        requiredFreeBytes: 0,
+      );
+      addTearDown(downloader.close);
+      expect(await downloader.ensureAvailable(), isA<ModelReady>());
+    });
+
     test('URL vazia ou relativa nao conta como configurada', () {
       expect(semUrl().isConfigured, isFalse);
       expect(

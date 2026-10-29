@@ -54,7 +54,7 @@ Future<void> main() async {
     // pede um sync, então ele precisa acontecer sem ninguém abrir o app.
     // Sem origem (#45), nenhum job: e o herdado de um build antigo, que
     // apontava para o loopback, é cancelado.
-    if (shouldSchedulePackSync(Uri.parse(packManifestUrl))) {
+    if (shouldSchedulePackSync(packManifestUri)) {
       await schedulePackSync();
     } else {
       await cancelPackSync();

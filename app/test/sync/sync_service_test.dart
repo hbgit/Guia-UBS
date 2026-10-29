@@ -277,6 +277,22 @@ void main() {
       expect(await store.readRetryOrigin(), syncOrigin(origin.manifestUrl));
     });
 
+    test('estado anterior a #45 (sem origem) com circuito aberto: o primeiro '
+        'ciclo instala (revisao final, I-2)', () async {
+      // O cenario real da frota: o state.json de todo aparelho atualizado
+      // nao tem `retryOrigin`, e o circuito foi aberto contra o loopback.
+      await store.saveRetryState(SyncRetryState(
+        failures: 5,
+        circuitOpenUntil: clock.add(const Duration(hours: 6)),
+      ));
+      expect(await store.readRetryOrigin(), isNull);
+
+      final report = await service.runCycle();
+
+      expect(report.committed, isTrue);
+      expect((await store.readRetryState()).failures, 0);
+    });
+
     test('ETag de outra origem nao e reaproveitado', () async {
       await store.saveEtag(origin.etag); // a origem B responderia 304 a isto
       await store.saveRetryOrigin(antiga);

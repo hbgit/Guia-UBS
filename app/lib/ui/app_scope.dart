@@ -412,7 +412,7 @@ typedef BuildOrigins = ({bool content, bool assistant});
 
 final buildOriginsProvider = Provider<BuildOrigins>(
   (ref) => (
-    content: isUsableEndpoint(Uri.parse(packManifestUrl)),
+    content: isUsableEndpoint(packManifestUri),
     assistant: activeModel.isConfigured,
   ),
 );
@@ -424,7 +424,7 @@ final buildOriginsProvider = Provider<BuildOrigins>(
 /// controlador de triagem se há sessão viva, que é o que a linha B11 exige.
 final packSyncProvider = Provider<SyncService>((ref) {
   final service = SyncService(
-    manifestUrl: Uri.parse(packManifestUrl),
+    manifestUrl: packManifestUri,
     store: ref.watch(activeContentProvider).store,
     quiescence: () =>
         ref.read(triageControllerProvider).state == TriageState.s0Idle,
