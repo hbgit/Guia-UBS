@@ -15,6 +15,8 @@
 /// ao fechamento do app.
 library;
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/prefs/preferences_repository.dart';
 import 'package:guia_ubs/prefs/user_database.dart';
@@ -61,6 +63,7 @@ void main() {
 
   setUpAll(configureSqliteForTests);
   setUp(() => db = inMemoryUserDatabase());
+  avisoDePrivacidadeAcompanhaOBanco();
   tearDown(() => db.close());
 
   group('superfície de dados no aparelho', () {
@@ -207,4 +210,39 @@ void main() {
       expect((await repo.readAll()).locale, isNull);
     });
   });
+}
+
+/// O aviso de privacidade promete: "existe um teste automático que reprova a
+/// publicação se as duas [listas] deixarem de coincidir". Este é o teste.
+/// Antes dele a promessa era falsa, e a lista do documento já estava atrás do
+/// banco (seis itens para oito colunas).
+void avisoDePrivacidadeAcompanhaOBanco() {
+  for (final (idioma, secao) in [
+    ('pt', '## O que fica guardado no aparelho'),
+    ('es', '## Lo que queda guardado en el teléfono'),
+  ]) {
+    test('privacidade_$idioma lista um item por coluna do user.db', () async {
+      final texto =
+          File('assets/legal/privacidade_$idioma.md').readAsStringSync();
+      final inicio = texto.indexOf(secao);
+      expect(inicio, isNonNegative, reason: 'secao "$secao" sumiu');
+      final resto = texto.substring(inicio + secao.length);
+      final fim = resto.indexOf('\n## ');
+      final itens = (fim < 0 ? resto : resto.substring(0, fim))
+          .split('\n')
+          .where((l) => l.startsWith('- '))
+          .length;
+
+      final db = inMemoryUserDatabase();
+      addTearDown(db.close);
+      final colunas = db.preferences.$columns
+          .map((c) => c.name)
+          .where((n) => n != 'id')
+          .length;
+
+      expect(itens, colunas,
+          reason: 'privacidade_$idioma.md lista $itens itens e o user.db '
+              'guarda $colunas: o titular le uma lista que mente');
+    });
+  }
 }

@@ -12,14 +12,9 @@ versão em inglês.
 Este resumo explica, em linguagem simples, o que os Gemma Terms of Use pedem de
 quem usa o aplicativo. Ele não é uma tradução e não substitui o original.
 
-- O assistente deste aplicativo usa o Gemma, um modelo de linguagem do Google,
-  que roda dentro do próprio aparelho.
-- O uso do Gemma segue os termos do Google. As restrições de uso desses termos,
-  incluindo a Política de Uso Proibido, valem para quem usa o aplicativo e para
-  quem repassa o modelo a outra pessoa.
-- Quem repassa o modelo, por exemplo por pendrive, precisa entregar junto o
-  aviso ("Notice") e uma cópia dos termos.
+- O assistente deste aplicativo usa o Gemma, um modelo de linguagem do Google, que roda dentro do próprio aparelho.
+- O uso do Gemma segue os termos do Google. As restrições de uso desses termos, incluindo a Política de Uso Proibido, valem para quem usa o aplicativo e para quem repassa o modelo a outra pessoa.
+- Quem repassa o modelo, por exemplo por pendrive, precisa entregar junto o aviso ("Notice") e uma cópia dos termos.
 - O Google pode restringir o uso do Gemma que considere contrário aos termos.
-- A responsabilidade pelo que o assistente produz é de quem distribui e de
-  quem usa o aplicativo, não do Google.
+- A responsabilidade pelo que o assistente produz é de quem distribui e de quem usa o aplicativo, não do Google.
 - O Google não desenvolveu, não revisou e não endossa este aplicativo.

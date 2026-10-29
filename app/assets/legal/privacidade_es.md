@@ -1,4 +1,4 @@
-<!-- versao: 2026-08-22 -->
+<!-- versao: 2026-10-29 -->
 # Aviso de privacidad
 
 BORRADOR. Este texto describe lo que hace la aplicación hoy, pero todavía no
@@ -24,7 +24,9 @@ Solo opciones de funcionamiento de la aplicación:
 - el tamaño de letra que eligió;
 - si acepta ayudar con números de uso;
 - si el puesto permitió descargar contenido con datos móviles;
-- si la aplicación ya fue preparada en el primer acceso.
+- si la aplicación ya fue preparada en el primer acceso;
+- qué versión de los términos de uso respondió;
+- si aceptó los términos de uso.
 
 Esa lista es la misma que aparece en la pantalla de privacidad, y hay una prueba
 automática que rechaza la publicación si las dos dejan de coincidir.
@@ -48,7 +50,7 @@ La aplicación funciona con el teléfono sin conexión. Accede a internet solo e
 dos situaciones, ninguna durante el uso:
 
 - para buscar contenido nuevo revisado, en segundo plano;
-- para descargar el modelo de lenguaje en el primer acceso.
+- para descargar el modelo de lenguaje en el primer acceso. Mientras el proyecto no tenga servidor propio, viene de Hugging Face, un servicio fuera de Brasil, que recibe la dirección IP del teléfono en el momento de la descarga, como cualquier sitio. No va junto ningún síntoma ni dato de uso.
 
 Las dos verifican la integridad de lo que descargaron antes de aceptarlo. Un
 fallo en cualquiera de ellas no impide que la aplicación funcione.

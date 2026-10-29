@@ -5,6 +5,8 @@
 /// nada disso toca a rede.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -233,10 +235,49 @@ void main() {
       }
     });
 
+    for (final (idioma, fora, ip) in [
+      ('pt', 'fora do Brasil', 'endereço IP'),
+      ('es', 'fuera de Brasil', 'dirección IP'),
+    ]) {
+      test('privacidade_$idioma diz de quem vem o modelo e que o IP sai do '
+          'pais', () async {
+        // Excecao do ADR-004: o download do modelo vem do Hugging Face, e o IP
+        // do aparelho chega a um servico fora do Brasil (LGPD, arts. 33 a 36).
+        final t =
+            (await rootBundle.loadString('assets/legal/privacidade_$idioma.md'))
+                .replaceAll(RegExp(r'\s+'), ' ');
+        expect(t, contains('Hugging Face'));
+        expect(t, contains(fora));
+        expect(t, contains(ip));
+      });
+    }
+
     test('idioma sem traducao recua para pt', () {
       expect(gemmaAssetsFor('fr'), gemmaAssetsFor('pt'));
       expect(gemmaAssetsFor('es').first, contains('_es'));
     });
+  });
+
+  test('nenhum item de lista continua na linha seguinte', () {
+    // O parser fecha o item no fim da linha: o que vier embaixo vira um
+    // paragrafo solto, e o leitor ve o item cortado no meio da frase. Ja
+    // aconteceu com o resumo dos termos do Gemma e com o aviso de privacidade.
+    final problemas = <String>[];
+    for (final f in Directory('assets/legal').listSync().whereType<File>()) {
+      if (!f.path.endsWith('.md')) continue;
+      final linhas = f.readAsLinesSync();
+      for (var i = 1; i < linhas.length; i++) {
+        final anterior = linhas[i - 1];
+        final atual = linhas[i];
+        if (anterior.startsWith('- ') &&
+            atual.trim().isNotEmpty &&
+            !atual.startsWith('- ') &&
+            !atual.startsWith('#')) {
+          problemas.add('${f.uri.pathSegments.last}:${i + 1}');
+        }
+      }
+    }
+    expect(problemas, isEmpty);
   });
 
   group('o parser', () {
