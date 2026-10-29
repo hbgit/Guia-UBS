@@ -356,6 +356,15 @@ projeto**, não de terceiro ([ADR-004](../spec/stack.md)). Redistribuir o Gemma
 obriga a cumprir os Gemma Terms of Use: o arquivo nunca sai sem o Notice e a
 cópia dos termos ao lado, e o script se recusa a publicar sem eles.
 
+**Enquanto não há servidor do projeto: a exceção do ADR-004.** Os builds usam
+como `MODEL_URL` a URL do Hugging Face fixada numa revisão (a de
+`app/config/defines.example.json`), e o guarda de build aceita `huggingface.co`
+só nela. O IP do aparelho chega ao Hugging Face e à CDN deles no download — o
+aviso de privacidade diz isso. **Para sair da exceção:** publicar com
+`npm run model:publish` (abaixo) e trocar o `MODEL_URL` dos builds para a URL
+que o script imprime. Aparelhos já provisionados não baixam de novo: a
+identidade do modelo é o SHA-256, não a URL.
+
 **Antes de implantar: o domínio.** A URL do modelo entra embutida em cada build
 (`--dart-define=MODEL_URL`), então trocar de domínio depois exige distribuir
 builds novos para a frota inteira. Recomendação registrada no plano da #3:

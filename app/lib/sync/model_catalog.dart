@@ -15,7 +15,8 @@ library;
 
 import 'model_downloader.dart';
 
-/// De onde baixar o modelo — o storage do próprio projeto (ADR-004).
+/// De onde baixar o modelo — o storage do próprio projeto, ou, enquanto ele não
+/// existe, a URL fixada do Hugging Face da exceção do ADR-004.
 ///
 /// ===========================================================================
 /// SEM VALOR PADRÃO, DE PROPÓSITO

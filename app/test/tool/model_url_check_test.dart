@@ -54,6 +54,36 @@ void main() {
     );
   });
 
+  group('excecao do huggingface.co (ADR-004)', () {
+    test('a URL da excecao passa, no release', () {
+      expect(problem(huggingFaceExceptionUrl), 'ok');
+    });
+
+    test('huggingface em resolve/main reprova: a excecao e uma revisao fixa', () {
+      final main = huggingFaceExceptionUrl.replaceFirst(
+          RegExp('resolve/[0-9a-f]{40}'), 'resolve/main');
+      expect(main, isNot(huggingFaceExceptionUrl));
+      expect(problem(main), contains('revisao fixa'));
+    });
+
+    test('outro repositorio do huggingface reprova', () {
+      expect(problem(huggingFaceExceptionUrl.replaceFirst('ggml-org', 'outra-org')),
+          contains('ADR-004'));
+    });
+
+    test('a excecao nao vale para outro modelo', () {
+      expect(
+        modelUrlProblem(huggingFaceExceptionUrl,
+            release: true, expectedSha256: '0' * 64),
+        contains('ADR-004'),
+      );
+    });
+
+    test('a excecao e do modelo ativo', () {
+      expect(huggingFaceExceptionSha256, activeModel.sha256);
+    });
+  });
+
   test('http passa fora do release (emulador em dev)', () {
     expect(
       problem('http://10.0.2.2:8081/content-packs/models/gemma-3-1b-it-Q4_K_M-$sha.gguf',
