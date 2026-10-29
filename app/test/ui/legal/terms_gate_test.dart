@@ -144,6 +144,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a saida de um toque aparece SEM rolar, em tela pequena com '
+      'fonte ampliada', (tester) async {
+    // Quem abre o app numa emergencia logo depois de uma atualizacao dos
+    // termos nao pode ter de rolar e ler para achar a saida (revisao final).
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pump(tester);
+
+    final tela = Offset.zero & tester.view.physicalSize;
+    for (final key in ['terms-decline', 'terms-accept']) {
+      final caixa = tester.getRect(find.byKey(ValueKey(key)));
+      expect(tela.contains(caixa.topLeft) && tela.contains(caixa.bottomRight),
+          isTrue,
+          reason: '$key fora da tela sem rolar: $caixa');
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('as duas respostas tem icone, nao so texto', (tester) async {
+    // Zero texto obrigatorio (CLAUDE.md): quem nao le escolhe pelo icone.
+    await pump(tester);
+    for (final key in ['terms-decline', 'terms-accept']) {
+      expect(
+          find.descendant(
+              of: find.byKey(ValueKey(key)), matching: find.byType(Icon)),
+          findsOneWidget,
+          reason: key);
+    }
+  });
+
   group('assistantAllowedProvider', () {
     bool permitido(TermsAnswer? a) {
       final c = ProviderContainer(overrides: [

@@ -38,107 +38,145 @@ class TermsGateScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colors.surface,
       body: SafeArea(
-        // Coluna rolável, não `ListView`: são poucos itens, e uma lista
-        // preguiçosa deixaria "usar sem o assistente" fora da árvore — e fora
-        // do leitor de tela — até alguém rolar.
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(spacing * 3),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(Icons.description_outlined, size: 72, color: colors.blue),
-              const SizedBox(height: spacing * 2),
-              Text(
-                answered ? l.termsGateChangedTitle : l.termsGateTitle,
-                textAlign: TextAlign.center,
-                style: text.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: colors.ink,
-                ),
-              ),
-              const SizedBox(height: spacing * 2),
-              Text(
-                l.termsGateBody,
-                style: text.bodyLarge?.copyWith(
-                  color: colors.ink,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: spacing * 2),
-              Text(
-                gemmaNoticeLine,
-                style: text.bodySmall?.copyWith(color: colors.inkSoft),
-              ),
-              const SizedBox(height: spacing * 3),
-              OutlinedButton.icon(
-                key: const ValueKey('terms-listen'),
-                style: _outlined(colors),
-                onPressed: () => ref
-                    .read(speakerProvider)
-                    .speak(l.termsGateBody, ref.read(speechLocaleProvider)),
-                icon: Icon(Icons.volume_up, color: colors.ink),
-                label: Text(
-                  l.termsGateListen,
-                  style: text.titleMedium?.copyWith(color: colors.ink),
-                ),
-              ),
-              const SizedBox(height: spacing * 1.5),
-              OutlinedButton.icon(
-                key: const ValueKey('terms-read'),
-                style: _outlined(colors),
-                // Por cima do portão: o redirect devolveria aqui quem saísse
-                // por rota antes de responder.
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (page) => LegalDocumentsScreen(
-                      onBack: () => Navigator.of(page).pop(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // O texto rola; as duas RESPOSTAS não. A revisão final achou
+            // "usar sem o assistente" no fim de uma coluna de ~750 dp, fora da
+            // tela num 360×640: quem abre o app numa emergência logo depois de
+            // uma atualização dos termos teria de rolar e ler para sair.
+            //
+            // Coluna rolável, não `ListView`: uma lista preguiçosa deixaria
+            // itens fora da árvore — e do leitor de tela — até alguém rolar.
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(spacing * 3),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 56,
+                      color: colors.blue,
                     ),
-                  ),
-                ),
-                icon: Icon(Icons.article_outlined, color: colors.ink),
-                label: Text(
-                  l.termsGateOpenTerms,
-                  style: text.titleMedium?.copyWith(color: colors.ink),
+                    const SizedBox(height: spacing * 1.5),
+                    Text(
+                      answered ? l.termsGateChangedTitle : l.termsGateTitle,
+                      textAlign: TextAlign.center,
+                      style: text.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: spacing * 2),
+                    Text(
+                      l.termsGateBody,
+                      style: text.bodyLarge?.copyWith(
+                        color: colors.ink,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: spacing * 2),
+                    Text(
+                      gemmaNoticeLine,
+                      style: text.bodySmall?.copyWith(color: colors.inkSoft),
+                    ),
+                    const SizedBox(height: spacing * 3),
+                    OutlinedButton.icon(
+                      key: const ValueKey('terms-listen'),
+                      style: _outlined(colors.line),
+                      onPressed: () => ref
+                          .read(speakerProvider)
+                          .speak(
+                            l.termsGateBody,
+                            ref.read(speechLocaleProvider),
+                          ),
+                      icon: Icon(Icons.volume_up, color: colors.ink),
+                      label: Text(
+                        l.termsGateListen,
+                        style: text.titleMedium?.copyWith(color: colors.ink),
+                      ),
+                    ),
+                    const SizedBox(height: spacing * 1.5),
+                    OutlinedButton.icon(
+                      key: const ValueKey('terms-read'),
+                      style: _outlined(colors.line),
+                      // Por cima do portão: o redirect devolveria aqui quem
+                      // saísse por rota antes de responder.
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (page) => LegalDocumentsScreen(
+                            onBack: () => Navigator.of(page).pop(),
+                          ),
+                        ),
+                      ),
+                      icon: Icon(Icons.article_outlined, color: colors.ink),
+                      label: Text(
+                        l.termsGateOpenTerms,
+                        style: text.titleMedium?.copyWith(color: colors.ink),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: spacing * 3),
-              FilledButton(
-                key: const ValueKey('terms-accept'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(minTouchTarget),
-                  backgroundColor: colors.blue,
+            ),
+            // Barra fixa. As duas respostas com o MESMO peso visual e com
+            // ícone (zero texto obrigatório): recusar não é a opção escondida.
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border(top: BorderSide(color: colors.line)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  spacing * 3,
+                  spacing * 1.5,
+                  spacing * 3,
+                  spacing * 1.5,
                 ),
-                onPressed: () => ref
-                    .read(termsAnswerProvider.notifier)
-                    .answer(accepted: true),
-                // Cor explícita: o estilo do tema venceria o foreground do botão
-                // (armadilha documentada em gubs_theme.dart).
-                child: Text(
-                  l.termsGateAccept,
-                  style: text.titleMedium?.copyWith(color: colors.surface),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const ValueKey('terms-accept'),
+                      style: _outlined(colors.blue),
+                      onPressed: () => ref
+                          .read(termsAnswerProvider.notifier)
+                          .answer(accepted: true),
+                      icon: Icon(
+                        Icons.check_circle_outline,
+                        color: colors.blue,
+                      ),
+                      label: Text(
+                        l.termsGateAccept,
+                        style: text.titleMedium?.copyWith(color: colors.ink),
+                      ),
+                    ),
+                    const SizedBox(height: spacing),
+                    OutlinedButton.icon(
+                      key: const ValueKey('terms-decline'),
+                      style: _outlined(colors.line),
+                      onPressed: () => ref
+                          .read(termsAnswerProvider.notifier)
+                          .answer(accepted: false),
+                      icon: Icon(Icons.arrow_forward, color: colors.ink),
+                      label: Text(
+                        l.termsGateDecline,
+                        style: text.titleMedium?.copyWith(color: colors.ink),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: spacing * 1.5),
-              OutlinedButton(
-                key: const ValueKey('terms-decline'),
-                style: _outlined(colors),
-                onPressed: () => ref
-                    .read(termsAnswerProvider.notifier)
-                    .answer(accepted: false),
-                child: Text(
-                  l.termsGateDecline,
-                  style: text.titleMedium?.copyWith(color: colors.ink),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  ButtonStyle _outlined(GubsColors colors) => OutlinedButton.styleFrom(
+  ButtonStyle _outlined(Color border) => OutlinedButton.styleFrom(
     minimumSize: const Size.fromHeight(minTouchTarget),
-    side: BorderSide(color: colors.line, width: 2),
+    side: BorderSide(color: border, width: 2),
   );
 }

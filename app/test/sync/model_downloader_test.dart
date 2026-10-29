@@ -9,6 +9,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/core/disk_space.dart';
 import 'package:guia_ubs/sync/destination_lock.dart';
+import 'package:guia_ubs/legal/terms.dart';
+import 'package:guia_ubs/sync/model_background_sync.dart';
 import 'package:guia_ubs/sync/model_downloader.dart';
 import 'package:guia_ubs/sync/resumable_downloader.dart';
 
@@ -313,6 +315,30 @@ void main() {
     expect(await downloader.ensureAvailable(), isA<ModelReady>());
     expect(ranges, ['bytes=5-']);
     expect(dest.readAsBytesSync(), payload);
+  });
+
+  test('worker sem aceite dos termos nao baixa e nao pede reagendamento',
+      () async {
+    // ADR-004: o job periodico de uma versao anterior sobrevive a
+    // atualizacao. Sem esta guarda, ele baixaria 806 MB do Hugging Face para
+    // quem tocou "usar sem o assistente". `true` = nao reagendar.
+    var abriuDisco = false;
+    final resultado = await runModelSyncTask(
+      termsAccepted: () async => false,
+      modelsDir: () async {
+        abriuDisco = true;
+        return tmp;
+      },
+    );
+    expect(resultado, isTrue);
+    expect(abriuDisco, isFalse, reason: 'parou antes de tocar o disco');
+  });
+
+  test('aceite so vale para a versao vigente dos termos', () {
+    expect(acceptsCurrentTerms(version: termsVersion, accepted: true), isTrue);
+    expect(acceptsCurrentTerms(version: termsVersion, accepted: false), isFalse);
+    expect(acceptsCurrentTerms(version: '2026-08-22', accepted: true), isFalse);
+    expect(acceptsCurrentTerms(version: null, accepted: true), isFalse);
   });
 
   group('checkDiskSpace', () {

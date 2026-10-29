@@ -100,18 +100,37 @@ BEFORE="$BACKUP_DIR/$STAMP-antes.json"
 NEW="$BACKUP_DIR/$STAMP-nova.json"
 AFTER="$BACKUP_DIR/$STAMP-depois.json"
 
-MC_SCRIPT="mc anonymous get-json local/$BUCKET 2>/dev/null || true" mc_run > "$BEFORE"
+# Ler o "antes" PRECISA dar certo. Bucket sem política é `{}` com saída 0
+# (medido no mc da imagem do compose); qualquer outra coisa — MinIO
+# reiniciando, credencial errada — antes virava "sem política" e o `set-json`
+# gravava só o statement de models/, apagando o acesso anônimo aos packs.
+if ! MC_SCRIPT="mc anonymous get-json local/$BUCKET" mc_run > "$BEFORE"; then
+  fail "nao consegui ler a politica atual de $BUCKET; nada foi alterado"
+fi
+grep -q '^{' "$BEFORE" || fail "a politica atual de $BUCKET nao e JSON ($BEFORE); nada foi alterado"
 node --import tsx "$ROOT/packer/src/models-policy.ts" merge "$BEFORE" --bucket "$BUCKET" > "$NEW"
+
+# Do `set-json` em diante, qualquer saída sem conferência completa reaplica o
+# "antes" — inclusive quando o `set -e` derruba o script no meio.
+rollback() {
+  if grep -q '"Statement"' "$BEFORE"; then
+    MC_SCRIPT="mc anonymous set-json /in/policy.json local/$BUCKET >/dev/null" \
+      mc_run -v "$BEFORE:/in/policy.json:ro" || true
+  else
+    MC_SCRIPT="mc anonymous set private local/$BUCKET >/dev/null" mc_run || true
+  fi
+  echo "FALHOU  politica reaplicada a partir do backup ($BEFORE)" >&2
+}
+POLICY_VERIFIED=0
+trap '[ "$POLICY_VERIFIED" = 1 ] || rollback' EXIT
+
 MC_SCRIPT="mc anonymous set-json /in/policy.json local/$BUCKET >/dev/null" \
   mc_run -v "$NEW:/in/policy.json:ro"
 MC_SCRIPT="mc anonymous get-json local/$BUCKET" mc_run > "$AFTER"
-if ! node --import tsx "$ROOT/packer/src/models-policy.ts" verify "$BEFORE" "$AFTER"; then
-  if grep -q '{' "$BEFORE"; then
-    MC_SCRIPT="mc anonymous set-json /in/policy.json local/$BUCKET >/dev/null" \
-      mc_run -v "$BEFORE:/in/policy.json:ro"
-  fi
-  fail "a politica nova perdeu permissoes anteriores; backup reaplicado ($BEFORE)"
-fi
+node --import tsx "$ROOT/packer/src/models-policy.ts" verify "$BEFORE" "$AFTER" \
+  || fail "a politica nova perdeu permissoes anteriores"
+POLICY_VERIFIED=1
+trap - EXIT
 echo "ok  politica: GetObject em $BUCKET/models/*, nada anterior perdido (backup $BEFORE)"
 
 if [ "$MODE" = publish ]; then

@@ -255,7 +255,8 @@ final termsAnswerProvider =
 /// Recusar desliga só o assistente; a orientação continua (INV-1, INV-8).
 final assistantAllowedProvider = Provider<bool>((ref) {
   final answer = ref.watch(termsAnswerProvider);
-  return answer != null && answer.accepted && answer.version == termsVersion;
+  return answer != null &&
+      acceptsCurrentTerms(version: answer.version, accepted: answer.accepted);
 });
 
 /// Opt-out de telemetria (LGPD-RF03).
