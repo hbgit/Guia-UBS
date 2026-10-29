@@ -64,6 +64,18 @@ export function seedIdentity(db: DatabaseSync): void {
       (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
     VALUES ('rel-1', 'mun-1', 1, '1.0', 'draft', 'admin-1', '${NOW}');
   `);
+  // Caso golden e atestado FICTICIOS: o alvo das duas FKs de `golden_case_review`.
+  // Nome e registro inventados — nenhum profissional real entra no repositorio.
+  db.exec(`
+    INSERT INTO golden_case (id, tokens_json, expected_outcome_id, added_by, active)
+    VALUES ('g-exemplo', '["chest"]', 'ROUTINE_UBS', 'admin-1', 1);
+  `);
+  db.exec(`
+    INSERT INTO golden_attestation
+      (id, nome, conselho, uf, categoria, registro, termo_sha256, created_by, created_at)
+    VALUES ('AT-9001', 'Revisora Ficticia Teste', 'COREN', 'RR', 'ENF', '000000',
+            '${'c'.repeat(64)}', 'admin-1', '${NOW}');
+  `);
 }
 
 /**
@@ -123,5 +135,11 @@ export const APPEND_ONLY_ROWS: Readonly<Record<string, { insert: string; id: str
     insert: `INSERT INTO approval
        (id, pack_release_id, approver_id, role, decision, decided_at)
      VALUES ('approval-1', 'rel-1', 'admin-2', 'clinical_reviewer', 'approve', '${NOW}')`,
+  },
+  golden_case_review: {
+    id: 'review-1',
+    insert: `INSERT INTO golden_case_review
+       (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
+     VALUES ('review-1', 'g-exemplo', 'AT-9001', '2026-08-20', 'admin-1', '${NOW}')`,
   },
 };

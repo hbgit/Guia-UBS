@@ -144,6 +144,23 @@ Saída esperada: `migrado  tabelas em dia, N gatilhos aplicados`.
 Os gatilhos são reaplicados a **cada** migração, de propósito: gatilho que sumiu
 — por restauração de backup antigo, por `DROP` manual — volta sozinho.
 
+#### Antes de migrar para a 0009
+
+A `0009_golden_revisao` **descarta** a coluna `golden_case.reviewed_by` (a revisão
+passa a morar em `golden_case_review`, append-only, ligada a um atestado em
+`golden_attestation`). Um revisor gravado na coluna antiga sumiria, e não há para
+onde copiá-lo: ela apontava para operador do CMS, não para atestado de
+profissional. Por isso, num banco que já existia:
+
+1. **Faça backup do volume `dbdata`** antes de qualquer coisa.
+2. Rode `npm run cms:migrate`. Ele confere a pré-condição **antes** de migrar e
+   aborta com saída 1, sem tocar no banco, se algum caso tiver `reviewed_by`
+   preenchido — a mensagem lista os IDs.
+3. Se abortar, **pare e fale com o dono do projeto.** Não apague o valor para
+   "destravar": ele é o único registro de que alguém revisou aquele caso.
+
+Banco novo, ou já na 0009, passa direto pela pré-condição.
+
 ### 2.4 Criar o primeiro operador
 
 Não existe autocadastro. Este script é o único caminho que não exige um operador
@@ -221,17 +238,33 @@ alheia.
 
 ### 2.6 Semear a suíte golden
 
-Os casos clínicos do repositório vão para a tabela `golden_case` uma vez. Dali em
+Os casos clínicos do repositório vão para a tabela `golden_case`. Dali em
 diante o revisor acrescenta casos pelo CMS.
+
+**Antes de importar**, registre cada atestado citado em `reviewed_by` com o **ID
+de `seed/golden/atestados.yaml`** (`POST /api/golden-cases/atestados`, §4.5b). O
+importador nunca cria atestado: ele confere o que já existe no CMS contra o
+registro público (conselho, UF, categoria e `termo_sha256`).
 
 ```sh
 npm run cms:import-golden -- --autor <id do operador>
 ```
 
-É idempotente: reimportar não duplica nem sobrescreve caso já editado.
+Regras:
 
-> O script avisa quantos casos estão **sem revisor clínico nomeado**. Isso não
-> bloqueia o build, mas bloqueia o piloto.
+- **Caso sem revisão clínica válida é recusado** — não existe mais caso ativo
+  sem revisor. `reviewed_by` vazio, data futura, atestado fora do registro ou
+  não registrado no CMS recusam o caso.
+- **Tudo-ou-nada.** Qualquer recusa ou conflito encerra com código 1 e **nada é
+  escrito**; corrija e rode de novo.
+- **Só acrescenta revisão.** Revisor que o YAML não traz permanece no CMS, e a
+  data de uma revisão existente nunca é trocada (divergência é conflito).
+- **Conflito**: caso cujo conteúdo foi editado no CMS (a revisão do YAML não se
+  aplica) e atestado que diverge do registro público.
+- É idempotente: reimportar o mesmo YAML não escreve nem registra nada.
+
+O script imprime as cinco listas: inseridos, revisores acrescentados, mantidos,
+conflitos e recusados.
 
 ### 2.7 Registrar a chave de assinatura
 
@@ -650,6 +683,43 @@ visíveis.
 > conta para o quórum; o que não aconteceu foi a transição. A tela diz quantas
 > faltam. Pintar de erro faria o revisor achar que o voto se perdeu.
 
+### 4.5b Casos golden e revisão clínica
+
+Um caso golden **nasce inativo** e só entra na suíte (simulação e gate do packer)
+depois que um profissional atestado o revisa. A revisão é **só acréscimo**: não
+há `PUT` nem `DELETE`; registrar errado se corrige pela issue de revogação
+auditada, não por rota.
+
+| Rota | Método | Quem |
+|---|---|---|
+| `/api/golden-cases` | `POST` | `editor` (`content:write`) — cria o caso **inativo**; `active: 1` responde `422` |
+| `/api/golden-cases/atestados` | `POST` | `clinical_reviewer` — registra o atestado de um profissional, com o ID do `atestados.yaml` |
+| `/api/golden-cases/<id>/revisores` | `POST` | `clinical_reviewer` — acrescenta a revisão; ao atingir o mínimo, o caso fica ativo |
+
+Fluxo: o ID `AT-NNNN` é atribuído por PR em `seed/golden/atestados.yaml` → o
+**mesmo ID** é registrado em cada CMS → o editor cadastra o caso inativo → o
+revisor acrescenta as revisões. Dados abaixo são fictícios.
+
+```sh
+curl -s -b ck-revisor.txt -X POST $B/api/golden-cases/atestados -H "$J" -H "$O" \
+  -d '{"id":"AT-9001","nome":"Revisora Ficticia Exemplo","conselho":"CRM","uf":"RR",
+       "registro":"000000","termo_sha256":"<64 hex do termo assinado>"}'
+
+curl -s -b ck.txt -X POST $B/api/golden-cases -H "$J" -H "$O" \
+  -d '{"id":"caso-exemplo","tokens":["chest","pain"],"expect":"EMERGENCY"}'
+
+curl -s -b ck-revisor.txt -X POST $B/api/golden-cases/caso-exemplo/revisores -H "$J" -H "$O" \
+  -d '{"atestado":"AT-9001","reviewed_at":"2026-08-20"}'
+```
+
+| Resposta | Significa |
+|---|---|
+| `201` | gravado (na revisão, `active` informa se o caso foi ativado) |
+| `403` | falta a permissão, **ou** você cadastrou este caso e não pode revisá-lo |
+| `404` | caso inexistente |
+| `409` | ID, profissional ou termo já registrado (a resposta diz qual); revisão repetida do mesmo atestado |
+| `422` | atestado ou data inválidos (COREN só de enfermeiro; registro só dígitos; data futura) |
+
 ### 4.6 O job publica
 
 ```sh
@@ -695,15 +765,46 @@ destravar sem registro é a saída que a auditoria não vê.
 
 ### Portão vermelho — a release voltou sozinha para `approved`
 
-O job devolve a release quando integridade referencial ou suíte golden falham.
-Isso é o desenho, não um erro: o problema está no conteúdo, e depois de corrigido
-a **mesma** release deve poder ser construída.
+O job devolve a release quando integridade referencial, conferência de atestados
+ou suíte golden falham. Isso é o desenho, não um erro: o problema está no
+conteúdo, e depois de corrigido a **mesma** release deve poder ser construída.
+**Nada foi assinado** — nenhum aparelho viu nada.
 
 A corrida fica registrada mesmo falhando, em `golden_run` — `passed`, `total` e
 `failures_json` dizem qual caso quebrou.
 
-Corrija o conteúdo ou a regra e deixe o job pegá-la de novo. **Nada foi
-assinado** — nenhum aparelho viu nada.
+**A release volta com `blocked_at` preenchido, e o job não a pega de novo
+sozinho.** `blocked_at` recebe o instante em que o job tomou posse (`claimed_at`,
+carimbado pelo relógio do banco), não o do bloqueio: a extração lê o conteúdo
+logo depois da posse, e uma escrita feita durante o build não entrou nele. Sem
+essa trava, o laço do compose reconstruiria a mesma release a cada minuto e
+seguraria as mais novas na fila. Para conferir:
+
+```sh
+curl -s -b ck-admin.txt $B/api/releases/<id> | jq '.release | {status, blockedAt}'
+```
+
+O que reabre a release é uma **escrita de conteúdo auditada**: uma linha de
+`audit_entry` com operador (`actor_id` não nulo), ação de prefixo `content_`,
+`rule_` ou `golden_`, e `occurred_at` igual ou posterior a `blocked_at`. Na
+prática, corrigir o conteúdo, a regra ou o caso golden pelo CMS basta. **Não
+reabrem:** login, 2FA, gestão de operador, transições de release e qualquer
+mudança feita por SQL direto, que não passa pela trilha.
+
+**Correção que não escreve conteúdo** — um PR em `seed/golden/atestados.yaml`
+seguido de redeploy do worker, por exemplo — não deixa linha de conteúdo na
+trilha, e a release ficaria fora da fila para sempre. Depois de publicada a
+correção, limpe o bloqueio:
+
+```sh
+curl -s -b ck-admin.txt -X POST $B/api/releases/<id>/reenfileirar -H "$O"
+```
+
+Em release `approved` com `blocked_at`, a rota limpa o carimbo e registra
+`release_requeue` na trilha; o estado não muda, e o job a pega na próxima
+varredura. **Só `admin`.** Em release `approved` sem bloqueio responde `409`:
+não há o que destravar. Se a correção não resolveu, o job bloqueia de novo, e a
+nova corrida aparece em `golden_run`.
 
 ### Rotacionar a chave de assinatura
 
@@ -755,7 +856,7 @@ publique uma versão nova e corrigida.
 | **Sem importador de conteúdo** | `cms:import-golden` traz os casos clínicos, mas não há equivalente para o conteúdo de `seed/`. Um CMS recém-implantado começa vazio, e a primeira release é montada pela API, item a item |
 | **Sem upload de asset** | `asset` guarda metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível |
 | **Sem expurgo por retenção** | A LGPD-RF07 exige prazo de retenção com expurgo; o procedimento está desenhado mas não implementado — depende da tabela de retenção aprovada pelo encarregado |
-| **Casos golden sem revisor nomeado** | Os casos semeados do repositório têm `reviewed_by` nulo. O packer avisa a cada build; bloqueia o piloto |
+| **Casos golden sem revisão clínica** | Os 24 casos semeados não têm revisor. Desde a P0-2 o packer (`build` sem `--dry-run`, `publish`) e o worker **bloqueiam** e nada é assinado; `pack:check` apenas avisa. Roteiro da revisão: [`revisao-golden.md`](revisao-golden.md) |
 
 ---
 

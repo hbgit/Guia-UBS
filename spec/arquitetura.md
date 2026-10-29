@@ -57,6 +57,7 @@ Guia-UBS/
 │   ├── 002_routing_rules.sql    # regras + outcomes
 │   ├── 003_cards.sql · 004_services.sql · 005_flow.sql
 │   ├── golden/clinical_cases.yaml   # suite golden (espelhada no CMS)
+│   ├── golden/atestados.yaml        # registro PÚBLICO de atestados (só IDs; sem dado pessoal)
 │   └── assets/                  # ícones SVG, imagens, áudios Opus
 └── .github/workflows/           # CI (ou .woodpecker/ se self-host)
     ├── contract.yml             # codegen + diff-check do contrato
@@ -263,9 +264,11 @@ O ganho clínico é o motivo de as **regras** ficarem do lado global: uma red fl
 
 | # | Tabela | Colunas-chave | Notas |
 |---|---|---|---|
-| 6 | `pack_release` | `id`, `municipality_id`, `pack_version INTEGER` (monotônico por município), `schema_version`, `status CHECK(status IN ('draft','pending_review','approved','building','built','published','revoked'))`, `claimed_at`, `pack_sha256`, `manifest_json`, `signed_at`, `published_at`, `created_by`, UNIQUE(`municipality_id`,`pack_version`) | Ciclo de vida do artefato |
+| 6 | `pack_release` | `id`, `municipality_id`, `pack_version INTEGER` (monotônico por município), `schema_version`, `status CHECK(status IN ('draft','pending_review','approved','building','built','published','revoked'))`, `claimed_at`, `blocked_at`, `pack_sha256`, `manifest_json`, `signed_at`, `published_at`, `created_by`, UNIQUE(`municipality_id`,`pack_version`) | Ciclo de vida do artefato |
 | 7 | `approval` | `id`, `pack_release_id`, `approver_id→admin_user`, `role`, `decision CHECK(decision IN ('approve','reject'))`, `comment`, `decided_at` | **APPEND-ONLY**. `approver_id ≠ pack_release.created_by` é **gatilho** desde o item 19 — a regra por LINHA mora no banco, porque a ameaça é o insider e uma checagem só na rota protege apenas contra quem passa pela rota. O quórum (≥ 1 `clinical_reviewer`) é agregado sobre outras linhas e vive em `services/approval-workflow.ts` |
-| 8 | `golden_case` | `id`, `tokens_json` (ex.: `["chest","pain"]`), `expected_outcome_id`, `clinical_source`, `added_by`, `reviewed_by`, `active` | Suite clínica versionada **no banco**, junto das regras que ela protege |
+| 8 | `golden_case` | `id`, `tokens_json` (ex.: `["chest","pain"]`), `expected_outcome_id`, `clinical_source`, `added_by`, `active` | Suite clínica versionada **no banco**, junto das regras que ela protege |
+| 8a | `golden_attestation` | `id` (`AT-NNNN`, o do registro público), `nome`, `conselho`, `uf`, `categoria`, `registro`, `termo_sha256`, `created_by`, `created_at`, UNIQUE(`conselho`,`uf`,`registro`), UNIQUE(`termo_sha256`) | Atestado de um profissional revisor (não é conta). Nome e registro só aqui: o repositório público guarda só o ID. §5.17 |
+| 8b | `golden_case_review` | `id`, `case_id`, `attestation_id`, `reviewed_at`, `recorded_by`, `recorded_at`, UNIQUE(`case_id`,`attestation_id`) | **APPEND-ONLY**. "Revisado" = ≥ `MIN_REVISORES` linhas. Nunca remove nem troca quem atestou |
 | 9 | `golden_run` | `id`, `pack_release_id`, `passed INTEGER`, `total INTEGER`, `failures_json`, `ran_at` | Falha ⇒ assinatura bloqueada (R5) |
 | 10 | `signing_key` | `key_id TEXT PK` (`k1`,`k2`), `public_key`, `activated_at`, `retired_at` | Rotação dual-key sem release do app (R4) |
 
@@ -1047,7 +1050,7 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 3. **Não há importador de CONTEÚDO** de `seed/` para o CMS — só de casos golden. Um CMS recém-implantado começa vazio, e a primeira release precisa ser montada pela API. A verificação deste item usou um conjunto mínimo por isso.
 4. **Upload de asset não existe.** O binário ainda vem de `seed/assets/`; `asset.storage_key` aponta para objetos que ninguém enviou.
 5. ~~**`defaultOutcomeId` fixo no CLI do packer**~~ **Fechada no item 26** — ver §5.15.
-6. **24 casos golden sem `reviewed_by`.** O packer e o importador avisam; bloqueia piloto.
+6. **24 casos golden sem revisão clínica.** Desde a P0-2 o packer, o worker e o importador **bloqueiam** (não só avisam): nenhum pack é assinado até a revisão. Ver §5.17 e [`docs/revisao-golden.md`](../docs/revisao-golden.md). Pré-requisito de piloto.
 7. **Expurgo por retenção (LGPD-RF07) não implementado** — depende da tabela de retenção aprovada pelo encarregado.
 
 
@@ -1202,12 +1205,66 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 **Lacuna aberta: a FSM-B não deixa rastro em log.** O `SyncReport` (estado e linhas da matriz percorridas) existe para "o teste e o log local", mas `runPackSyncTask` o descarta e o app não tem nenhum log. Por isso a evidência acima vem do disco e do servidor, não do `logcat`. Também fica para issue própria. Na mesma linha, um texto de UI: com zero bytes baixados, a tela diz "O progresso foi salvo".
 
+#### 5.17 Resultado da P0-2 (issue #2) — portão de revisão clínica da suíte golden (2026-10-28)
+
+**Um aviso não é portão.** Os 24 casos golden não tinham revisor, e `npm run pack:build` avisava e **assinava mesmo assim**: a revisão feita uma vez regrediria em silêncio no próximo caso acrescentado sem revisor. Agora caso sem revisão válida é problema **bloqueante** em todo caminho que assina, e o plano mapeou todos eles antes de mexer: `packer build` sem `--dry-run` (que também assina e deixa `packer/out/manifest.json` distribuível, com a chave de desenvolvimento aceita por APK sem `--dart-define`), `packer publish`, e o worker (com ou sem `--no-publish`). O modo é **derivado de "vai assinar"**, nunca escolhido: não existe flag para pular o portão, porque a flag seria o atalho proibido (D5). `pack:check` e `publish --dry-run` continuam em modo verificação: avisam e saem com 0, para o CI de PR não travar o desenvolvimento.
+
+**Medido:** `pack:build` imprime `BLOQUEADO: 24 problema(s). Nada foi assinado.`, sai com 1 e deixa o `mtime` do manifest intacto; `pack:check` avisa e sai com 0.
+
+**Decisões (D1 a D11).**
+- **D1** `reviewed_by` é lista, mínimo 1 (`MIN_REVISORES`), sem atestado repetido, com `reviewed_at` por revisor.
+- **D2** "Verificável" é formato validado mais identificação suficiente para consulta humana; o código não consulta CFM nem Cofen. No COREN só a categoria `ENF` é aceita. **Em aberto:** o sufixo `-IR` (`12.345-ENF-IR`), a confirmar com o COREN-RR; se mudar o formato, é commit próprio no contrato, antes da transcrição.
+- **D3** Opção A, decidida pelo dono: o registro público `seed/golden/atestados.yaml` é a **fonte única dos IDs** (`AT-NNNN`, conselho, UF, categoria, `termo_sha256`; sem nome nem registro, porque o repositório é público). Nome e registro vivem só no CMS (`golden_attestation`) e no termo, arquivado pela Secretaria (controladora). Os três (YAML de casos, registro, CMS) precisam coincidir, e cada caminho confere o seu par. O critério da issue mudou de "nome(s) do(s) revisor(es)" para "atestado, conselho, UF e categoria".
+- **D4** Revisão errada ou envelhecida: issue P1 de seguimento (ver limites abaixo).
+- **D5** `packer build` assina, logo bloqueia.
+- **D6** `golden_attestation` e `golden_case_review` (**append-only**, `UNIQUE(case_id, attestation_id)`, em `APPEND_ONLY_TABLES`); a coluna `golden_case.reviewed_by` saiu, porque era FK para operador do CMS e o revisor pode não ter conta. "Revisado" é ter pelo menos `MIN_REVISORES` linhas de revisão.
+- **D7** Suíte vazia bloqueia nos dois modos.
+- **D8** Importação tudo-ou-nada: caso recusado ou em conflito, nada é escrito e a saída é 1, senão o CMS ficaria com suíte menor que a do repositório e o worker assinaria contra ela.
+- **D9** O CI de PR nunca reprova por revisão **ausente**; reprova por revisão **inválida** (formato errado, atestado fora do registro). Nenhum teste conta casos revisados no YAML real.
+- **D10** Discordância bloqueia de propósito, e cada resposta tem caminho (tabela em [`docs/revisao-golden.md`](../docs/revisao-golden.md) §4). A pergunta é "o desfecho esperado é clinicamente seguro?"; a resposta "concordo: seguro, mas mais cauteloso que o ideal" conta como concordo, com issue P1 obrigatória no PR; retirada só para caso mal construído, nunca para red flag.
+- **D11** Release bloqueada não é repescada até mudar conteúdo (abaixo).
+
+**D11 complementa a §5.12, sem revertê-la.** A decisão "portão vermelho devolve para `approved`" deixava o laço do compose (`--interval 60`) reivindicar a mesma release bloqueada a cada minuto, sem backoff: cada volta reconstruía o pack, gravava um `golden_run` e dois `audit_entry`, e, por ser FIFO, **travava as releases mais novas**. No bloqueio, a transição `building -> approved` agora grava `blocked_at` com o **instante do claim** (`claimed_at`), e `proximaAprovada` ignora a release até existir `audit_entry` com ator, com `occurred_at >= blocked_at`, de ação de **conteúdo** (`ACOES_QUE_REABREM`, em `contract/src/golden.ts`, para packer e CMS usarem a mesma lista). Login, 2FA, gestão de operador e transições de release não reabrem. **Os instantes vêm do relógio do banco** (`strftime('%Y-%m-%dT%H:%M:%fZ','now')`), não do JS: CMS e worker são containers distintos, e há um único `sqld` primário. Um teste extrai todo literal `action:` de `cms/src` e exige que cada um esteja classificado como reabre ou não reabre: ação nova sem classificação reprova, pelo mesmo princípio de `APPEND_ONLY_TABLES`. Ao reivindicar, `blocked_at` volta a nulo. Correção que não escreve conteúdo auditado (PR no registro público de atestados + redeploy do worker) tem remédio por rota: `POST /api/releases/:id/reenfileirar` em release `approved` com `blocked_at` limpa o carimbo e registra `release_requeue` (só `admin`).
+
+**Um defeito real apareceu no primeiro verde da Task 3.** `categoria IN (...)` com `categoria` nula **passa** um `CHECK` (NULL não é falso), então um atestado COREN sem categoria entrava no banco. Corrigido com `categoria IS NOT NULL` no ramo COREN.
+
+**Sabotagem: 23 proteções, 23 pegas.** Três testes eram decorativos e foram consertados **antes** de pegar: o de UF inválida no CLI usava um `reviewed_by` de tipo errado, e falhava por isso, não pela UF; `CATEGORIAS_COREN_ACEITAS` não estava amarrada ao que o schema aceita; e o teste de append-only iterava a própria constante que deveria guardar, de modo que apagar uma tabela da constante apagava também a asserção (agora é um piso literal conferido contra `sqlite_master`, com gatilho no banco).
+
+**Limites conhecidos, todos de vivacidade (falham fechado), nenhum de segurança.**
+- **Revisão registrada errada é permanente:** `golden_case_review` é append-only e não há rota de desativação. Data ou profissional errado só se corrige pela issue P1 de seguimento (revogação auditada de revisão e desativação de caso por rota, com papel e trilha). Reduzem o erro na entrada: não há rota para editar `tokens`/`expect`; o importador só acrescenta revisor a caso de conteúdo idêntico; a rota recusa data futura e atestado desconhecido.
+- **`reviewed_hash` não existe:** a revisão não está vinculada ao conteúdo do caso, então uma edição de `tokens`/`expect` depois da revisão não a invalida (por ora não há rota que edite, mas SQL direto edita). Mesma issue P1.
+- **Desativação parcial (D7):** suíte vazia bloqueia, mas não há como desativar um caso por rota; também na issue P1.
+- **`blocked_at` é o instante do claim, não do bloqueio** (corrigido na revisão final da #2). Com o carimbo no bloqueio, uma escrita de conteúdo feita durante o build ficava antes de `blocked_at` e nunca reabria a release; agora reabre. O claim sai do relógio do banco, como `occurred_at`.
+- **Erro de infraestrutura no `catch` do worker** devolve a release sem `blocked_at` (comportamento anterior): ela é reivindicada de novo no próximo ciclo.
+- **Atestado do banco que diverge do registro público bloqueia toda release**, mesmo que nenhum caso ativo o use. Fecha pelo lado seguro; o remédio é alinhar o registro e, como isso não escreve conteúdo auditado, limpar o bloqueio com `POST /api/releases/:id/reenfileirar`.
+- **Mudança só por SQL direto não reabre** release bloqueada; basta qualquer escrita de conteúdo auditada ou o `reenfileirar` do admin.
+
+**Observação fora do escopo, anterior à #2:** `cms/Dockerfile` não copia `packer/` nem `seed/`, mas o serviço `packer` do compose roda `packer/src/worker.ts` a partir dessa imagem. Não foi tocado aqui; merece verificação própria antes do piloto.
+
+**Efeito da transição.** Com o portão no ar e os 24 casos sem revisão, nenhum caminho produz pack assinado. O pack já distribuído não muda: o portão age antes da assinatura e não revoga nada, e o aparelho mantém o pack ativo (FSM-B só troca por versão maior validada). Se existir MinIO de produção, ele fica **congelado** na versão atual, aceito pelo dono antes do piloto. O custo é que a verificação em emulador que precise de pack **novo** espera a revisão, e a contingência do R5 ("correção em horas") fica indisponível até lá.
+
+**Revisor(es): pendente — ver Task 9.** Nenhum caso foi revisado. Esta seção registra o portão; a revisão é trabalho humano, conduzida pelo roteiro em [`docs/revisao-golden.md`](../docs/revisao-golden.md). Quando houver, aqui entram, **sem nome nem número de registro**, apenas atestado, conselho, UF e categoria de cada revisor (o repositório é público).
+
+**Casos seguros, mas cautelosos** (resposta "concordo: seguro, mas mais cauteloso que o ideal"; cada linha cita a issue P1 de ajuste da regra):
+
+| Caso | Revisor (atestado) | Justificativa | Issue P1 |
+|---|---|---|---|
+| — | — | — | — |
+
+**Casos retirados** (somente "caso mal construído", nunca red flag):
+
+| Caso | Motivo | PR | Data |
+|---|---|---|---|
+| — | — | — | — |
+
 ### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅
 23c. Releases: lista, detalhe com botões vindos de `transicoes`, aprovar/rejeitar. ✅
 23d. Regras (editor DNF + simulação) e CRUD de conteúdo. ✅
 **Saída:** §4 do `docs/operacao.md` executável de ponta a ponta pelo navegador, por dois operadores diferentes.
+
+**P0-2 (issue #2) — revisão clínica da suíte golden:** portão entregue; revisão pendente (Task 9, humana). §5.17.
 
 ### Fase 4 — Endurecimento e GA
 20. Testes de perf/estabilidade (72 h), auditoria de tráfego (zero PII), varredura de dependências.

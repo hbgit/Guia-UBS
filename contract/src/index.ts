@@ -14,6 +14,25 @@ export {
   type Manifest,
 } from './manifest.js';
 export {
+  ACOES_QUE_NAO_REABREM,
+  ACOES_QUE_REABREM,
+  ATESTADO_ID,
+  CATEGORIAS_COREN_ACEITAS,
+  CONSELHOS,
+  MIN_REVISORES,
+  UFS,
+  avaliarAtestado,
+  avaliarDataRevisao,
+  avaliarRegistro,
+  avaliarRevisao,
+  conferirContraRegistro,
+  type Atestado,
+  type EntradaRegistro,
+  type EstadoRevisao,
+  type RevisorYaml,
+  type Uf,
+} from './golden.js';
+export {
   desfechoPadrao,
   evaluate,
   ruleMatches,

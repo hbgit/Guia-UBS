@@ -20,14 +20,21 @@ import { after, before, test } from 'node:test';
 import { migrationStatements } from '@guia-ubs/cms/src/db/client.js';
 import { createClient, type Client } from '@libsql/client';
 
+import { ACOES_QUE_REABREM, ACOES_QUE_NAO_REABREM } from '@guia-ubs/contract';
+
 import { readRuleModel } from '../src/build-pack.js';
-import { extrairConteudo, lerGoldenDoBanco } from '../src/extract.js';
+import { extrairConteudo, lerAtestadosDoBanco, lerGoldenDoBanco } from '../src/extract.js';
 import { chavePublicaDe, conferirChaveRegistrada } from '../src/release.js';
 import { lerGoldenDoYaml, validateGolden } from '../src/validate.js';
 import { processar, proximaAprovada } from '../src/worker.js';
+import { ATESTADO_FICTICIO, REG } from './support/revisao.js';
 
 const AGORA = '2026-08-24T12:00:00Z';
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
+/** Instante no formato que o banco carimba — o mesmo de `blocked_at`. */
+const ISO_DO_BANCO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+/** O worker le o registro publico do repositorio; aqui, o ficticio. */
+const OPCOES = { publicar: false, registro: REG } as const;
 
 let diretorio: string;
 let client: Client;
@@ -109,6 +116,15 @@ async function semear(c: Client): Promise<void> {
 
   await exec(`INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
     VALUES ('g-toracico', '["chest","pain"]', 'EMERGENCY', 'ficticio', 'admin-1', 1)`);
+  // Atestado e revisao FICTICIOS: sem eles o portao barraria toda release.
+  const at = ATESTADO_FICTICIO;
+  await exec(`INSERT INTO golden_attestation
+      (id, nome, conselho, uf, categoria, registro, termo_sha256, created_by, created_at)
+    VALUES ('${at.id}', '${at.nome}', '${at.conselho}', '${at.uf}', 'ENF', '${at.registro}',
+            '${at.termo_sha256}', 'admin-1', '${AGORA}')`);
+  await exec(`INSERT INTO golden_case_review
+      (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
+    VALUES ('rv-0', 'g-toracico', '${at.id}', '2026-08-20', 'admin-1', '${AGORA}')`);
   await exec(`INSERT INTO signing_key (key_id, public_key, activated_at)
     VALUES ('k-teste', '${publicKeyBase64}', '${AGORA}')`);
   await exec(`INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
@@ -236,7 +252,7 @@ test('o job constroi, assina e registra a corrida golden', async () => {
   assert.equal(release.municipalityCode, '0000000');
 
   // `publicar: false` — o teste nao fala com MinIO. Tudo ate a assinatura roda.
-  const resultado = await processar(client, release, { publicar: false });
+  const resultado = await processar(client, release, OPCOES);
   assert.equal(resultado.estado, 'publicado', JSON.stringify(resultado.problemas));
 
   const linhas = await client.execute(
@@ -276,23 +292,238 @@ test('a fila fica vazia depois de processada', async () => {
   assert.equal(await proximaAprovada(client), null);
 });
 
+/** Escrita auditada com ator, carimbada pelo banco — como `recordAudit` grava. */
+async function auditar(action: string, actor: string | null = 'admin-1'): Promise<void> {
+  await client.execute({
+    sql: `INSERT INTO audit_entry (id, actor_id, action, entity_type, entity_id, occurred_at)
+          VALUES (lower(hex(randomblob(16))), ?, ?, 'teste', 'teste',
+                  strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+    args: [actor, action],
+  });
+}
+
+/** O relogio do banco tem milissegundos; duas escritas no mesmo ms empatariam. */
+const proximoMs = () => new Promise((ok) => setTimeout(ok, 5));
+
+test('o worker BLOQUEIA caso golden sem revisor e devolve a release', async () => {
+  // O defeito do issue #2: ate aqui o worker assinava com caso sem revisor.
+  await client.execute(
+    `INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
+     VALUES ('g-sem-revisao', '["chest","pain"]', 'EMERGENCY', 'ficticio', 'admin-1', 1)`,
+  );
+  await client.execute(
+    `INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
+     VALUES ('rel-x', 'mun-1', 2, '1.0', 'approved', 'admin-1', '2026-08-25T00:00:00Z')`,
+  );
+
+  const release = await proximaAprovada(client);
+  assert.equal(release?.id, 'rel-x');
+  const resultado = await processar(client, release!, OPCOES);
+  assert.equal(resultado.estado, 'bloqueado');
+  assert.ok(resultado.problemas!.some((p) => p.includes('g-sem-revisao')));
+
+  const linha = (
+    await client.execute(
+      "SELECT status, claimed_at, blocked_at, pack_sha256 FROM pack_release WHERE id = 'rel-x'",
+    )
+  ).rows[0]!;
+  assert.equal(linha.status, 'approved', 'a release deveria voltar para a fila');
+  assert.equal(linha.claimed_at, null);
+  assert.match(String(linha.blocked_at), ISO_DO_BANCO);
+  assert.equal(linha.pack_sha256, null, 'nada pode ter sido assinado');
+});
+
+test('blocked_at e o instante do claim, carimbado pelo banco', async () => {
+  // A extracao le o conteudo logo depois do claim. Escrita que caia entre o
+  // claim e o bloqueio nao entrou no build — se `blocked_at` fosse o instante do
+  // bloqueio, ela ficaria antes dele e nunca reabriria a release.
+  const trilha = await client.execute(
+    `SELECT action, after_json, occurred_at FROM audit_entry
+      WHERE entity_type = 'pack_release' AND entity_id = 'rel-x' ORDER BY occurred_at`,
+  );
+  const claim = trilha.rows.find((l) => l.action === 'release_building')!;
+  const bloqueio = trilha.rows.find((l) => l.action === 'release_approved')!;
+  const claimedAt = String(JSON.parse(String(claim.after_json)).claimed_at);
+  assert.match(claimedAt, ISO_DO_BANCO);
+  // Do relogio do banco, como o `occurred_at` da trilha que registra o claim.
+  assert.ok(claimedAt <= String(claim.occurred_at), `${claimedAt} > ${claim.occurred_at}`);
+
+  const linha = (
+    await client.execute("SELECT blocked_at FROM pack_release WHERE id = 'rel-x'")
+  ).rows[0]!;
+  assert.equal(String(linha.blocked_at), claimedAt);
+  assert.equal(JSON.parse(String(bloqueio.after_json)).blocked_at, claimedAt);
+});
+
+test('escrita de conteudo entre o claim e o bloqueio reabre a release', async () => {
+  const claimedAt = String(
+    JSON.parse(
+      String(
+        (
+          await client.execute(
+            `SELECT after_json FROM audit_entry
+              WHERE entity_id = 'rel-x' AND action = 'release_building'`,
+          )
+        ).rows[0]!.after_json,
+      ),
+    ).claimed_at,
+  );
+  const bloqueouEm = String(
+    (
+      await client.execute(
+        `SELECT occurred_at FROM audit_entry
+          WHERE entity_id = 'rel-x' AND action = 'release_approved'`,
+      )
+    ).rows[0]!.occurred_at,
+  );
+  // Um milissegundo depois do claim: durante o build, antes do bloqueio.
+  const durante = new Date(Date.parse(claimedAt) + 1).toISOString();
+  assert.ok(durante < bloqueouEm, `${durante} deveria cair antes do bloqueio (${bloqueouEm})`);
+
+  const id = 'aud-durante-build';
+  await client.execute({
+    sql: `INSERT INTO audit_entry (id, actor_id, action, entity_type, entity_id, occurred_at)
+          VALUES (?, 'admin-1', 'content_update', 'teste', 'teste', ?)`,
+    args: [id, durante],
+  });
+  try {
+    assert.equal((await proximaAprovada(client))?.id, 'rel-x');
+  } finally {
+    // A trilha e append-only; recua o bloqueio para alem da escrita, para os
+    // testes seguintes partirem de uma release bloqueada sem mudanca.
+    await client.execute({
+      sql: "UPDATE pack_release SET blocked_at = ? WHERE id = 'rel-x'",
+      args: [new Date(Date.parse(bloqueouEm) + 1).toISOString()],
+    });
+  }
+});
+
+test('release bloqueada nao e repescada sem mudanca', async () => {
+  // Sem isto, `rodarUmaVez` em laco reconstruiria a mesma release a cada varredura.
+  assert.equal(await proximaAprovada(client), null);
+  const corridas = await client.execute(
+    "SELECT COUNT(*) AS n FROM golden_run WHERE pack_release_id = 'rel-x'",
+  );
+  assert.equal(Number(corridas.rows[0]!.n), 1);
+});
+
+test('login nao reabre release bloqueada', async () => {
+  await proximoMs();
+  await auditar('sign_in');
+  await auditar('two_factor_verify');
+  await auditar('release_submit');
+  // Escrita de conteudo SEM ator (SQL de manutencao, job) tambem nao reabre.
+  await auditar('content_update', null);
+  assert.equal(await proximaAprovada(client), null);
+});
+
+test('release bloqueada nao trava a mais nova', async () => {
+  await client.execute(
+    `INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
+     VALUES ('rel-y', 'mun-1', 3, '1.0', 'approved', 'admin-1', '2026-08-26T00:00:00Z')`,
+  );
+  assert.equal((await proximaAprovada(client))?.id, 'rel-y');
+  // Fora da fila de novo, para os testes seguintes verem so `rel-x`.
+  await client.execute("UPDATE pack_release SET status = 'revoked' WHERE id = 'rel-y'");
+});
+
+test('release bloqueada volta depois de escrita de conteudo', async () => {
+  await proximoMs();
+  await auditar('content_update');
+  assert.equal((await proximaAprovada(client))?.id, 'rel-x');
+
+  // As tres familias que reabrem, montadas do contrato — e nenhuma das outras.
+  assert.deepEqual([...ACOES_QUE_REABREM], ['content_', 'rule_', 'golden_']);
+  assert.ok(!ACOES_QUE_NAO_REABREM.some((a) => ACOES_QUE_REABREM.some((p) => a.startsWith(p))));
+
+  // Desfaz: sem revisor, o caso nao pode ficar ativo para os testes seguintes.
+  await client.execute("UPDATE golden_case SET active = 0 WHERE id = 'g-sem-revisao'");
+  await client.execute("UPDATE pack_release SET status = 'revoked' WHERE id = 'rel-x'");
+});
+
+test('suite do banco vazia BLOQUEIA o worker', async () => {
+  await client.execute("UPDATE golden_case SET active = 0 WHERE id = 'g-toracico'");
+  await client.execute(
+    `INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
+     VALUES ('rel-vazia', 'mun-1', 4, '1.0', 'approved', 'admin-1', '2026-08-27T00:00:00Z')`,
+  );
+  try {
+    const resultado = await processar(client, (await proximaAprovada(client))!, OPCOES);
+    assert.equal(resultado.estado, 'bloqueado');
+    assert.ok(resultado.problemas!.some((p) => /suite golden vazia/i.test(p)));
+  } finally {
+    await client.execute("UPDATE golden_case SET active = 1 WHERE id = 'g-toracico'");
+    await client.execute("UPDATE pack_release SET status = 'revoked' WHERE id = 'rel-vazia'");
+  }
+});
+
+test('atestado do banco fora do registro BLOQUEIA o worker', async () => {
+  // O mesmo caso, revisado pelo mesmo atestado: so o registro publico mudou.
+  // Atestado no CMS que o repositorio nao conhece e revisor sem termo publicado.
+  await client.execute(
+    `INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
+     VALUES ('rel-fora', 'mun-1', 5, '1.0', 'approved', 'admin-1', '2026-08-28T00:00:00Z')`,
+  );
+  const outroHash = [{ ...REG[1]!, termo_sha256: 'c'.repeat(64) }];
+  try {
+    const resultado = await processar(client, (await proximaAprovada(client))!, {
+      publicar: false,
+      registro: outroHash,
+    });
+    assert.equal(resultado.estado, 'bloqueado');
+    assert.ok(
+      resultado.problemas!.some((p) => p.includes('AT-9002') && p.includes('termo_sha256')),
+      JSON.stringify(resultado.problemas),
+    );
+
+    const semEle = await processar(client, (await reaberta('rel-fora'))!, {
+      publicar: false,
+      registro: [REG[0]!],
+    });
+    assert.equal(semEle.estado, 'bloqueado');
+    assert.ok(
+      semEle.problemas!.some((p) => p.includes('AT-9002') && p.includes('nao consta')),
+      JSON.stringify(semEle.problemas),
+    );
+  } finally {
+    await client.execute("UPDATE pack_release SET status = 'revoked' WHERE id = 'rel-fora'");
+  }
+});
+
+/** Reabre por escrita de conteudo auditada e devolve a proxima da fila. */
+async function reaberta(id: string) {
+  await proximoMs();
+  await auditar('content_update');
+  const release = await proximaAprovada(client);
+  assert.equal(release?.id, id);
+  return release;
+}
+
 test('caso golden vermelho BLOQUEIA e devolve a release para a fila', async () => {
   // Nada e assinado com um portao vermelho — e a release volta para `approved` em
   // vez de um estado de erro, porque depois de corrigido o conteudo a MESMA
   // release deve poder ser construida de novo.
+  //
+  // `g-impossivel` e revisado: bloqueia pelo motivo que nomeia (veredito
+  // divergente), nao por falta de revisor.
   await client.execute(
     `INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
      VALUES ('g-impossivel', '["chest"]', 'EMERGENCY', 'ficticio', 'admin-1', 1)`,
   );
+  await client.execute(`INSERT INTO golden_case_review
+      (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
+    VALUES ('rv-imp', 'g-impossivel', '${ATESTADO_FICTICIO.id}', '2026-08-21', 'admin-1', '${AGORA}')`);
   await client.execute(
     `INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
-     VALUES ('rel-2', 'mun-1', 2, '1.0', 'approved', 'admin-1', '${AGORA}')`,
+     VALUES ('rel-2', 'mun-1', 6, '1.0', 'approved', 'admin-1', '2026-08-29T00:00:00Z')`,
   );
 
   const release = await proximaAprovada(client);
-  const resultado = await processar(client, release!, { publicar: false });
+  assert.equal(release?.id, 'rel-2');
+  const resultado = await processar(client, release!, OPCOES);
   assert.equal(resultado.estado, 'bloqueado');
-  assert.ok(resultado.problemas!.some((p) => p.includes('g-impossivel')));
+  assert.ok(resultado.problemas!.some((p) => p.includes('g-impossivel') && p.includes('esperado')));
+  assert.ok(!resultado.problemas!.some((p) => /sem revisao/.test(p)));
 
   const linhas = await client.execute(
     "SELECT status, claimed_at FROM pack_release WHERE id = 'rel-2'",
@@ -305,6 +536,10 @@ test('caso golden vermelho BLOQUEIA e devolve a release para a fila', async () =
   );
   assert.equal(Number(corrida.rows[0]!.total), 2);
   assert.equal(Number(corrida.rows[0]!.passed), 1, 'a corrida vermelha precisa ficar registrada');
+
+  // Escrita de conteudo auditada: a release volta a ser elegivel, como depois de
+  // corrigido o conteudo.
+  await reaberta('rel-2');
 });
 
 test('a suite golden do banco passa contra o pack construido', async () => {
@@ -312,7 +547,47 @@ test('a suite golden do banco passa contra o pack construido', async () => {
   const relatorio = validateGolden(
     (await lerGoldenDoBanco(client)).filter((c) => c.id === 'g-toracico'),
     modelo,
+    { modo: 'assinatura', agora: new Date(AGORA), registro: REG },
   );
+  assert.deepEqual(relatorio.issues, []);
   assert.equal(relatorio.passed, 1);
   assert.equal(relatorio.falseNegatives, 0);
+});
+
+// Por ultimo de proposito: revisao e append-only, e as linhas abaixo nao saem
+// mais do banco compartilhado por este arquivo.
+test('lerGoldenDoBanco monta reviewed_by a partir das revisoes', async () => {
+  await client.execute(
+    `INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
+     VALUES ('g-leitura', '["chest","pain"]', 'EMERGENCY', 'ficticio', 'admin-1', 1)`,
+  );
+  const antes = (await lerGoldenDoBanco(client)).find((c) => c.id === 'g-leitura');
+  assert.equal(antes?.reviewed_by, null, 'caso sem revisao sai com reviewed_by nulo');
+
+  // Segundo atestado FICTICIO (o primeiro, AT-9002, vem de `semear`); revisoes
+  // inseridas fora de ordem e com datas diferentes.
+  await client.execute(`INSERT INTO golden_attestation
+      (id, nome, conselho, uf, categoria, registro, termo_sha256, created_by, created_at)
+    VALUES ('AT-9001', 'Revisor Ficticio Teste', 'CRM', 'RR', NULL, '000001',
+            '${'a'.repeat(64)}', 'admin-1', '${AGORA}')`);
+  await client.execute(`INSERT INTO golden_case_review
+      (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
+    VALUES ('rv-l2', 'g-leitura', 'AT-9002', '2026-08-22', 'admin-1', '${AGORA}'),
+           ('rv-l1', 'g-leitura', 'AT-9001', '2026-08-20', 'admin-1', '${AGORA}')`);
+
+  const caso = (await lerGoldenDoBanco(client)).find((c) => c.id === 'g-leitura');
+  assert.deepEqual(caso?.reviewed_by, [
+    { atestado: 'AT-9001', conselho: 'CRM', uf: 'RR', reviewed_at: '2026-08-20' },
+    { atestado: 'AT-9002', conselho: 'COREN', uf: 'RR', categoria: 'ENF', reviewed_at: '2026-08-22' },
+  ]);
+
+  // Nome e registro ficam no CMS: o leitor de atestados os devolve, o de casos nao.
+  const atestados = await lerAtestadosDoBanco(client);
+  assert.deepEqual(
+    atestados.map((a) => a.id),
+    ['AT-9001', 'AT-9002'],
+  );
+  assert.deepEqual(atestados[1], ATESTADO_FICTICIO);
+  assert.ok(!('categoria' in atestados[0]!), 'CRM nao tem categoria');
+  assert.ok(!JSON.stringify(caso).includes('Ficticia'), 'nome do revisor vazou para o caso');
 });

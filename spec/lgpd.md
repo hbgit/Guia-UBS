@@ -141,6 +141,15 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Artigos:** arts. 42, 46 e 47; art. 39.
 - **Critério de aceitação:** teste automatizado varre logs de acesso simulados e não encontra dado pessoal em URL; lista de endpoints permitidos no app é fixa e verificada em CI.
 
+### Revisores clínicos da suíte golden — inventário (pendente de validação do encarregado — DPO)
+> **Pendente de validação do encarregado (DPO).** Texto redigido pela engenharia a partir da decisão D3 da P0-2 ([arquitetura.md §5.17](arquitetura.md)); a base legal, a retenção e o arquivamento do termo ainda não foram confirmados pelo encarregado.
+- **Descrição:** a suíte golden é revisada por profissionais de saúde (médico ou enfermeiro da APS, indicados pela Secretaria). Isso é tratamento de dado pessoal de **profissionais**, não do usuário final. Inventário: (a) **nome e número de registro profissional** ficam **só** no CMS (`golden_attestation`) e no termo de ciência; (b) o repositório público recebe apenas o **ID opaco** do atestado (`AT-NNNN`), conselho, UF, categoria (COREN: ENF) e `termo_sha256` (hash do PDF assinado, que sem o PDF não revela conteúdo), em `seed/golden/atestados.yaml`; (c) **nada disso vai ao `content.db`**, ao manifest ou ao aparelho.
+- **Finalidade:** rastreabilidade da revisão clínica (PRD R5): saber que profissional atestou que o desfecho esperado de cada caso é clinicamente seguro, sem expor o profissional.
+- **Termo de ciência:** assinado por cada revisor e **arquivado pela Secretaria Municipal de Saúde (controladora)**, no sistema de protocolo dela, fora do repositório e do CMS.
+- **Retenção:** a da LGPD-RF04 (prazo prescricional), contada a partir da **desativação do último caso** que cita o atestado; o número de anos depende da tabela de retenção da LGPD-RF07, ainda pendente. A revisão é só acréscimo (`golden_case_review` é append-only): não há exclusão por rota, e o expurgo por prazo é o procedimento nomeado da LGPD-RT10.
+- **Base legal:** a definir com o encarregado (hipótese de trabalho: execução de políticas públicas pela controladora, art. 7º, III, e legítimo interesse de rastreabilidade, a documentar no RIPD). **Não confirmada.**
+- **Critério de aceitação:** nenhum nome nem número de registro de revisor no repositório (nem em exemplos); `golden_attestation` é a única tabela com esses campos — a trilha de auditoria do cadastro do atestado registra só ID, conselho, UF, categoria e `termo_sha256` (`cms/test/golden-routes.test.ts`); o ID é atribuído por PR e nunca reaproveitado.
+
 ---
 
 # 2. Requisitos para Termo de Uso e Política de Privacidade

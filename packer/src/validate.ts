@@ -11,12 +11,37 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { parse as parseYaml } from 'yaml';
 
-import { evaluate, type Outcome, type Rule } from '@guia-ubs/contract';
+import {
+  avaliarRevisao,
+  conferirContraRegistro,
+  evaluate,
+  MIN_REVISORES,
+  type EntradaRegistro,
+  type Outcome,
+  type Rule,
+} from '@guia-ubs/contract';
 
 export interface ValidationIssue {
-  kind: 'referential' | 'translation' | 'golden' | 'golden_false_negative';
+  kind:
+    | 'referential'
+    | 'translation'
+    | 'golden'
+    | 'golden_false_negative'
+    | 'golden_sem_revisor'
+    | 'golden_revisao_invalida'
+    | 'golden_vazia'
+    | 'golden_registro_invalido';
   message: string;
 }
+
+/**
+ * `assinatura`: o pack sai assinado, e caso sem revisao clinica BLOQUEIA.
+ * `verificacao`: nada e assinado (`--dry-run`), e caso sem revisao so avisa.
+ *
+ * Nao ha terceiro modo nem flag que pule o portao: o modo de aviso so e
+ * alcancavel por um comando que nao vai assinar (`cli.ts#modoDoComando`).
+ */
+export type ModoRevisao = 'assinatura' | 'verificacao';
 
 const LANGS = ['pt', 'es'] as const;
 
@@ -106,7 +131,12 @@ export interface GoldenCase {
   tokens: string[];
   expect: string;
   note?: string;
-  reviewed_by?: string | null;
+  /**
+   * `unknown` de proposito: vem do YAML sem validacao de tipo, e quem decide se
+   * e uma lista de `RevisorYaml` valida e `avaliarRevisao` do contrato.
+   */
+  reviewed_by?: unknown;
+  reviewed_at?: unknown;
 }
 
 /**
@@ -126,13 +156,30 @@ export function lerGoldenDoYaml(repoRoot: string): GoldenCase[] {
   return parsed.cases ?? [];
 }
 
+/**
+ * Entradas cruas do registro publico `seed/golden/atestados.yaml` — a lista sob
+ * `atestados`. `unknown` de proposito: quem decide se o formato vale e
+ * `avaliarRegistro` do contrato, e um nome ou numero de registro que alguem
+ * deixe ali precisa chegar ate ela para ser recusado.
+ */
+export function lerAtestadosDoYaml(repoRoot: string): unknown[] {
+  const file = join(repoRoot, 'seed', 'golden', 'atestados.yaml');
+  const parsed: unknown = parseYaml(readFileSync(file, 'utf8'));
+  const chaves = parsed && typeof parsed === 'object' ? Object.keys(parsed) : [];
+  const atestados = (parsed as { atestados?: unknown } | null)?.atestados;
+  if (chaves.length !== 1 || !Array.isArray(atestados)) {
+    throw new Error(`${file}: esperado so a chave "atestados" com uma lista (vazia: "atestados: []")`);
+  }
+  return atestados;
+}
+
 export interface GoldenReport {
   total: number;
   passed: number;
   issues: ValidationIssue[];
   /** Casos que esperavam a maior severidade e obtiveram menos — evento de seguranca. */
   falseNegatives: number;
-  /** Casos sem revisor clinico nomeado. Nao bloqueia a Fase 1; bloqueia o piloto. */
+  /** Casos sem revisao clinica. Bloqueia em `assinatura`; em `verificacao`, avisa. */
   unreviewed: number;
 }
 
@@ -141,6 +188,12 @@ export interface GoldenReport {
  * Criterio de aprovacao: 100%. Falso negativo e contabilizado a parte porque
  * sua gravidade e de outra ordem: e o caso em que o app manda para casa alguem
  * que precisava de emergencia.
+ *
+ * Revisao clinica (issue #2): AUSENTE bloqueia so em `assinatura`; INVALIDA
+ * (formato errado, ou atestado fora do registro / divergente dele) e suite vazia
+ * bloqueiam nos dois modos (D9) — sao erro de quem escreveu o YAML, e o CI de PR
+ * deve apontar ja. `opcoes` e obrigatorio de proposito: um padrao seria um modo
+ * escolhido por omissao.
  */
 export function validateGolden(
   cases: readonly GoldenCase[],
@@ -150,16 +203,47 @@ export function validateGolden(
     defaultOutcomeId: string;
     tokenIds: Set<string>;
   },
+  opcoes: { modo: ModoRevisao; agora: Date; registro: readonly EntradaRegistro[] },
 ): GoldenReport {
   const issues: ValidationIssue[] = [];
   let passed = 0;
   let falseNegatives = 0;
   let unreviewed = 0;
 
+  if (cases.length === 0) {
+    // Suite vazia passaria "100%" sem garantir nada (D7).
+    issues.push({
+      kind: 'golden_vazia',
+      message: 'Suite golden vazia: sem casos, nao ha o que garantir',
+    });
+  }
+
   const maxSeverity = Math.max(...[...model.outcomes.values()].map((o) => o.severityLevel));
 
   for (const testCase of cases) {
-    if (!testCase.reviewed_by) unreviewed += 1;
+    const revisao = avaliarRevisao(testCase, opcoes.agora);
+    if (revisao.estado === 'ausente') {
+      unreviewed += 1;
+      if (opcoes.modo === 'assinatura') {
+        issues.push({
+          kind: 'golden_sem_revisor',
+          message: `Caso "${testCase.id}" sem revisao clinica`,
+        });
+      }
+    } else {
+      const problemas =
+        revisao.estado === 'invalida'
+          ? revisao.problemas
+          : revisao.revisores.length < MIN_REVISORES
+            ? [`reviewed_by: menos de ${MIN_REVISORES} revisor(es)`]
+            : conferirContraRegistro(revisao.revisores, opcoes.registro);
+      if (problemas.length > 0) {
+        issues.push({
+          kind: 'golden_revisao_invalida',
+          message: `Caso "${testCase.id}": revisao invalida — ${problemas.join('; ')}`,
+        });
+      }
+    }
 
     const unknown = testCase.tokens.filter((t) => !model.tokenIds.has(t));
     if (unknown.length > 0) {

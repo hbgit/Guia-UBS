@@ -214,7 +214,13 @@ test('a suite golden do pacote semente passa integralmente', () => {
     sourceCommit: 'test',
   });
   assert.deepEqual(validateReferential(built.dbPath), [], 'sem problema referencial');
-  const report = validateGolden(lerGoldenDoYaml(REPO_ROOT), readRuleModel(built.dbPath));
+  // Modo de verificacao: o que se afirma aqui e o veredito das regras, que vale
+  // em qualquer estado de revisao (D9).
+  const report = validateGolden(lerGoldenDoYaml(REPO_ROOT), readRuleModel(built.dbPath), {
+    modo: 'verificacao',
+    agora: new Date(),
+    registro: [],
+  });
   assert.equal(report.falseNegatives, 0, 'nenhum falso negativo clinico');
   assert.equal(report.passed, report.total, `golden ${report.passed}/${report.total}`);
 });

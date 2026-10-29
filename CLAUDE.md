@@ -117,6 +117,11 @@ Semântica de cor fixa: **verde = UBS/rotina, vermelho = emergência, azul = inf
 - **`extract.ts` filtra por `status='approved'`.** Rascunho no pack e conteudo nao revisado chegando a aparelho sem internet (INV-4).
 - **Assinar com chave fora de `signing_key` faz a frota inteira rejeitar EM SILENCIO.** A guarda deriva a publica da privada e confere antes do build.
 - **Duas fontes de suite golden, sem sincronizacao**: YAML para o caminho `seed/` (CI, sem docker) e `golden_case` para o caminho do CMS. Cada caminho tem UMA; as duas desaguam na mesma `validateGolden`.
+- **Revisao clinica da golden e portao, nao aviso** (`contract/src/golden.ts`, `docs/revisao-golden.md`). O modo do packer e DERIVADO de "vai assinar" (`build` sem `--dry-run`, `publish`, worker): nao existe flag para pular. Suite vazia tambem bloqueia. Em `pack:check` (CI de PR) so avisa, e o CI reprova revisao INVALIDA, nunca AUSENTE.
+- **`seed/golden/atestados.yaml` e a fonte unica dos IDs `AT-NNNN`** e e PUBLICO: sem nome, sem registro (o repositorio e publico). Nome e registro vivem so em `golden_attestation` no CMS. Nenhum dado de revisor, nem de exemplo, em `clinical_cases.yaml` ou `atestados.yaml`.
+- **`golden_case_review` e append-only**: nao ha rota que remova ou troque quem atestou. Revisao registrada errada e permanente ate a issue P1 de revogacao auditada.
+- **`blocked_at` + acao de conteudo auditada reabre a release**, e sem isso o laco do compose a reivindica a cada minuto e trava as mais novas. Os instantes (`blocked_at`, `audit_entry.occurred_at`) vem do relogio do BANCO (`strftime`), nao do JS: CMS e worker sao containers distintos. Toda acao nova da trilha precisa de classificacao (`ACOES_QUE_REABREM` ou `ACOES_QUE_NAO_REABREM`); um teste reprova a que faltar.
+- **`CHECK (categoria IN (...))` deixa passar NULL.** NULL nao e falso: o ramo COREN precisa de `categoria IS NOT NULL`.
 - **`POST /api/telemetry` e a SEGUNDA e ultima excecao a LGPD-RT01.** Autenticar exigiria identidade de dispositivo (INV-2 proibe). **Nao ha produtor**: o app nao envia, e o lote de um aparelho nao alcanca k>=20 — falta um agregador.
 
 ## Commits e pull requests
@@ -150,7 +155,7 @@ npm run cms:check               # schema fora de sincronia = build vermelho
 npm run typecheck               # tsc nos tres workspaces (o CI roda; tsx nao confere tipo)
 npm run cms:migrate             # aplica no sqld (CMS_DATABASE_URL)
 npm run cms:create-admin -- --email a@b.invalid --name "Nome"   # 1o operador
-npm run cms:import-golden -- --autor <id>       # semeia golden_case do YAML (1x)
+npm run cms:import-golden -- --autor <id>       # YAML -> golden_case; repetivel, tudo ou nada, so acrescenta revisao
 npm run pack:worker -- --once                   # job: constroi, assina e publica
 npm --workspace @guia-ubs/cms run dev    # sobe o CMS (exige os segredos de infra/.env)
 # Rota, variavel de ambiente ou script novo exige linha em docs/operacao.md —

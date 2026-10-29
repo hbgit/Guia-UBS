@@ -17,6 +17,17 @@
  * exige aprovacao de um `clinical_reviewer` que nao seja o autor. O job constroi
  * o que ja foi aprovado, roda os portoes, e para se algum ficar vermelho.
  *
+ * ## Por que release barrada nao volta em laco (P0-2, D11)
+ *
+ * Portao vermelho devolve a release para `approved` com `blocked_at`. Sem mais
+ * nada, a varredura seguinte a reconstruiria — e falharia igual — para sempre.
+ * `proximaAprovada` a ignora ate existir uma escrita de CONTEUDO auditada, com
+ * operador, a partir do instante do CLAIM — `blocked_at` recebe o `claimed_at`,
+ * para que escrita feita durante o build tambem reabra. Os instantes vem do
+ * relogio do BANCO
+ * (`strftime`): CMS e worker rodam em containers distintos, e comparar relogios
+ * de dois processos e comparar dois erros de ajuste.
+ *
  * Uso:
  *   tsx src/worker.ts --once      processa a fila e sai (o do roteiro)
  *   tsx src/worker.ts             laco continuo (o do compose)
@@ -26,11 +37,18 @@ import { copyFileSync, mkdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
+import {
+  ACOES_QUE_REABREM,
+  avaliarAtestado,
+  avaliarRegistro,
+  PACK_SCHEMA_VERSION,
+  type Atestado,
+  type EntradaRegistro,
+} from '@guia-ubs/contract';
 import { createClient, type Client } from '@libsql/client';
 
 import { buildPack, readRuleModel } from './build-pack.js';
-import { extrairConteudo, lerGoldenDoBanco } from './extract.js';
+import { extrairConteudo, lerAtestadosDoBanco, lerGoldenDoBanco } from './extract.js';
 import {
   buildManifest,
   conferirChaveRegistrada,
@@ -38,10 +56,26 @@ import {
   writeManifest,
   type S3Target,
 } from './release.js';
-import { validateGolden, validateReferential } from './validate.js';
+import {
+  lerAtestadosDoYaml,
+  validateGolden,
+  validateReferential,
+  type ValidationIssue,
+} from './validate.js';
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
 const OUT_DIR = join(REPO_ROOT, 'packer', 'out');
+
+/** Instante carimbado pelo banco — o mesmo formato de `toISOString()`. */
+const AGORA_DO_BANCO = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+
+/**
+ * `a.action LIKE 'content\_%' ESCAPE '\' OR ...`, montado de `ACOES_QUE_REABREM`.
+ * O `_` e curinga no LIKE: sem escapa-lo, `contentX` casaria `content_`.
+ */
+const ACAO_QUE_REABRE = ACOES_QUE_REABREM.map(
+  (prefixo) => `a.action LIKE '${prefixo.replace(/[\\%_]/g, '\\$&')}%' ESCAPE '\\'`,
+).join(' OR ');
 
 function requireEnv(nome: string): string {
   const valor = process.env[nome];
@@ -61,13 +95,28 @@ export interface Release {
   schemaVersion: string;
 }
 
-/** Uma release por vez: o claim ja garante que so um job pega cada uma. */
+/**
+ * Uma release por vez: o claim ja garante que so um job pega cada uma.
+ *
+ * Release barrada (`blocked_at`) fica de fora ate uma escrita de conteudo com
+ * operador a partir do claim que a barrou (D11). `POST /api/releases/:id/reenfileirar`
+ * limpa `blocked_at` depois de correcao que nao passa pela trilha (registro
+ * publico de atestados, redeploy do worker). Login, 2FA, gestao de operador e
+ * transicoes de release nao reabrem — `cms/test/audit-acoes.test.ts` exige que
+ * toda acao da trilha esteja classificada. Escrita so por SQL direto, sem
+ * trilha, tambem nao reabre: e o limite aceito.
+ */
 export async function proximaAprovada(client: Client): Promise<Release | null> {
   const r = await client.execute(
     `SELECT pr.id, pr.municipality_id, m.code, pr.pack_version, pr.schema_version
        FROM pack_release pr
        JOIN municipality m ON m.id = pr.municipality_id
       WHERE pr.status = 'approved'
+        AND (pr.blocked_at IS NULL OR EXISTS (
+              SELECT 1 FROM audit_entry a
+               WHERE a.actor_id IS NOT NULL
+                 AND a.occurred_at >= pr.blocked_at
+                 AND (${ACAO_QUE_REABRE})))
       ORDER BY pr.created_at
       LIMIT 1`,
   );
@@ -90,14 +139,19 @@ export async function proximaAprovada(client: Client): Promise<Release | null> {
  * pegou nem se pegou mais de uma vez. O teste da trilha exigiu isto.
  */
 async function reivindicar(client: Client, releaseId: string): Promise<boolean> {
-  const agora = new Date().toISOString();
   const r = await client.execute({
-    sql: `UPDATE pack_release SET status = 'building', claimed_at = ?
-           WHERE id = ? AND status = 'approved' RETURNING id`,
-    args: [agora, releaseId],
+    // `claimed_at` sai do relogio do banco, o mesmo de `audit_entry.occurred_at`:
+    // e ele que vira `blocked_at` se o portao ficar vermelho (D11). `blocked_at`
+    // volta a nulo: a release foi repescada, e o proximo bloqueio carimba de novo.
+    sql: `UPDATE pack_release
+             SET status = 'building', claimed_at = ${AGORA_DO_BANCO}, blocked_at = NULL
+           WHERE id = ? AND status = 'approved' RETURNING claimed_at`,
+    args: [releaseId],
   });
   if (r.rows.length !== 1) return false;
-  await registrarNaTrilha(client, releaseId, 'approved', 'building', { claimed_at: agora });
+  await registrarNaTrilha(client, releaseId, 'approved', 'building', {
+    claimed_at: String(r.rows[0]!.claimed_at),
+  });
   return true;
 }
 
@@ -116,14 +170,13 @@ async function registrarNaTrilha(
   await client.execute({
     sql: `INSERT INTO audit_entry (id, actor_id, action, entity_type, entity_id,
                                    before_json, after_json, occurred_at)
-          VALUES (?, NULL, ?, 'pack_release', ?, ?, ?, ?)`,
+          VALUES (?, NULL, ?, 'pack_release', ?, ?, ?, ${AGORA_DO_BANCO})`,
     args: [
       randomUUID(),
       `release_${para}`,
       releaseId,
       JSON.stringify({ status: de }),
       JSON.stringify({ status: para, ...extras }),
-      new Date().toISOString(),
     ],
   });
 }
@@ -163,6 +216,87 @@ async function registrarGolden(
   });
 }
 
+/**
+ * Devolve a release barrada para `approved`, com `blocked_at` = instante do claim.
+ *
+ * O instante do claim, e nao o do bloqueio: a extracao le o conteudo logo depois
+ * do claim, e uma escrita auditada que caia durante o build nao entrou nele. Com
+ * o carimbo no bloqueio, essa escrita ficaria antes de `blocked_at` e nunca
+ * reabriria a release. No `UPDATE` do SQLite o lado direito le a linha ANTIGA,
+ * entao `blocked_at = claimed_at` copia o valor antes de `claimed_at` virar nulo.
+ * Nao e `mover`: o valor sai da propria linha, nao de um argumento.
+ */
+async function devolverBloqueada(client: Client, releaseId: string): Promise<void> {
+  const r = await client.execute({
+    sql: `UPDATE pack_release
+             SET status = 'approved', blocked_at = claimed_at, claimed_at = NULL
+           WHERE id = ? AND status = 'building' RETURNING blocked_at`,
+    args: [releaseId],
+  });
+  await registrarNaTrilha(client, releaseId, 'building', 'approved', {
+    claimed_at: null,
+    blocked_at: r.rows[0] ? String(r.rows[0].blocked_at) : null,
+  });
+}
+
+/**
+ * Os atestados do CMS conferidos contra o registro publico do repositorio.
+ *
+ * O CMS guarda o atestado completo; o repositorio, so a parte publica. Atestado
+ * no banco sem par identico no registro e revisor cujo termo nao foi publicado
+ * — o caso dele nao conta como revisado. Mensagens citam so o ID: nome e numero
+ * de registro nao vao para a trilha nem para o log.
+ */
+function conferirAtestados(
+  doBanco: readonly Atestado[],
+  registroBruto: readonly unknown[],
+): { registro: EntradaRegistro[]; problemas: ValidationIssue[] } {
+  const problema = (message: string): ValidationIssue => ({
+    kind: 'golden_registro_invalido',
+    message,
+  });
+  const registro = avaliarRegistro({ atestados: registroBruto });
+  if (!registro.ok) {
+    return {
+      registro: [],
+      problemas: registro.problemas.map((p) =>
+        problema(`registro de atestados invalido (seed/golden/atestados.yaml): ${p}`),
+      ),
+    };
+  }
+
+  const porId = new Map(registro.entradas.map((e) => [e.id, e]));
+  const problemas: ValidationIssue[] = [];
+  for (const atestado of doBanco) {
+    const formato = avaliarAtestado(atestado);
+    if (!formato.ok) {
+      problemas.push(problema(`atestado ${atestado.id} do CMS com formato invalido`));
+      continue;
+    }
+    const publico = porId.get(atestado.id);
+    if (!publico) {
+      problemas.push(
+        problema(`atestado ${atestado.id} do CMS nao consta em seed/golden/atestados.yaml`),
+      );
+      continue;
+    }
+    const categoria = (x: object) => ('categoria' in x ? x.categoria : undefined);
+    for (const [campo, a, b] of [
+      ['conselho', atestado.conselho, publico.conselho],
+      ['uf', atestado.uf, publico.uf],
+      ['categoria', categoria(atestado), categoria(publico)],
+      ['termo_sha256', atestado.termo_sha256, publico.termo_sha256],
+    ] as const) {
+      if (a !== b) {
+        problemas.push(
+          problema(`atestado ${atestado.id}: ${campo} do CMS diverge de seed/golden/atestados.yaml`),
+        );
+      }
+    }
+  }
+  return { registro: registro.entradas, problemas };
+}
+
 async function chavesRegistradas(client: Client) {
   const r = await client.execute('SELECT key_id, public_key, retired_at FROM signing_key');
   return r.rows.map((l) => ({
@@ -189,7 +323,11 @@ export interface ResultadoProcessamento {
 export async function processar(
   client: Client,
   release: Release,
-  opcoes: { publicar: boolean },
+  opcoes: {
+    publicar: boolean;
+    /** Entradas cruas do registro publico. Ausente => lerAtestadosDoYaml(REPO_ROOT). */
+    registro?: readonly unknown[];
+  },
 ): Promise<ResultadoProcessamento> {
   if (!(await reivindicar(client, release.id))) {
     return { releaseId: release.id, estado: 'nao_reivindicada' };
@@ -217,12 +355,21 @@ export async function processar(
 
     const referencial = validateReferential(built.dbPath);
     const modelo = readRuleModel(built.dbPath);
-    const golden = validateGolden(await lerGoldenDoBanco(client), modelo);
+    const atestados = conferirAtestados(
+      await lerAtestadosDoBanco(client),
+      opcoes.registro ?? lerAtestadosDoYaml(REPO_ROOT),
+    );
+    // `assinatura` fixo: o worker so existe para assinar. Nao ha `--dry-run` aqui.
+    const golden = validateGolden(await lerGoldenDoBanco(client), modelo, {
+      modo: 'assinatura',
+      agora: new Date(),
+      registro: atestados.registro,
+    });
     await registrarGolden(client, release.id, golden);
 
-    const bloqueantes = [...referencial, ...golden.issues];
+    const bloqueantes = [...referencial, ...atestados.problemas, ...golden.issues];
     if (bloqueantes.length > 0) {
-      await mover(client, release.id, 'building', 'approved', { claimed_at: null });
+      await devolverBloqueada(client, release.id);
       return {
         releaseId: release.id,
         estado: 'bloqueado',
@@ -284,7 +431,7 @@ export async function processar(
 
 export async function rodarUmaVez(
   client: Client,
-  opcoes: { publicar: boolean },
+  opcoes: { publicar: boolean; registro?: readonly unknown[] },
 ): Promise<ResultadoProcessamento[]> {
   const resultados: ResultadoProcessamento[] = [];
   for (;;) {
@@ -292,7 +439,9 @@ export async function rodarUmaVez(
     if (!release) break;
     const resultado = await processar(client, release, opcoes);
     resultados.push(resultado);
-    // Bloqueada volta para `approved` e seria repescada eternamente.
+    // Bloqueada volta para `approved` com `blocked_at`, e `proximaAprovada` ja a
+    // ignora (D11); a parada aqui e cinto alem do suspensorio contra um laco
+    // dentro da mesma varredura. A mais nova sai na proxima.
     if (resultado.estado !== 'publicado') break;
   }
   return resultados;

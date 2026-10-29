@@ -1,0 +1,7 @@
+# Registro PUBLICO de atestados de revisores clinicos dos casos golden.
+#
+# Fonte unica dos IDs (AT-0000) citados em `reviewed_by` de clinical_cases.yaml.
+# NAO contem dado pessoal: nem nome, nem numero de registro profissional. Cada
+# entrada guarda so ID, conselho, uf, categoria (COREN: ENF) e termo_sha256.
+# Um ID por profissional, nunca reaproveitado. Formato: contract/src/golden.ts.
+atestados: []

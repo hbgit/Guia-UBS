@@ -64,6 +64,13 @@
       "when": 1793216588513,
       "tag": "0008_account_sem_issuer",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793237200497,
+      "tag": "0009_golden_revisao",
+      "breakpoints": true
     }
   ]
 }

@@ -38,7 +38,7 @@ import {
   venueTranslation,
 } from './content.js';
 import { auditEntry, consentRecord } from './governance.js';
-import { approval } from './publishing.js';
+import { approval, goldenCaseReview } from './publishing.js';
 
 export * from './auth.js';
 export * from './content.js';
@@ -49,10 +49,12 @@ export * from './telemetry.js';
 /**
  * Tabelas onde UPDATE e DELETE sao proibidos por gatilho.
  *
- * As tres tem a mesma propriedade: seu valor esta em serem irrefutaveis. Uma
+ * Todas tem a mesma propriedade: seu valor esta em serem irrefutaveis. Uma
  * trilha de auditoria editavel nao prova quem fez o que; um aceite editavel nao
  * satisfaz o onus da prova do art. 8 §2 da Lei 13.709/2018; uma aprovacao
- * clinica editavel e um campo de estado, nao uma aprovacao.
+ * clinica editavel e um campo de estado, nao uma aprovacao; e uma revisao de
+ * caso golden que se apaga deixaria o portao de assinatura contar quem ja nao
+ * atesta nada.
  *
  * O requisito viaja junto para dentro da mensagem do RAISE — quem topar com o
  * erro em producao le por que a operacao foi recusada.
@@ -61,6 +63,7 @@ export const APPEND_ONLY_TABLES: readonly { table: SQLiteTable; requirement: str
   { table: auditEntry, requirement: 'LGPD-RT03' },
   { table: consentRecord, requirement: 'LGPD-RT05' },
   { table: approval, requirement: 'arquitetura.md 4.3-C' },
+  { table: goldenCaseReview, requirement: 'PRD R5 / P0-2' },
 ];
 
 /**
@@ -107,7 +110,10 @@ export const VERSIONED_TABLES: readonly SQLiteTable[] = [
  *
  * `audit_entry.before_json` / `after_json` carregam PII quando a entidade
  * auditada e `admin_user`; sao JSON de forma livre e por isso nao entram nesta
- * lista de colunas tipadas, mas estao no alcance do expurgo por retencao.
+ * lista de colunas tipadas, mas estao no alcance do expurgo por retencao. A
+ * trilha de `golden_attestation` NAO leva nome nem registro do revisor
+ * (`test/golden-routes.test.ts`): `golden_attestation` e a unica tabela com
+ * esses dois campos (spec/lgpd.md).
  */
 export const PII_COLUMNS: readonly string[] = [
   // Identidade do operador.
@@ -132,6 +138,10 @@ export const PII_COLUMNS: readonly string[] = [
   'audit_entry.ip_hash',
   // Titular do aceite (operador ou participante do piloto).
   'consent_record.subject_ref',
+  // Revisor clinico de caso golden: nome e numero de inscricao no conselho. So
+  // no CMS — o repositorio publica o ID do atestado, nunca estes dois (P0-2, D3).
+  'golden_attestation.nome',
+  'golden_attestation.registro',
 ];
 
 /**

@@ -22,6 +22,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { Client } from '@libsql/client';
+import { sql } from 'drizzle-orm';
 
 import { createDb } from '../db/client.js';
 import { auditEntry } from '../db/schema/governance.js';
@@ -87,6 +88,9 @@ export async function recordAudit(
     beforeJson: event.before === undefined ? null : JSON.stringify(event.before),
     afterJson: event.after === undefined ? null : JSON.stringify(event.after),
     ipHash: event.ip ? pseudonymize(event.ip, salt) : null,
-    occurredAt: new Date().toISOString(),
+    // Relogio do BANCO, nao do processo: `occurred_at` e comparado com
+    // `pack_release.blocked_at`, carimbado pelo mesmo `sqld` (P0-2, D11). Mesmo
+    // formato de `toISOString()`, entao a ordem textual com linhas antigas vale.
+    occurredAt: sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
   });
 }

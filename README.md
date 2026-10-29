@@ -12,7 +12,8 @@ arquivos estáticos.
 
 > **Aviso.** As regras clínicas e os ícones do pacote semente são *placeholders*
 > explicitamente marcados (`clinical_source: "revisão clínica pendente"`, casos
-> golden com `reviewed_by: ~`). O packer emite aviso a cada build. **Nada aqui
+> golden ainda sem revisão clínica). O packer **recusa assinar**
+> enquanto os casos não forem revisados (`docs/revisao-golden.md`). **Nada aqui
 > deve chegar perto de um usuário real antes da dupla aprovação clínica.**
 
 ## Por que offline-only

@@ -12,8 +12,13 @@
 # adicione o caso correspondente ANTES — a suite e a especificacao executavel
 # do comportamento clinico, e migra para a tabela `golden_case` do CMS na Fase 3.
 #
-# Cada caso deve ter revisor clinico nomeado antes do piloto. Os `reviewed_by`
-# abaixo estao vazios de proposito: nada aqui foi aprovado clinicamente.
+# Cada caso precisa de revisao clinica (`reviewed_by`) antes de qualquer pack
+# ser assinado: `packer build`, `packer publish` e o worker RECUSAM caso sem
+# revisao (o CI de PR, `pack:check`, so avisa). Os `reviewed_by` abaixo estao
+# vazios de proposito: nada aqui foi aprovado clinicamente.
+#   - formato do `reviewed_by`: contract/src/golden.ts
+#   - IDs dos atestados (fonte unica): seed/golden/atestados.yaml
+#   - roteiro do revisor e da transcricao: docs/revisao-golden.md
 
 cases:
   # --- Red flags: devem SEMPRE resultar em EMERGENCY ----------------------

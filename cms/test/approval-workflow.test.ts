@@ -237,3 +237,54 @@ test('reenfileirar destrava e limpa o carimbo', async () => {
     'destravar sem registro e a saida que a auditoria nao ve',
   );
 });
+
+// ---------------------------------------------------------------------------
+// Release barrada pelo portao (P0-2, D11)
+// ---------------------------------------------------------------------------
+
+test('reenfileirar release aprovada SEM bloqueio continua 409', async () => {
+  // `rel-corrida` acabou de voltar para `approved`, com `blocked_at` nulo: nao ha
+  // o que destravar, e a resposta segue a de transicao invalida.
+  const r = await pedido(f, admin, 'POST', '/api/releases/rel-corrida/reenfileirar');
+  assert.equal(r.status, 409, await r.text());
+});
+
+test('reenfileirar limpa o bloqueio de release aprovada e registra na trilha', async () => {
+  // Correcao so no registro publico (`seed/golden/atestados.yaml`) + redeploy do
+  // worker nao escreve conteudo auditado: sem esta rota, a release barrada nunca
+  // mais voltaria a fila.
+  const bloqueio = '2026-08-25T00:00:00.000Z';
+  await f.client.execute({
+    sql: "UPDATE pack_release SET blocked_at = ? WHERE id = 'rel-corrida'",
+    args: [bloqueio],
+  });
+  const antes = (await auditRows(f)).filter((l) => l.action === 'release_requeue').length;
+
+  const r = await pedido(f, admin, 'POST', '/api/releases/rel-corrida/reenfileirar');
+  assert.equal(r.status, 200, await r.text());
+
+  const linha = (
+    await f.client.execute("SELECT status, blocked_at FROM pack_release WHERE id = 'rel-corrida'")
+  ).rows[0]!;
+  assert.equal(linha.status, 'approved');
+  assert.equal(linha.blocked_at, null);
+
+  const novas = (await auditRows(f)).filter((l) => l.action === 'release_requeue');
+  assert.equal(novas.length, antes + 1, 'limpar o bloqueio sem registro e a saida que a auditoria nao ve');
+  const ultima = novas.at(-1)!;
+  assert.ok(ultima.actor_id, 'o desbloqueio tem operador');
+  assert.deepEqual(JSON.parse(ultima.before_json!), { status: 'approved', blockedAt: bloqueio });
+  assert.deepEqual(JSON.parse(ultima.after_json!), { status: 'approved', blockedAt: null });
+});
+
+test('editor nao limpa bloqueio — e permissao de admin', async () => {
+  await f.client.execute(
+    "UPDATE pack_release SET blocked_at = '2026-08-25T00:00:00.000Z' WHERE id = 'rel-corrida'",
+  );
+  const r = await pedido(f, editor, 'POST', '/api/releases/rel-corrida/reenfileirar');
+  assert.equal(r.status, 403);
+  const linha = (
+    await f.client.execute("SELECT blocked_at FROM pack_release WHERE id = 'rel-corrida'")
+  ).rows[0]!;
+  assert.notEqual(linha.blocked_at, null);
+});

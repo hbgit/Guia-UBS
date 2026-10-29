@@ -19,7 +19,10 @@
  * `buildPack()` e passar pelos MESMOS portoes. Um segundo construtor para o
  * caminho do banco seria um caminho cujos portoes ninguem exercita em toda PR.
  */
+import type { Atestado, RevisorYaml, Uf } from '@guia-ubs/contract';
 import type { Client } from '@libsql/client';
+
+import type { GoldenCase } from './validate.js';
 
 /** Como cada tabela do pack e projetada a partir da autoria. */
 interface Projecao {
@@ -170,17 +173,69 @@ export async function extrairConteudo({
  * A suite e GLOBAL: as regras que ela protege tambem sao, e um caso clinico que
  * so valesse para um municipio seria um caso que outro municipio publica sem
  * passar por ele.
+ *
+ * `reviewed_by` e montado de `golden_case_review` + `golden_attestation` na
+ * MESMA forma do YAML (`RevisorYaml[]`), para que os dois caminhos passem pelo
+ * mesmo portao. Nome e registro ficam de fora: sao do CMS, nao do caso. Sem
+ * revisao, `null` — igual ao caso do YAML que nao tem a chave.
  */
-export async function lerGoldenDoBanco(
-  client: Client,
-): Promise<{ id: string; tokens: string[]; expect: string; reviewed_by?: string | null }[]> {
-  const resultado = await client.execute(
-    'SELECT id, tokens_json, expected_outcome_id, reviewed_by FROM golden_case WHERE active = 1',
+export async function lerGoldenDoBanco(client: Client): Promise<GoldenCase[]> {
+  const casos = await client.execute(
+    'SELECT id, tokens_json, expected_outcome_id FROM golden_case WHERE active = 1',
   );
-  return resultado.rows.map((linha) => ({
+  const revisoes = await client.execute(
+    `SELECT r.case_id, r.reviewed_at, a.id AS atestado, a.conselho, a.uf, a.categoria
+       FROM golden_case_review r
+       JOIN golden_attestation a ON a.id = r.attestation_id
+      ORDER BY r.case_id, a.id`,
+  );
+
+  const porCaso = new Map<string, RevisorYaml[]>();
+  for (const linha of revisoes.rows) {
+    const base = {
+      atestado: String(linha.atestado),
+      uf: String(linha.uf) as Uf,
+      reviewed_at: String(linha.reviewed_at),
+    };
+    // O CHECK do banco garante o par: COREN tem `ENF`, CRM tem nulo.
+    const revisor: RevisorYaml =
+      linha.conselho === 'COREN'
+        ? { ...base, conselho: 'COREN', categoria: 'ENF' }
+        : { ...base, conselho: 'CRM' };
+    const caso = String(linha.case_id);
+    porCaso.set(caso, [...(porCaso.get(caso) ?? []), revisor]);
+  }
+
+  return casos.rows.map((linha) => ({
     id: String(linha.id),
     tokens: JSON.parse(String(linha.tokens_json)) as string[],
     expect: String(linha.expected_outcome_id),
-    reviewed_by: linha.reviewed_by === null ? null : String(linha.reviewed_by),
+    reviewed_by: porCaso.get(String(linha.id)) ?? null,
   }));
+}
+
+/**
+ * Atestados completos do CMS, ordenados por ID — o worker os confere contra o
+ * registro publico `seed/golden/atestados.yaml`.
+ *
+ * Carregam nome e registro (PII). Quem chama compara campos; nada daqui vai
+ * para o pack, para a trilha ou para o log.
+ */
+export async function lerAtestadosDoBanco(client: Client): Promise<Atestado[]> {
+  const resultado = await client.execute(
+    `SELECT id, nome, conselho, uf, categoria, registro, termo_sha256
+       FROM golden_attestation ORDER BY id`,
+  );
+  return resultado.rows.map((linha) => {
+    const base = {
+      id: String(linha.id),
+      nome: String(linha.nome),
+      uf: String(linha.uf) as Uf,
+      registro: String(linha.registro),
+      termo_sha256: String(linha.termo_sha256),
+    };
+    return linha.conselho === 'COREN'
+      ? { ...base, conselho: 'COREN', categoria: 'ENF' }
+      : { ...base, conselho: 'CRM' };
+  });
 }
