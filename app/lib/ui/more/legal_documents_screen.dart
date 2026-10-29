@@ -74,7 +74,7 @@ class _Documents extends StatelessWidget {
         _DraftWarning(text: l.legalDraft),
         for (final document in documents) ...[
           const SizedBox(height: spacing * 3),
-          for (final block in document.blocks) _Block(block: block),
+          for (final block in document.blocks) LegalBlockView(block: block),
         ],
         const SizedBox(height: spacing * 4),
       ],
@@ -82,8 +82,10 @@ class _Documents extends StatelessWidget {
   }
 }
 
-class _Block extends StatelessWidget {
-  const _Block({required this.block});
+/// Um bloco de documento legal como widget. Público para a tela dos
+/// documentos do Gemma usar o mesmo desenho.
+class LegalBlockView extends StatelessWidget {
+  const LegalBlockView({required this.block, super.key});
 
   final LegalBlock block;
 

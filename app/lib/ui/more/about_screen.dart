@@ -28,9 +28,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../app_routes.dart';
 import '../shell/gubs_scaffold.dart';
 import '../theme/gubs_colors.dart';
 import '../theme/gubs_metrics.dart';
@@ -145,6 +147,12 @@ class AboutScreen extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: spacing * 2),
+          _ModelSection(
+            title: l.aboutModelTitle,
+            credit: l.aboutModelCredit,
+            documents: l.aboutModelDocuments,
+          ),
+          const SizedBox(height: spacing * 3),
           _LicensesButton(label: l.aboutLicenses),
           const SizedBox(height: spacing * 2),
         ],
@@ -253,6 +261,61 @@ class _LicensesButton extends StatelessWidget {
             .titleMedium
             ?.copyWith(color: colors.ink),
       ),
+    );
+  }
+}
+
+/// O modelo de linguagem e os documentos dele (ADR-004).
+///
+/// Separado dos créditos institucionais de propósito: o Gemma não é parceiro
+/// do projeto, é um componente sob licença. Sem logotipo do Google (§4.2), e o
+/// texto nega o endosso — `no_endorsement_test` exige as duas coisas.
+class _ModelSection extends StatelessWidget {
+  const _ModelSection({
+    required this.title,
+    required this.credit,
+    required this.documents,
+  });
+
+  final String title;
+  final String credit;
+  final String documents;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.gubs;
+    final text = Theme.of(context).textTheme;
+    return Column(
+      key: const ValueKey('about-gemma'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: text.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700, color: colors.ink),
+        ),
+        const SizedBox(height: spacing),
+        Text(
+          credit,
+          textAlign: TextAlign.center,
+          style: text.bodyMedium?.copyWith(color: colors.ink, height: 1.4),
+        ),
+        const SizedBox(height: spacing * 1.5),
+        OutlinedButton.icon(
+          key: const ValueKey('about-gemma-open'),
+          onPressed: () => context.goNamed(Routes.gemmaDocuments),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(minTouchTarget),
+            side: BorderSide(color: colors.line, width: 2),
+          ),
+          icon: Icon(Icons.gavel_outlined, size: 28, color: colors.inkSoft),
+          label: Text(
+            documents,
+            style: text.titleMedium?.copyWith(color: colors.ink),
+          ),
+        ),
+      ],
     );
   }
 }

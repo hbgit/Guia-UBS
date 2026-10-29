@@ -120,4 +120,5 @@ abstract final class Routes {
   static const howTo = 'howTo';
   static const legalDocuments = 'legalDocuments';
   static const about = 'about';
+  static const gemmaDocuments = 'gemmaDocuments';
 }

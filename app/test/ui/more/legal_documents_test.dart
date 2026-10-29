@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:guia_ubs/l10n/app_localizations.dart';
 import 'package:guia_ubs/prefs/locale_store.dart';
+import 'package:guia_ubs/sync/model_catalog.dart';
 import 'package:guia_ubs/ui/app_router.dart';
 import 'package:guia_ubs/ui/app_scope.dart';
 import 'package:guia_ubs/ui/more/legal_document.dart';
@@ -96,6 +97,108 @@ void main() {
       // texto nao pode ser apresentado como definitivo.
       final pt = await rootBundle.loadString('assets/legal/privacidade_pt.md');
       expect(pt.toUpperCase(), contains('MINUTA'));
+    });
+  });
+
+  group('documentos do Gemma (ADR-004)', () {
+    test('o Notice traz as duas frases literais da §3.1(4), na ordem da D-A',
+        () async {
+      final linhas =
+          (await rootBundle.loadString(gemmaNoticeAsset)).split('\n');
+      const frase = 'Gemma is provided under and subject to the Gemma Terms '
+          'of Use found at ';
+      expect(linhas[0], '${frase}gemma.ai/resources/terms');
+      expect(linhas[1], '${frase}ai.google.dev/gemma/terms');
+    });
+
+    test('o Notice acompanha o modelo ativo', () async {
+      final notice = await rootBundle.loadString(gemmaNoticeAsset);
+      expect(notice, contains(activeModel.sha256));
+      expect(notice, contains('gemma-3-1b-it-Q4_K_M.gguf'));
+      expect(notice, contains('Notice of modification'));
+    });
+
+    for (final idioma in ['pt', 'es']) {
+      test('os documentos do Gemma em $idioma carregam, com versao', () async {
+        final r = await loadGemmaDocuments(idioma);
+        expect(r.notice, isNotEmpty);
+        expect(r.documents, hasLength(4),
+            reason: 'resumo, Politica traduzida e os dois originais');
+        for (final d in r.documents) {
+          expect(d.versionDate, matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')),
+              reason: d.asset);
+          expect(d.blocks, isNotEmpty, reason: d.asset);
+        }
+      });
+    }
+
+    test('a copia em ingles e integral', () async {
+      // A §3.1(2) pede "a copy of this Agreement": o texto em ingles, inteiro.
+      final t = await rootBundle.loadString('assets/legal/gemma_terms_en.md');
+      expect(t, contains('Last modified: April 1, 2026'));
+      for (final trecho in [
+        '3.1 Distribution and Redistribution',
+        '3.2 Use Restrictions',
+        '3.3 Generated Output',
+        '4.2 Trademarks',
+        '## Appendix',
+      ]) {
+        expect(t, contains(trecho));
+      }
+      final p =
+          await rootBundle.loadString('assets/legal/gemma_prohibited_use_en.md');
+      expect(p, contains('Last modified: February 21, 2024'));
+      expect(
+          p,
+          contains('Making automated decisions in domains that affect '
+              'material or individual rights or well-being'));
+    });
+
+    for (final arquivo in ['gemma_terms', 'gemma_prohibited_use']) {
+      test('$arquivo: a cortesia diz que o ingles prevalece', () async {
+        final pt = (await rootBundle.loadString('assets/legal/${arquivo}_pt.md'))
+            .replaceAll(RegExp(r'\s+'), ' ');
+        final es = (await rootBundle.loadString('assets/legal/${arquivo}_es.md'))
+            .replaceAll(RegExp(r'\s+'), ' ');
+        expect(pt, contains('prevalece a versão em inglês'));
+        expect(es, contains('prevalece la versión en inglés'));
+      });
+    }
+
+    for (final (idioma, resumo, clausula, automatizada) in [
+      ('pt', '## Resumo dos termos', 'Distribuição e Redistribuição',
+          'decisões automatizadas'),
+      ('es', '## Resumen de los términos', 'Distribución y Redistribución',
+          'decisiones automatizadas'),
+    ]) {
+      test('o resumo em $idioma resume, e nao traduz, os termos', () async {
+        final t =
+            await rootBundle.loadString('assets/legal/gemma_terms_$idioma.md');
+        expect(t, contains(resumo));
+        // Resumo, nao traducao: o titulo da secao contratual traduzido nao
+        // aparece. Traduzir o contrato criaria um segundo texto lido como
+        // vinculante (mudanca de escopo registrada na #3).
+        expect(t.toLowerCase(), isNot(contains(clausula.toLowerCase())));
+      });
+
+      test('a Politica em $idioma e traduzida inteira', () async {
+        final p = await rootBundle
+            .loadString('assets/legal/gemma_prohibited_use_$idioma.md');
+        // Os quatro itens de topo, na numeracao do original, e o item 3.4.
+        for (final n in ['1.', '2.', '3.', '4.']) {
+          expect(
+              RegExp('^- ${RegExp.escape(n)} ', multiLine: true).hasMatch(p),
+              isTrue,
+              reason: 'falta o item $n');
+        }
+        expect(RegExp(r'^- 3\.4\. ', multiLine: true).hasMatch(p), isTrue);
+        expect(p.toLowerCase(), contains(automatizada));
+      });
+    }
+
+    test('idioma sem traducao recua para pt', () {
+      expect(gemmaAssetsFor('fr'), gemmaAssetsFor('pt'));
+      expect(gemmaAssetsFor('es').first, contains('_es'));
     });
   });
 

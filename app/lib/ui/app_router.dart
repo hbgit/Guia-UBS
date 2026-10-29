@@ -17,6 +17,7 @@ import 'content/emergency_screen.dart';
 import 'content/flow_screen.dart';
 import 'content/where_to_screen.dart';
 import 'more/about_screen.dart';
+import 'more/gemma_documents_screen.dart';
 import 'more/how_to_screen.dart';
 import 'more/legal_documents_screen.dart';
 import 'more/more_screen.dart';
@@ -135,6 +136,14 @@ final List<GubsRouteSpec> gubsRoutes = [
     name: Routes.about,
     tab: GubsTab.more,
     builder: (context, state) => const AboutScreen(),
+  ),
+  // Notice e termos do Gemma (ADR-004). Abaixo de "Sobre", que é de onde se
+  // chega: profundidade 3, dentro do teto de navegação.
+  GubsRouteSpec(
+    path: '/mais/sobre/gemma',
+    name: Routes.gemmaDocuments,
+    tab: GubsTab.more,
+    builder: (context, state) => const GemmaDocumentsScreen(),
   ),
 ];
 
