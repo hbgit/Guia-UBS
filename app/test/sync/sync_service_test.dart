@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:guia_ubs/sync/destination_lock.dart';
 import 'package:guia_ubs/sync/manifest_verifier.dart';
 import 'package:guia_ubs/sync/pack_signing_keys.dart';
 import 'package:guia_ubs/sync/pack_store.dart';
@@ -435,6 +436,28 @@ void main() {
   });
 
   group('falhas de rede e circuito', () {
+    test('trava ocupada no pack: B7, sem blacklist', () async {
+      // Outro escritor detém o destino do pack (issue 31). O `SyncService` usa
+      // espera zero: desiste sem tocar no `.parcial` e sem pedir nada à rede.
+      // Fixa o comportamento ATUAL: a disputa entra como B7 e conta no
+      // circuito (`incrementCircuitCounter`), embora não seja falha de rede —
+      // ver a issue #35. O que NÃO pode acontecer é a blacklist: o pack
+      // é legítimo, só está ocupado.
+      await store.ensureDirectory();
+      final lock = await DestinationLock.acquire(store.packFile(packV1Hash));
+      addTearDown(() => lock?.release());
+      expect(lock, isNotNull);
+
+      final report = await service.runCycle();
+
+      expect(report.state, SyncState.f1Retryable);
+      expect(report.rules.any((r) => r.startsWith('B7')), isTrue,
+          reason: '${report.rules}');
+      expect(await store.isPackRejected(packV1Hash), isFalse);
+      expect(store.packFile(packV1Hash).existsSync(), isFalse);
+      expect(await store.loadActive(), isNull);
+    });
+
     test('servidor fora do ar deixa a máquina retentável, sem efeito algum',
         () async {
       origin.manifestStatus = 503;

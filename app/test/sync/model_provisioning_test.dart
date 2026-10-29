@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:guia_ubs/sync/destination_lock.dart';
 import 'package:guia_ubs/sync/model_downloader.dart';
 import 'package:guia_ubs/sync/model_provisioning.dart';
 import 'package:guia_ubs/sync/model_sync_scheduler.dart';
@@ -22,6 +23,18 @@ class _FakeDownloader implements ResumableDownloader {
   DownloadOutcome Function(File destination, DownloadProgress? onProgress)?
       outcome;
   int calls = 0;
+
+  @override
+  String get writerLabel => 'fake';
+
+  @override
+  DownloadTrace? get trace => null;
+
+  @override
+  Duration get writerWait => Duration.zero;
+
+  @override
+  LockTiming get lockTiming => const LockTiming();
   final List<Uri> requested = [];
 
   @override

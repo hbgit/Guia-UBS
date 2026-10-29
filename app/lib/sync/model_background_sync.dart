@@ -13,12 +13,14 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:workmanager/workmanager.dart';
 
 import '../core/app_paths.dart';
 import 'model_catalog.dart';
 import 'model_downloader.dart';
 import 'model_sync_scheduler.dart';
+import 'resumable_downloader.dart';
 
 /// Executa a tarefa de download do modelo.
 ///
@@ -32,6 +34,7 @@ Future<bool> runModelSyncTask() async {
     final downloader = ModelDownloader(
       artifact: activeModel,
       destination: File('${dir.path}/${activeModel.fileName}'),
+      downloader: ResumableDownloader(writerLabel: 'worker', trace: debugPrint),
     );
 
     try {

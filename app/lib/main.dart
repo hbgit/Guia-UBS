@@ -32,6 +32,7 @@ import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
 import 'sync/pack_background_sync.dart';
+import 'sync/resumable_downloader.dart';
 import 'triage/engine/llama_engine.dart';
 import 'ui/app_scope.dart';
 import 'ui/router_provider.dart';
@@ -75,6 +76,14 @@ Future<void> main() async {
     artifact: activeModel,
     destinationDirectory: modelsDirectory,
     networkClass: currentNetworkClass,
+    downloader: ResumableDownloader(
+      writerLabel: 'primeiro-plano',
+      trace: debugPrint,
+      // Primeiro plano ESPERA o worker (issue 31): ele está baixando o mesmo
+      // arquivo, e a barra acompanha o `.parcial` dele enquanto isso. O worker
+      // fica com o padrão zero e desiste — o WorkManager reagenda.
+      writerWait: const Duration(minutes: 30),
+    ),
   )..allowMeteredNetworks = stored.allowMeteredDownload;
 
   runApp(
