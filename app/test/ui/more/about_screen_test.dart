@@ -25,6 +25,7 @@ void main() {
     AppLocale locale = AppLocale.pt,
     AppRelease? release = (version: '1.2.3', build: '42'),
     TermsAnswerController? terms,
+    BuildOrigins origins = (content: true, assistant: true),
   }) async {
     final router = buildGubsRouter(initialLocation: '/mais/sobre');
     addTearDown(router.dispose);
@@ -42,6 +43,7 @@ void main() {
           // widget testaria o mock, nao a tela.
           appReleaseProvider.overrideWith((ref) async => release),
           gemmaDocumentsProvider.overrideWith((ref, arg) => gemma!),
+          buildOriginsProvider.overrideWithValue(origins),
           termsAnswerProvider.overrideWith((ref) =>
               terms ??
               TermsAnswerController.memory(
@@ -236,6 +238,35 @@ void main() {
       final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
       await reveal(tester, alvo);
       expect(tester.getSize(alvo).height, greaterThanOrEqualTo(64));
+    });
+  });
+
+  group('diagnostico do build (#45)', () {
+    const diag = ValueKey('about-build-diagnostics');
+
+    testWidgets('com as duas origens, nada aparece', (tester) async {
+      await pump(tester);
+      expect(find.byKey(diag), findsNothing);
+    });
+
+    testWidgets('sem origem de conteudo, o Sobre avisa so isso',
+        (tester) async {
+      await pump(tester, origins: (content: false, assistant: true));
+      expect(find.byKey(diag), findsOneWidget);
+      expect(find.textContaining('origem de conteúdo'), findsOneWidget);
+      expect(find.textContaining('origem do assistente'), findsNothing);
+    });
+
+    testWidgets('sem as duas, as duas linhas', (tester) async {
+      await pump(tester, origins: (content: false, assistant: false));
+      expect(find.textContaining('origem de conteúdo'), findsOneWidget);
+      expect(find.textContaining('origem do assistente'), findsOneWidget);
+    });
+
+    testWidgets('em espanhol', (tester) async {
+      await pump(tester,
+          locale: AppLocale.es, origins: (content: false, assistant: true));
+      expect(find.textContaining('origen de contenido'), findsOneWidget);
     });
   });
 }

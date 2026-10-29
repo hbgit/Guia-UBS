@@ -20,6 +20,8 @@ import '../prefs/preferences_repository.dart';
 import '../speech/speaker.dart';
 import '../telemetry/telemetry_recorder.dart';
 import '../sync/model_provisioning.dart';
+import '../sync/endpoint_config.dart';
+import '../sync/model_catalog.dart';
 import '../sync/pack_background_sync.dart';
 import '../sync/sync_service.dart';
 import '../triage/orchestrator/triage_fsm.dart';
@@ -402,6 +404,18 @@ final telemetryProvider = Provider<TelemetryRecorder>(
 // ---------------------------------------------------------------------------
 // Sync de conteúdo (FSM-B) em primeiro plano
 // ---------------------------------------------------------------------------
+
+/// Quais origens este APK traz (#45, ADR-004). Vem das constantes de build,
+/// não do sync: descreve o APK, e por isso pode aparecer no "Sobre" sem
+/// expor estado de rede ao usuário (INV-8).
+typedef BuildOrigins = ({bool content, bool assistant});
+
+final buildOriginsProvider = Provider<BuildOrigins>(
+  (ref) => (
+    content: isUsableEndpoint(Uri.parse(packManifestUrl)),
+    assistant: activeModel.isConfigured,
+  ),
+);
 
 /// Ciclo de sync com o guard de quiescência LIGADO na FSM-A de verdade.
 ///

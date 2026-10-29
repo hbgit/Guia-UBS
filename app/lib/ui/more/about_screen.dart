@@ -88,6 +88,7 @@ class AboutScreen extends ConsumerWidget {
           _Release(release: release.valueOrNull),
           const SizedBox(height: spacing * 3),
           _ClinicalNotice(text: l.aboutClinicalNotice),
+          _BuildDiagnostics(origins: ref.watch(buildOriginsProvider)),
           const SizedBox(height: spacing * 3),
           Text(
             l.aboutCredits,
@@ -366,6 +367,56 @@ class _AssistantToggle extends StatelessWidget {
             .textTheme
             .titleMedium
             ?.copyWith(color: colors.ink),
+      ),
+    );
+  }
+}
+
+/// Diagnóstico do APK (#45): só aparece quando falta origem.
+///
+/// Para quem prepara os aparelhos do piloto perceber um build errado ANTES de
+/// entregar. Descreve o APK, não a rede — o sync continua invisível no uso
+/// (INV-8). Azul: é informação, não alarme clínico.
+class _BuildDiagnostics extends StatelessWidget {
+  const _BuildDiagnostics({required this.origins});
+
+  final BuildOrigins origins;
+
+  @override
+  Widget build(BuildContext context) {
+    if (origins.content && origins.assistant) return const SizedBox.shrink();
+    final l = L.of(context);
+    final colors = context.gubs;
+    final style =
+        Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.ink);
+    return Padding(
+      padding: const EdgeInsets.only(top: spacing * 2),
+      child: Container(
+        key: const ValueKey('about-build-diagnostics'),
+        padding: const EdgeInsets.all(spacing * 2),
+        decoration: BoxDecoration(
+          color: colors.blueSoft,
+          borderRadius: BorderRadius.circular(radiusCard),
+          border: Border.all(color: colors.blue, width: 2),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.build_circle_outlined, size: 28, color: colors.blue),
+            const SizedBox(width: spacing * 1.5),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!origins.content)
+                    Text(l.aboutNoContentOrigin, style: style),
+                  if (!origins.assistant)
+                    Text(l.aboutNoAssistantOrigin, style: style),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

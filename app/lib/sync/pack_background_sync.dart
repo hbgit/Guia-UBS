@@ -87,5 +87,7 @@ Future<void> schedulePackSync({
   );
 }
 
+/// Cancela o job periódico do pack. Usado quando o build não tem origem de
+/// conteúdo (#45), inclusive para o job herdado de um build antigo.
 Future<void> cancelPackSync() =>
     Workmanager().cancelByUniqueName(packSyncTaskName);
