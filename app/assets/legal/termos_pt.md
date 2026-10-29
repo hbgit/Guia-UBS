@@ -1,4 +1,4 @@
-<!-- versao: 2026-08-22 -->
+<!-- versao: 2026-10-29 -->
 # Termos de uso
 
 MINUTA. Este texto ainda não passou por revisão jurídica.
@@ -36,4 +36,5 @@ O aplicativo é gratuito, não tem publicidade e não vende dado nenhum.
 
 ## Responsável
 
-A ser preenchido antes da publicação.
+Guia UBS, projeto de pesquisa e extensão desenvolvido pelo grupo de pesquisa
+PRISM. Contato: prismufrr@gmail.com.

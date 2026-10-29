@@ -18,6 +18,10 @@ import 'package:guia_ubs/ui/more/legal_document.dart';
 import 'package:guia_ubs/ui/more/legal_documents_screen.dart';
 import 'package:guia_ubs/ui/theme/gubs_theme.dart';
 
+/// E-mail compartilhado do projeto (ADR-004). Uma caixa do grupo, nunca de
+/// uma pessoa: o repositorio e publico.
+const String projectContactEmail = 'prismufrr@gmail.com';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -57,6 +61,35 @@ void main() {
       expect(legalAssetsFor('fr'), legalAssetsFor('pt'));
       expect(legalAssetsFor('es').first, contains('_es'));
     });
+
+    for (final (idioma, grupo) in [
+      ('pt', 'grupo de pesquisa PRISM'),
+      ('es', 'grupo de investigación PRISM'),
+    ]) {
+      test('termos_$idioma identificam o projeto, sem e-mail pessoal nem '
+          'vinculo institucional', () async {
+        // ADR-004: o responsavel e o PROJETO, identificado pelo grupo. A linha
+        // identifica quem mantem o app; nao cria parte que assina contrato.
+        // Espacos normalizados: os arquivos quebram em 80 colunas e o parser
+        // junta as linhas do paragrafo, entao "grupo de pesquisa\nPRISM" e o
+        // que o leitor ve como uma frase so.
+        final termos =
+            (await rootBundle.loadString('assets/legal/termos_$idioma.md'))
+                .replaceAll(RegExp(r'\s+'), ' ');
+
+        expect(termos, contains(grupo));
+        expect(termos, contains(projectContactEmail));
+        expect(termos, isNot(contains('A ser preenchido')));
+        expect(termos, isNot(contains('Para completar')));
+
+        // Unica excecao nomeada: o endereco do projeto carrega "ufrr". Fora
+        // dele, citar a universidade sugeriria um vinculo formal que nao
+        // existe (ADR-004).
+        final semEndereco = termos.replaceAll(projectContactEmail, '');
+        expect(semEndereco.toUpperCase(), isNot(contains('UFRR')));
+        expect(semEndereco, isNot(contains('Universidad')));
+      });
+    }
 
     test('os documentos ainda estao marcados como minuta', () async {
       // Este teste SAI junto com a aprovacao juridica. Enquanto ele passa, o

@@ -380,7 +380,6 @@ Isso é tolerável **porque a arquitetura já foi construída para esse desfecho
 
 **Revisão.** Reabrir se (a) a telemetria de campo mostrar `fallback_rate` alto o bastante para tornar o SLM decorativo, caso em que cortá-lo economiza 1,2 GB sem perda funcional; ou (b) surgir modelo de vocabulário pequeno que atinja ≥ 15/20 na suite abaixo de 400 MB, permitindo voltar ao orçamento original.
 
-
 ### ADR-004 — Gemma 3 1B no caso de uso do Guia UBS e redistribuição pelo storage próprio: **PROPOSTO** (2026-10-29)
 
 **Contexto.** O app baixa o modelo de `huggingface.co/ggml-org/gemma-3-1b-it-GGUF` (`app/lib/sync/model_catalog.dart`), o que contraria três decisões: a §9 (100% self-host), o [PRD §4.1](PRD.md) e a [LGPD-RT11/RF17](lgpd.md) (lista fixa de endpoints). Servir o `.gguf` do storage próprio é *Distribution* pela §1.1(b) dos Gemma Terms of Use, e o Gemma 3 consta do Appendix desses termos, que valem *"regardless of the source that you obtained it from"* (§1.1(c)).

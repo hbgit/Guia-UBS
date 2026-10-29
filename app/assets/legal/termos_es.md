@@ -1,4 +1,4 @@
-<!-- versao: 2026-08-22 -->
+<!-- versao: 2026-10-29 -->
 # Términos de uso
 
 BORRADOR. Este texto todavía no pasó por revisión jurídica.
@@ -37,4 +37,5 @@ La aplicación es gratuita, no tiene publicidad y no vende ningún dato.
 
 ## Responsable
 
-Para completar antes de la publicación.
+Guia UBS, proyecto de investigación y extensión desarrollado por el grupo de
+investigación PRISM. Contacto: prismufrr@gmail.com.
