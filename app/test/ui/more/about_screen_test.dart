@@ -24,6 +24,7 @@ void main() {
     WidgetTester tester, {
     AppLocale locale = AppLocale.pt,
     AppRelease? release = (version: '1.2.3', build: '42'),
+    TermsAnswerController? terms,
   }) async {
     final router = buildGubsRouter(initialLocation: '/mais/sobre');
     addTearDown(router.dispose);
@@ -41,6 +42,10 @@ void main() {
           // widget testaria o mock, nao a tela.
           appReleaseProvider.overrideWith((ref) async => release),
           gemmaDocumentsProvider.overrideWith((ref, arg) => gemma!),
+          termsAnswerProvider.overrideWith((ref) =>
+              terms ??
+              TermsAnswerController.memory(
+                  const TermsAnswer(version: termsVersion, accepted: true))),
         ],
         child: MaterialApp.router(
           theme: gubsLightTheme,
@@ -194,6 +199,43 @@ void main() {
           scrollable: find.byType(Scrollable).first);
       expect(prevalece, findsWidgets);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('mudar a resposta aos termos depois (ADR-004)', () {
+    testWidgets('quem recusou pode aceitar depois', (tester) async {
+      final terms = TermsAnswerController.memory(
+          const TermsAnswer(version: termsVersion, accepted: false));
+      await pump(tester, terms: terms);
+      final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
+      await reveal(tester, alvo);
+
+      expect(find.text('Li e concordo: usar o assistente'), findsOneWidget);
+      await tester.tap(alvo);
+      await tester.pump();
+      expect(terms.state,
+          const TermsAnswer(version: termsVersion, accepted: true));
+    });
+
+    testWidgets('quem aceitou pode parar de usar o assistente', (tester) async {
+      final terms = TermsAnswerController.memory(
+          const TermsAnswer(version: termsVersion, accepted: true));
+      await pump(tester, terms: terms);
+      final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
+      await reveal(tester, alvo);
+
+      expect(find.text('Parar de usar o assistente'), findsOneWidget);
+      await tester.tap(alvo);
+      await tester.pump();
+      expect(terms.state,
+          const TermsAnswer(version: termsVersion, accepted: false));
+    });
+
+    testWidgets('o botao tem 64 dp', (tester) async {
+      await pump(tester);
+      final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
+      await reveal(tester, alvo);
+      expect(tester.getSize(alvo).height, greaterThanOrEqualTo(64));
     });
   });
 }

@@ -44,6 +44,13 @@ const Set<String> allowedUserDataColumns = {
   'setup_completed',
   'theme_mode',
   'font_scale',
+  // ADR-004: a versao dos termos de uso que a pessoa respondeu, e a resposta.
+  // Nao identifica ninguem, nao descreve saude, nao sai do aparelho. Existe
+  // para cumprir a §3.1(1) dos Gemma Terms of Use e para nao carregar o modelo
+  // sem aceite. NAO e registro de consentimento da LGPD-RF04, que pressupoe
+  // titular identificado (INV-2).
+  'terms_version_answered',
+  'terms_accepted',
 };
 
 /// Tabelas que o `user.db` pode ter.
@@ -157,6 +164,7 @@ void main() {
       await repo.setSetupCompleted(completed: true);
       await repo.setThemeMode(GubsThemeMode.dark);
       await repo.setFontScale(1.6);
+      await repo.setTermsAnswer(version: '2026-10-29', accepted: true);
 
       await repo.wipe();
 
@@ -185,6 +193,9 @@ void main() {
       expect(apagado['setup_completed'], 0);
       expect(apagado['theme_mode'], 'system');
       expect(apagado['font_scale'], 1.0);
+      expect(apagado['terms_version_answered'], isNull,
+          reason: 'depois de apagar, os termos sao perguntados de novo');
+      expect(apagado['terms_accepted'], 0);
     });
 
     test('apagar é idempotente — a tela pode ser tocada duas vezes', () async {

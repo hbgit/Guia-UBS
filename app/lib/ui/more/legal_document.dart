@@ -155,6 +155,14 @@ Future<List<LegalDocument>> loadLegalDocuments(
   return documents;
 }
 
+/// Versão vigente dos termos de uso do app (`termos_{pt,es}.md`).
+///
+/// Constante, e não leitura do asset, porque decide o portão "li e concordo"
+/// no PRIMEIRO quadro: uma leitura assíncrona deixaria a pessoa entrar no app
+/// e, um instante depois, puxaria o portão no meio do uso. Um teste confere
+/// que os dois arquivos declaram exatamente esta versão.
+const String termsVersion = '2026-10-29';
+
 /// O arquivo "Notice" que a §3.1(4) dos Gemma Terms of Use exige, literal e em
 /// inglês (ADR-004). Não tem cabeçalho de versão: é o texto que os termos
 /// pedem, e ele não muda.

@@ -27,6 +27,7 @@ const Map<String, String> mencaoNeutra = {
 /// Chaves e arquivos que FALAM do modelo: precisam negar o endosso.
 const Map<String, String> textoDescritivo = {
   'aboutModelCredit': 'credito ao modelo na tela Sobre',
+  'termsGateBody': 'resumo do "li e concordo" (Task 4b), tambem falado',
   'termos_pt.md': 'clausula do Gemma nos termos do app (Task 4)',
   'termos_es.md': 'idem, em espanhol',
 };

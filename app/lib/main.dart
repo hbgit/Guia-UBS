@@ -167,8 +167,27 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
     ref.read(fontScaleProvider.notifier).restore();
     ref.read(meteredDownloadProvider.notifier).restore();
 
-    // Fora do caminho do boot, de propósito. Ver `_startEngine`.
-    unawaited(_startEngine());
+    // Fora do caminho do boot, de propósito. Ver `_startEngine`. Espera a
+    // resposta aos termos: sem aceite da versão vigente, o modelo não sobe
+    // (ADR-004).
+    unawaited(ref
+        .read(termsAnswerProvider.notifier)
+        .restore()
+        .then((_) => _startEngine()));
+
+    // Aceitou depois (Sobre, ou o portão): sobe o motor. Recusou ou parou:
+    // desce o motor e cancela o download agendado. O arquivo fica no disco,
+    // sem uso — apagar 800 MB por causa de um toque seria pior que guardar.
+    ref.listenManual(assistantAllowedProvider, (previous, allowed) {
+      if (allowed) {
+        unawaited(_startEngine());
+      } else {
+        final engine = ref.read(triageEngineProvider);
+        ref.read(triageEngineProvider.notifier).state = null;
+        engine?.dispose().ignore();
+        cancelModelSync().ignore();
+      }
+    });
 
     // O agendador só interessa enquanto falta modelo. Quando o provisionamento
     // conclui, cancelamos: manter um job periódico para baixar algo que já
@@ -183,7 +202,8 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
       switch (state.stage) {
         case SetupStage.ready:
           cancelModelSync().ignore();
-        case SetupStage.readyDegraded || SetupStage.blocked:
+        case SetupStage.readyDegraded || SetupStage.blocked
+            when ref.read(assistantAllowedProvider):
           scheduleModelSync(
             policy: const ModelSyncPolicy().withMeteredOverride(
               allowed: ref.read(provisioningProvider).allowMeteredNetworks,
@@ -213,6 +233,8 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
   /// INV-8 declara opcional.
   Future<void> _startEngine() async {
     try {
+      if (!ref.read(assistantAllowedProvider)) return;
+      if (ref.read(triageEngineProvider) != null) return;
       final model = await ref.read(provisioningProvider).verifiedModel();
       if (model == null) return;
 

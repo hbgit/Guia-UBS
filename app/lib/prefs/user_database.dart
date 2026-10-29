@@ -81,6 +81,21 @@ class Preferences extends Table {
   /// interface, e a que mais importa para presbiopia sem óculos.
   RealColumn get fontScale => real().withDefault(const Constant(1))();
 
+  /// Versão dos termos de uso (`AAAA-MM-DD`, o cabeçalho de `termos_*.md`)
+  /// que a pessoa respondeu no "li e concordo" (ADR-004). `null` = nunca
+  /// respondeu, o que faz o portão de termos aparecer.
+  ///
+  /// Não identifica ninguém e nunca sai do aparelho. Não é registro de
+  /// consentimento da LGPD-RF04, que pressupõe titular identificado (INV-2):
+  /// existe para cumprir a §3.1(1) dos Gemma Terms of Use e para o modelo não
+  /// ser carregado sem aceite.
+  TextColumn get termsVersionAnswered => text().nullable()();
+
+  /// A resposta àquela versão. `false` desliga SÓ o assistente: a orientação
+  /// segue pelo gate determinístico e pelas regras (INV-1, INV-8).
+  BoolColumn get termsAccepted =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -90,7 +105,7 @@ class UserDatabase extends _$UserDatabase {
   UserDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// ## `onUpgrade` não é opcional
   ///
@@ -115,6 +130,12 @@ class UserDatabase extends _$UserDatabase {
           if (from < 2) {
             await m.addColumn(preferences, preferences.themeMode);
             await m.addColumn(preferences, preferences.fontScale);
+          }
+          // v3 (ADR-004): resposta aos termos. Quem atualiza chega com a
+          // versão nula e responde aos termos novos — que é o objetivo.
+          if (from < 3) {
+            await m.addColumn(preferences, preferences.termsVersionAnswered);
+            await m.addColumn(preferences, preferences.termsAccepted);
           }
         },
       );

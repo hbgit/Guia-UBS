@@ -18,6 +18,7 @@ import 'content/flow_screen.dart';
 import 'content/where_to_screen.dart';
 import 'more/about_screen.dart';
 import 'more/gemma_documents_screen.dart';
+import 'legal/terms_gate_screen.dart';
 import 'more/how_to_screen.dart';
 import 'more/legal_documents_screen.dart';
 import 'more/more_screen.dart';
@@ -39,6 +40,14 @@ final List<GubsRouteSpec> gubsRoutes = [
     tab: null,
     insideShell: false,
     builder: (context, state) => const SetupScreen(),
+  ),
+  // "Li e concordo" (ADR-004): portão como o de idioma, com saída de um toque.
+  GubsRouteSpec(
+    path: '/termos',
+    name: Routes.terms,
+    tab: null,
+    insideShell: false,
+    builder: (context, state) => const TermsGateScreen(),
   ),
   GubsRouteSpec(
     path: '/idioma',

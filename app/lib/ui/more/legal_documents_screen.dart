@@ -26,7 +26,10 @@ final legalDocumentsProvider =
 );
 
 class LegalDocumentsScreen extends ConsumerWidget {
-  const LegalDocumentsScreen({super.key});
+  const LegalDocumentsScreen({this.onBack, super.key});
+
+  /// Voltar quando aberta por cima de um portão, fora do roteador.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,6 +39,7 @@ class LegalDocumentsScreen extends ConsumerWidget {
 
     return GubsScaffold(
       title: l.legalTitle,
+      onBack: onBack,
       child: documents.when(
         // Espaço vazio, e NÃO um `CircularProgressIndicator`: ler dois
         // arquivos do bundle leva um frame, então o giro seria teatro — e um

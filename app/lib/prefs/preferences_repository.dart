@@ -65,6 +65,8 @@ class UserPreferences {
     required this.setupCompleted,
     required this.themeMode,
     required this.fontScale,
+    this.termsVersionAnswered,
+    this.termsAccepted = false,
   });
 
   final AppLocale? locale;
@@ -73,6 +75,10 @@ class UserPreferences {
   final bool setupCompleted;
   final GubsThemeMode themeMode;
   final double fontScale;
+
+  /// Versão dos termos respondida, e a resposta (ADR-004).
+  final String? termsVersionAnswered;
+  final bool termsAccepted;
 
   static const UserPreferences defaults = UserPreferences(
     locale: null,
@@ -102,6 +108,8 @@ class PreferencesRepository implements LocaleStore {
         setupCompleted: row.setupCompleted,
         themeMode: GubsThemeMode.fromStorage(row.themeMode),
         fontScale: normalizeFontScale(row.fontScale),
+        termsVersionAnswered: row.termsVersionAnswered,
+        termsAccepted: row.termsAccepted,
       );
     } on Object {
       // Banco corrompido devolve os padrões, que é um app funcional pedindo o
@@ -135,6 +143,16 @@ class PreferencesRepository implements LocaleStore {
   /// que uma escala inválida não sobreviva no banco esperando ser lida.
   Future<void> setFontScale(double scale) =>
       _patch(PreferencesCompanion(fontScale: Value(normalizeFontScale(scale))));
+
+  /// Resposta ao "li e concordo" de [version] (ADR-004).
+  Future<void> setTermsAnswer({
+    required String version,
+    required bool accepted,
+  }) =>
+      _patch(PreferencesCompanion(
+        termsVersionAnswered: Value(version),
+        termsAccepted: Value(accepted),
+      ));
 
   /// LGPD-RF03: apaga tudo, sem confirmação de volta e sem recuperação.
   Future<void> wipe() async {

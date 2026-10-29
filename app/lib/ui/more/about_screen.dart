@@ -33,6 +33,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../app_routes.dart';
+import '../app_scope.dart';
 import '../shell/gubs_scaffold.dart';
 import '../theme/gubs_colors.dart';
 import '../theme/gubs_metrics.dart';
@@ -151,6 +152,15 @@ class AboutScreen extends ConsumerWidget {
             title: l.aboutModelTitle,
             credit: l.aboutModelCredit,
             documents: l.aboutModelDocuments,
+          ),
+          const SizedBox(height: spacing * 1.5),
+          _AssistantToggle(
+            allowed: ref.watch(assistantAllowedProvider),
+            enable: l.aboutAssistantEnable,
+            disable: l.aboutAssistantDisable,
+            onChanged: (accepted) => ref
+                .read(termsAnswerProvider.notifier)
+                .answer(accepted: accepted),
           ),
           const SizedBox(height: spacing * 3),
           _LicensesButton(label: l.aboutLicenses),
@@ -319,3 +329,45 @@ class _ModelSection extends StatelessWidget {
     );
   }
 }
+
+/// Mudar a resposta ao "li e concordo" depois (ADR-004).
+///
+/// Quem recusou pode passar a usar o assistente — e então o setup do modelo
+/// abre, se ainda não foi feito. Quem aceitou pode parar: o motor desce e o
+/// download agendado é cancelado (`main.dart`). Nos dois sentidos, a
+/// orientação continua funcionando.
+class _AssistantToggle extends StatelessWidget {
+  const _AssistantToggle({
+    required this.allowed,
+    required this.enable,
+    required this.disable,
+    required this.onChanged,
+  });
+
+  final bool allowed;
+  final String enable;
+  final String disable;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.gubs;
+    return OutlinedButton(
+      key: const ValueKey('about-assistant-toggle'),
+      onPressed: () => onChanged(!allowed),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(minTouchTarget),
+        side: BorderSide(color: colors.line, width: 2),
+      ),
+      child: Text(
+        allowed ? disable : enable,
+        textAlign: TextAlign.center,
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(color: colors.ink),
+      ),
+    );
+  }
+}
+

@@ -31,12 +31,14 @@ import 'package:go_router/go_router.dart';
 
 import '../prefs/locale_store.dart';
 import '../sync/model_provisioning.dart';
+import 'more/legal_document.dart';
 import 'app_router.dart';
 import 'app_scope.dart';
 
 /// Caminhos dos portões.
 const String languageGatePath = '/idioma';
 const String setupGatePath = '/configuracao';
+const String termsGatePath = '/termos';
 
 /// Decide para onde mandar quem pediu [location].
 ///
@@ -46,11 +48,27 @@ String? gubsRedirect({
   required AppLocale? locale,
   required SetupStage setupStage,
   required bool setupCompleted,
+  TermsAnswer? terms,
+  String currentTerms = termsVersion,
 }) {
   if (locale == null) {
     return location == languageGatePath ? null : languageGatePath;
   }
   if (location == languageGatePath) return '/';
+
+  // "Li e concordo" (ADR-004): a cada versão nova dos termos, inclusive para
+  // quem aceitou a anterior. `terms` nulo = preferências ainda não lidas, e o
+  // portão NÃO abre: piscaria na tela de todo mundo a cada boot.
+  if (terms != null && terms.version != currentTerms) {
+    return location == termsGatePath ? null : termsGatePath;
+  }
+  if (location == termsGatePath) return '/';
+
+  // Recusou: desliga SÓ o assistente. Sem modelo não há setup a exigir, e a
+  // triagem segue pelo gate e pelas regras (INV-1, INV-8).
+  if (terms != null && !terms.accepted) {
+    return location == setupGatePath ? '/' : null;
+  }
 
   final blocking = setupStage != SetupStage.ready &&
       setupStage != SetupStage.readyDegraded;
@@ -85,6 +103,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(localeControllerProvider, (_, _) => refresh.value++);
   ref.listen(setupStateProvider, (_, _) => refresh.value++);
   ref.listen(setupCompletedProvider, (_, _) => refresh.value++);
+  ref.listen(termsAnswerProvider, (_, _) => refresh.value++);
 
   return buildGubsRouter(
     initialLocation: '/',
@@ -97,6 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         locale: ref.read(localeControllerProvider),
         setupStage: stage,
         setupCompleted: ref.read(setupCompletedProvider),
+        terms: ref.read(termsAnswerProvider),
       );
     },
   );

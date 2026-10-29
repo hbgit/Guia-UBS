@@ -75,6 +75,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
               // que mente ao titular em português claro.
               (icon: Icons.contrast, label: l.privacyStoredTheme),
               (icon: Icons.format_size, label: l.privacyStoredFontScale),
+              // ADR-004: a resposta ao "li e concordo" dos termos de uso.
+              (icon: Icons.history_edu, label: l.privacyStoredTermsVersion),
+              (icon: Icons.task_alt, label: l.privacyStoredTermsAccepted),
             ],
           ),
           const SizedBox(height: spacing * 2),

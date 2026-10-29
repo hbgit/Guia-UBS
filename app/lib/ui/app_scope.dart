@@ -23,6 +23,7 @@ import '../sync/model_provisioning.dart';
 import '../sync/pack_background_sync.dart';
 import '../sync/sync_service.dart';
 import '../triage/orchestrator/triage_fsm.dart';
+import 'more/legal_document.dart';
 import 'triage/triage_controller.dart';
 
 /// Onde o idioma é persistido. Sobrescrito no `main` e nos testes.
@@ -185,6 +186,77 @@ final setupCompletedProvider =
     StateNotifierProvider<SetupCompletedController, bool>(
   (ref) => SetupCompletedController(ref.watch(preferencesProvider)),
 );
+
+/// Resposta ao "li e concordo" dos termos de uso (ADR-004).
+@immutable
+class TermsAnswer {
+  const TermsAnswer({required this.version, required this.accepted});
+
+  /// Versão respondida; `null` = nunca respondeu.
+  final String? version;
+  final bool accepted;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TermsAnswer &&
+      other.version == version &&
+      other.accepted == accepted;
+
+  @override
+  int get hashCode => Object.hash(version, accepted);
+
+  @override
+  String toString() => 'TermsAnswer($version, accepted: $accepted)';
+}
+
+/// O estado é `null` até as preferências serem lidas no boot. Nulo NÃO abre o
+/// portão: senão ele piscaria na tela de todo mundo a cada abertura. E nulo
+/// também não libera o modelo (`assistantAllowedProvider`).
+class TermsAnswerController extends StateNotifier<TermsAnswer?> {
+  TermsAnswerController(PreferencesRepository preferences)
+      : _preferences = preferences,
+        super(null);
+
+  /// Sem banco, para testes de tela.
+  @visibleForTesting
+  TermsAnswerController.memory(super.initial) : _preferences = null;
+
+  final PreferencesRepository? _preferences;
+
+  Future<void> restore() async {
+    final prefs = _preferences;
+    if (prefs == null) return;
+    final all = await prefs.readAll();
+    state = TermsAnswer(
+      version: all.termsVersionAnswered,
+      accepted: all.termsAccepted,
+    );
+  }
+
+  /// Responde à versão VIGENTE. A tela muda antes do disco, como o idioma: se
+  /// gravar falhar, a pergunta volta na próxima abertura.
+  void answer({required bool accepted}) {
+    state = TermsAnswer(version: termsVersion, accepted: accepted);
+    unawaited(
+      _preferences
+              ?.setTermsAnswer(version: termsVersion, accepted: accepted)
+              .catchError((Object _) {}) ??
+          Future<void>.value(),
+    );
+  }
+}
+
+final termsAnswerProvider =
+    StateNotifierProvider<TermsAnswerController, TermsAnswer?>(
+  (ref) => TermsAnswerController(ref.watch(preferencesProvider)),
+);
+
+/// O modelo só é baixado, agendado ou carregado com aceite da versão VIGENTE.
+/// Recusar desliga só o assistente; a orientação continua (INV-1, INV-8).
+final assistantAllowedProvider = Provider<bool>((ref) {
+  final answer = ref.watch(termsAnswerProvider);
+  return answer != null && answer.accepted && answer.version == termsVersion;
+});
 
 /// Opt-out de telemetria (LGPD-RF03).
 ///
