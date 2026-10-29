@@ -98,9 +98,10 @@ void main() {
     required NetworkClass network,
     _FakeDownloader? downloader,
     int requiredFreeBytes = 1024,
+    ModelArtifact? model,
   }) =>
       ModelProvisioning(
-        artifact: artifact(),
+        artifact: model ?? artifact(),
         destinationDirectory: () async => tmp,
         networkClass: () async => network,
         downloader: downloader ?? _FakeDownloader(),
@@ -200,6 +201,28 @@ void main() {
 
       expect(state.stage, SetupStage.awaitingConsent,
           reason: 'a urgencia precisa ter uma saida');
+      await p.dispose();
+    });
+
+    test('build sem MODEL_URL bloqueia com notConfigured e oferece seguir '
+        'sem o assistente', () async {
+      final fake = _FakeDownloader();
+      final p = make(
+        network: NetworkClass.unmetered,
+        downloader: fake,
+        model: ModelArtifact(
+          url: '',
+          sha256: hash,
+          sizeBytes: payload.length,
+          fileName: 'modelo.gguf',
+        ),
+      );
+      final state = await p.checkPrerequisites();
+
+      expect(state.stage, SetupStage.blocked);
+      expect(state.blockReason, SetupBlockReason.notConfigured);
+      expect(fake.calls, 0, reason: 'nao ha de onde baixar');
+      expect(p.continueWithoutModel().stage, SetupStage.readyDegraded);
       await p.dispose();
     });
 

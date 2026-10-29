@@ -80,6 +80,10 @@ enum SetupBlockReason {
 
   /// Arquivo não confere com o hash esperado.
   integrityFailed,
+
+  /// Este build não tem de onde baixar o modelo (`MODEL_URL` ausente). Só o
+  /// pendrive ou seguir sem o assistente resolvem.
+  notConfigured,
 }
 
 @immutable
@@ -265,6 +269,17 @@ class ModelProvisioning {
       return _fetch(destination, null);
     }
 
+    // Antes da rede: sem origem configurada, pedir o "sim" para um download
+    // que não pode acontecer seria uma promessa falsa.
+    if (!artifact.isConfigured) {
+      _emit(SetupState(
+        stage: SetupStage.blocked,
+        totalBytes: artifact.sizeBytes,
+        blockReason: SetupBlockReason.notConfigured,
+      ));
+      return _state;
+    }
+
     final network = await networkClass();
     if (network == NetworkClass.none) {
       _emit(const SetupState(
@@ -344,6 +359,8 @@ class ModelProvisioning {
               SetupBlockReason.insufficientDiskSpace,
             ModelUnavailableReason.interrupted => SetupBlockReason.interrupted,
             ModelUnavailableReason.rejected => SetupBlockReason.integrityFailed,
+            ModelUnavailableReason.notConfigured =>
+              SetupBlockReason.notConfigured,
           },
           detail: detail,
         ));

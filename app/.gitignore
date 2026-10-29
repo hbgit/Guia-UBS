@@ -53,3 +53,8 @@ lib/l10n/app_localizations*.dart
 # `dart run build_runner build`; versiona-lo so criaria conflito de merge em
 # arquivo que ninguem edita.
 *.g.dart
+
+# Defines reais do build (MODEL_URL etc.): um por ambiente, fora do git.
+# O modelo versionado e config/defines.example.json.
+config/defines.*.json
+!config/defines.example.json

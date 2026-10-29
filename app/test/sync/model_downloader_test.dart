@@ -189,6 +189,132 @@ void main() {
     expect(requests, 0);
   });
 
+  group('build sem MODEL_URL (P1-1)', () {
+    ModelArtifact semUrl() => ModelArtifact(
+          url: '',
+          sha256: hash,
+          sizeBytes: payload.length,
+          fileName: 'modelo.gguf',
+        );
+
+    test('URL vazia ou relativa nao conta como configurada', () {
+      expect(semUrl().isConfigured, isFalse);
+      expect(
+        ModelArtifact(url: 'models/x.gguf', sha256: hash, sizeBytes: 1, fileName: 'x')
+            .isConfigured,
+        isFalse,
+      );
+      expect(artifact().isConfigured, isTrue);
+    });
+
+    test('URL ausente e sem arquivo: notConfigured sem nenhum byte de rede',
+        () async {
+      final fake = _FakeDownloader((_) => throw StateError('nao devia buscar'));
+      final result = await ModelDownloader(
+        artifact: semUrl(),
+        destination: File('${tmp.path}/modelo.gguf'),
+        downloader: fake,
+        requiredFreeBytes: 0,
+      ).ensureAvailable();
+
+      expect((result as ModelUnavailable).reason,
+          ModelUnavailableReason.notConfigured);
+      expect(fake.calls, 0);
+    });
+
+    test('URL ausente com modelo ja verificado: ModelReady sem rede', () async {
+      final dest = File('${tmp.path}/modelo.gguf')..writeAsBytesSync(payload);
+      final downloader = ModelDownloader(
+        artifact: semUrl(),
+        destination: dest,
+        downloader: ResumableDownloader(writerLabel: 'teste'),
+        requiredFreeBytes: 1 << 62,
+      );
+      addTearDown(downloader.close);
+
+      expect(await downloader.ensureAvailable(), isA<ModelReady>());
+    });
+
+    test('URL ausente com parcial completo (OTG): ModelReady sem rede',
+        () async {
+      final dest = File('${tmp.path}/modelo.gguf');
+      File('${dest.path}.parcial').writeAsBytesSync(payload);
+      final downloader = ModelDownloader(
+        artifact: semUrl(),
+        destination: dest,
+        downloader: ResumableDownloader(writerLabel: 'teste'),
+        requiredFreeBytes: 0,
+      );
+      addTearDown(downloader.close);
+
+      expect(await downloader.ensureAvailable(), isA<ModelReady>());
+      expect(dest.readAsBytesSync(), payload);
+    });
+
+    test('parcial incompleto sem URL: notConfigured, zero requisicoes',
+        () async {
+      // Sem a regra, o parcial incompleto seguiria para o `fetch` com URL vazia
+      // e voltaria como um erro de rede confuso.
+      final dest = File('${tmp.path}/modelo.gguf');
+      final partial = File('${dest.path}.parcial')
+        ..writeAsBytesSync(payload.sublist(0, payload.length ~/ 2));
+      final fake = _FakeDownloader((_) => throw StateError('nao devia buscar'));
+
+      final result = await ModelDownloader(
+        artifact: semUrl(),
+        destination: dest,
+        downloader: fake,
+        requiredFreeBytes: 0,
+      ).ensureAvailable();
+
+      expect((result as ModelUnavailable).reason,
+          ModelUnavailableReason.notConfigured);
+      expect(fake.calls, 0);
+      expect(partial.lengthSync(), payload.length ~/ 2,
+          reason: 'o parcial fica: uma URL futura retoma dele');
+    });
+  });
+
+  test('parcial de outro host retoma no novo host com o mesmo conteudo',
+      () async {
+    // Aparelho que comecou a baixar do Hugging Face e passa a baixar do
+    // storage proprio: os bytes sao os mesmos (mesmo SHA-256), entao o Range
+    // anexado e valido.
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final ranges = <String?>[];
+    server.listen((r) {
+      final range = r.headers.value(HttpHeaders.rangeHeader);
+      ranges.add(range);
+      final from = int.parse(RegExp(r'bytes=(\d+)-').firstMatch(range!)!.group(1)!);
+      r.response
+        ..statusCode = HttpStatus.partialContent
+        ..headers.set(HttpHeaders.contentRangeHeader,
+            'bytes $from-${payload.length - 1}/${payload.length}')
+        ..contentLength = payload.length - from
+        ..add(payload.sublist(from))
+        ..close();
+    });
+    final dest = File('${tmp.path}/modelo.gguf');
+    File('${dest.path}.parcial').writeAsBytesSync(payload.sublist(0, 5));
+    final downloader = ModelDownloader(
+      artifact: ModelArtifact(
+        url: 'http://${server.address.host}:${server.port}/models/modelo-$hash.gguf',
+        sha256: hash,
+        sizeBytes: payload.length,
+        fileName: 'modelo.gguf',
+      ),
+      destination: dest,
+      downloader: ResumableDownloader(writerLabel: 'teste'),
+      requiredFreeBytes: 0,
+    );
+    addTearDown(downloader.close);
+
+    expect(await downloader.ensureAvailable(), isA<ModelReady>());
+    expect(ranges, ['bytes=5-']);
+    expect(dest.readAsBytesSync(), payload);
+  });
+
   group('checkDiskSpace', () {
     test('mede algo plausível no diretório temporário', () {
       final free = freeDiskBytes(tmp.path);

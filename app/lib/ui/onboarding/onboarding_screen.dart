@@ -296,8 +296,16 @@ class _Blocked extends StatelessWidget {
           'O arquivo baixado não passou na verificação de segurança e foi '
               'descartado. Tente novamente.'
         ),
+      SetupBlockReason.notConfigured => (
+          'Assistente indisponível',
+          'Este aparelho não tem de onde baixar o assistente. O atendimento '
+              'funciona sem ele.'
+        ),
       null => ('Não foi possível preparar', 'Tente novamente.'),
     };
+    // Sem origem configurada, tentar de novo daria o mesmo resultado: só o
+    // pendrive e seguir sem o assistente resolvem.
+    final canRetry = state.blockReason != SetupBlockReason.notConfigured;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -316,11 +324,13 @@ class _Blocked extends StatelessWidget {
           Text('${state.percent}% já baixado', textAlign: TextAlign.center),
         ],
         const SizedBox(height: 32),
-        FilledButton(
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(64)),
-          onPressed: onRetry,
-          child: const Text('Tentar novamente'),
-        ),
+        if (canRetry)
+          FilledButton(
+            style:
+                FilledButton.styleFrom(minimumSize: const Size.fromHeight(64)),
+            onPressed: onRetry,
+            child: const Text('Tentar novamente'),
+          ),
         if (onImport != null) ...[
           const SizedBox(height: 12),
           OutlinedButton(
