@@ -135,7 +135,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Critério de aceitação:** CI bloqueia dependências de bibliotecas de ads/tracking (lista de bloqueio de pacotes); análise estática do APK confirma ausência de advertising ID.
 
 ### LGPD-RF17 — Integração com APIs e serviços externos
-- **Descrição:** toda integração externa (CDN, banco, hospedagem, e futuras APIs) deve: (a) trafegar somente dados estritamente necessários; (b) nunca incluir dado pessoal em URLs/query strings (aparecem em logs de terceiros); (c) usar TLS com validação de certificado; (d) ter o fornecedor inventariado (RF06); (e) no app, a única integração de rede permitida é o download de manifest/pack — qualquer nova chamada de rede exige revisão de privacidade em PR.
+- **Descrição:** toda integração externa (CDN, banco, hospedagem, e futuras APIs) deve: (a) trafegar somente dados estritamente necessários; (b) nunca incluir dado pessoal em URLs/query strings (aparecem em logs de terceiros); (c) usar TLS com validação de certificado; (d) ter o fornecedor inventariado (RF06); (e) no app, as integrações de rede permitidas são o download de manifest/pack e o download do modelo SLM no 1º acesso ([ADR-003/ADR-004](stack.md)) — qualquer nova chamada de rede exige revisão de privacidade em PR.
 - **Objetivo:** impedir vazamento lateral por fornecedores e logs de terceiros.
 - **Base legal:** segurança; responsabilidade solidária da cadeia.
 - **Artigos:** arts. 42, 46 e 47; art. 39.
