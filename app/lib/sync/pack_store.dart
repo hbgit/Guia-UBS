@@ -236,6 +236,29 @@ class PackStore {
     await _writeState(state);
   }
 
+  /// A origem (`syncOrigin`) a que o retry e o ETag gravados se referem.
+  /// `null` = estado anterior à #45, que não registrava origem.
+  Future<String?> readRetryOrigin() async =>
+      (await _readState())['retryOrigin'] as String?;
+
+  Future<void> saveRetryOrigin(String origin) async {
+    final state = await _readState();
+    state['retryOrigin'] = origin;
+    await _writeState(state);
+  }
+
+  /// Troca de origem: o retry e o ETag eram de outra, e são descartados. As
+  /// recusas ficam: elas guardam HASHES de conteúdo recusado, que continua
+  /// recusado venha de onde vier.
+  Future<void> resetForOrigin(String origin) async {
+    final state = await _readState();
+    state
+      ..remove('retry')
+      ..remove('etag')
+      ..['retryOrigin'] = origin;
+    await _writeState(state);
+  }
+
   Future<void> clearRetryState() async {
     final state = await _readState();
     state.remove('retry');

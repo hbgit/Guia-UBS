@@ -23,6 +23,7 @@ import 'dart:math';
 
 import 'package:meta/meta.dart';
 
+import 'endpoint_config.dart';
 import 'manifest_verifier.dart';
 import 'pack_manifest.dart';
 import 'pack_store.dart';
@@ -39,6 +40,7 @@ class SyncReport {
     required this.rules,
     required this.detail,
     this.committedVersion,
+    this.configured = true,
   });
 
   /// Onde a máquina parou. Se for `p2Downloading` ou `p4Staged`, o ciclo
@@ -55,7 +57,20 @@ class SyncReport {
   final int? committedVersion;
 
   bool get committed => committedVersion != null;
+
+  /// `false` quando este build não tem origem utilizável (#45). Não é estado
+  /// da FSM-B: é ausência de configuração, e o ciclo nem chega à máquina.
+  final bool configured;
 }
+
+/// A origem a que o estado de retentativa e o ETag se referem:
+/// `scheme://host:port/caminho`, sem query nem fragmento (#45).
+String syncOrigin(Uri manifestUrl) => Uri(
+      scheme: manifestUrl.scheme,
+      host: manifestUrl.host,
+      port: manifestUrl.port,
+      path: manifestUrl.path,
+    ).toString();
 
 /// Estado da FSM-A, consultado pelo guard de quiescência (linha B11).
 typedef QuiescenceProbe = bool Function();
@@ -125,10 +140,34 @@ class SyncService {
 
   /// Executa um ciclo completo. **Nunca lança** — falha de sync jamais pode
   /// derrubar o app (INV-8).
+  /// Este build tem origem de conteúdo utilizável (#45).
+  bool get manifestConfigured => isUsableEndpoint(manifestUrl);
+
   Future<SyncReport> runCycle() async {
     _rules.clear();
 
+    // Sem origem, nada: nem rede, nem disco. Antes da #45 o padrão era o
+    // loopback do próprio aparelho, e cada ciclo virava uma falha contada no
+    // circuito. Ausência de configuração não é falha de rede.
+    if (!manifestConfigured) {
+      return const SyncReport(
+        state: SyncState.p0Steady,
+        rules: [],
+        detail: 'PACK_MANIFEST_URL ausente ou insegura neste build',
+        configured: false,
+      );
+    }
+
     try {
+      // Falhas e ETag são de UMA origem. Um aparelho que acumulou falhas
+      // contra o loopback (ou contra um espelho antigo) não pode esperar o
+      // circuito daquela origem fechar para receber o conteúdo desta. Estado
+      // sem origem gravada é anterior à #45 — e, num release, era o loopback.
+      final origin = syncOrigin(manifestUrl);
+      if (await store.readRetryOrigin() != origin) {
+        await store.resetForOrigin(origin);
+      }
+
       _retry = await store.readRetryState();
 
       // Restaura a POSIÇÃO da máquina a partir do estado persistido.
