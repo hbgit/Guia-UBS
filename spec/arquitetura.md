@@ -1282,6 +1282,28 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 **Pendências.** #45 (`PACK_MANIFEST_URL` com `127.0.0.1` padrão: a instalação limpa ficou sem pack, "Conteúdo ainda não disponível"); #46 (política anônima dos packs fora do repositório); #47 (o modelo só sinaliza escalada); #48 (enquadramento educacional e "Não é emergência." no pack); validação do encarregado (DPO) sobre a transferência do IP ao Hugging Face; a página da loja (checklist em `docs/operacao.md`); e o fim da exceção quando houver domínio e servidor.
 
+#### 5.19 Resultado da #45 — `PACK_MANIFEST_URL` sem host padrão (2026-10-29)
+
+**O padrão era o loopback do aparelho.** `PACK_MANIFEST_URL` caía em `http://127.0.0.1:9000/...`: um release sem o define buscava conteúdo em lugar nenhum, contava cada tentativa como falha no circuito e a frota nunca recebia correção clínica. Agora não há padrão (`grep -rn 127.0.0.1 app/lib` vazio).
+
+**O `dart:io` não respeita o cleartext do Android** — medido antes do código. Release do `develop` (targetSdk 36, sem `network_security_config`) com `PACK_MANIFEST_URL=http://10.0.2.2:18081/...`: o `packs/state.json` gravou o ETag do edge (`"6811fbc0…"`, idêntico ao do `curl`) — a requisição `http` saiu e voltou, sem nenhum `CLEARTEXT` no logcat. Por isso a regra mora no app: `lib/sync/endpoint_config.dart` (`isUsableEndpoint`) trata como não configurada toda URL sem `https` fora do debug (release e profile), para o manifest e para o modelo. É a proteção da LGPD-RF17(c) que vale para qualquer build, inclusive o que não passou por `tool/build_apk.sh`.
+
+**O que mudou.**
+- **Sem origem utilizável, o ciclo não toca rede nem disco** (`SyncReport.configured = false`; a matriz da FSM-B não muda) e o job periódico do pack é cancelado, inclusive o herdado de builds antigos.
+- **Retentativa e ETag por origem.** O `state.json` grava `retryOrigin`; origem diferente (ou ausente, como em todo estado anterior à #45) zera o retry e o ETag. Um aparelho com o circuito aberto por falhas contra o loopback recebe o conteúdo da origem real no primeiro ciclo. As recusas (hashes) ficam.
+- **Diagnóstico no "Sobre"**, só quando falta origem: "Este aparelho não tem origem de conteúdo configurada" / "… do assistente". Descreve o APK, não a rede (INV-8).
+- **Guarda de build** (`tool/model_url_check.dart`, chamado pelo `build_apk.sh`): as duas URLs presentes, absolutas, `https`, fora de host local ou reservado (loopback `127/8`, `::1`, `0.0.0.0`, `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `.local`, `.localhost`, `.test`, `.invalid`, `.example`, `example.*`) e, no release, no **mesmo host** — exceto enquanto o `MODEL_URL` for a exceção do Hugging Face (ADR-004). Profile tem as regras de release. `build_apk.sh` testado de verdade com um `flutter` substituível: o `defines.example.json` é recusado antes do `flutter build`.
+
+**Verificado em emulador** — `AVD sinalacs_ci36 · android-36 google_apis x86_64 rev 7 (userdebug) · API 36 · emulador 37.2.12.0 · APKs arm64-v8a sob libndk_translation · commit 3f7b2d0 · debug.keystore (cert 62c33cab…46b2) nos três APKs · edge de dev descartável em 127.0.0.1:18081, alcançado como 10.0.2.2:18081 · pack de fixture v1 (`app/test/fixtures/sync/`, assinado com a chave de desenvolvimento) publicado à mão no MinIO, porque o portão da #2 recusa assinar · 2026-10-29`. Tradução ARM não é CPU arm64.
+
+1. **Debug com `defines.debug.json`** (`PACK_MANIFEST_URL=http://10.0.2.2:18081/...`, SHA-256 `602186da…`), instalação limpa: pack `pack-204477cedcc9…db` instalado, `state.json` com `retryOrigin` da origem e o ETag; "Onde ir" mostra "UBS — posto de saúde", "Vacina", "Curativo"…; "Sobre" sem diagnóstico.
+2. **Release sem defines** (build cru, `a828e3ac…`), por cima com `install -r`: pack e `state.json` idênticos; zero linhas de socket/loopback no logcat; nenhum job do pack no `jobscheduler`; "Onde ir" com conteúdo; "Sobre" com as duas linhas de diagnóstico.
+3. **Release com `PACK_MANIFEST_URL` em `http`** (build cru, `6f77d7da…`), instalação limpa: `packs/` vazio, sem `state.json` — nenhuma requisição, ao contrário da medição de antes da correção; "Sobre" com a linha de conteúdo (o `MODEL_URL` é `https`).
+
+**Sabotagens (todas pegas, revertidas):** `defaultValue` de volta; checagem de origem removida; reset por origem removido; reset sempre (pegou quatro testes antigos de backoff e ETag, mais o novo); faixa `172.16/12` removida; `https` aceito sem exigir; diagnóstico sempre visível; agendar sem origem; lista de hosts reservados removida do guarda; exceção do Hugging Face removida da regra do mesmo host; manifest ignorado pelo `main` do guarda; `flutter` chamado antes do guarda. Da revisão final: `Uri.parse` de volta no `ModelArtifact` (URL malformada lançava e travava o setup; agora `parseEndpoint` devolve vazio = não configurado); e a regra do plano para estado sem origem ("só grava"), que deixaria a frota atualizada com o circuito do loopback aberto.
+
+**Achados.** O `endpoint_config.dart` importava `package:flutter/foundation` só pelo `kDebugMode`, e o guarda de build, que roda por `dart run`, não compilava; o `build_apk_test` pegou. A constante agora vem de `dart.vm.product`/`dart.vm.profile`, a mesma definição do Flutter. Consequência da regra de `https`: verificação em profile contra o edge de dev em `http` deixa de funcionar — usar debug.
+
 ### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅

@@ -23,6 +23,7 @@ import 'dart:io';
 import 'package:meta/meta.dart';
 
 import '../core/disk_space.dart';
+import 'endpoint_config.dart';
 import 'resumable_downloader.dart';
 
 /// Por que o modelo não está disponível — para telemetria agregada, nunca
@@ -94,17 +95,11 @@ class ModelArtifact {
   /// reaproveitar silenciosamente o arquivo antigo.
   final String fileName;
 
-  Uri get uri => Uri.parse(url);
+  Uri get uri => parseEndpoint(url);
 
-  /// `true` quando [url] é absoluta, `http`/`https` e com host. A política de
-  /// `https` no release é do guarda de build (`tool/model_url_check.dart`),
-  /// não daqui: em dev, o emulador fala com `http://10.0.2.2`.
-  bool get isConfigured {
-    final parsed = Uri.tryParse(url);
-    return parsed != null &&
-        (parsed.scheme == 'https' || parsed.scheme == 'http') &&
-        parsed.host.isNotEmpty;
-  }
+  /// `true` quando [url] é uma origem utilizável neste build: absoluta, com
+  /// host e, fora do debug, `https` (`endpoint_config.dart`, #45).
+  bool get isConfigured => isUsableEndpoint(uri);
 }
 
 class ModelDownloader {

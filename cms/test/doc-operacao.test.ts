@@ -152,6 +152,7 @@ test('toda variavel de ambiente citada existe em infra/.env.example', () => {
     CMS_DATABASE_URL: 'variavel de shell, definida na hora; nao mora no .env',
     FALSO_NEGATIVO: 'valor de resposta da simulacao de regra, nao configuracao',
     MODEL_URL: 'define de build do app (--dart-define), nao variavel do servidor; mora em app/config/defines.<modo>.json',
+    PACK_MANIFEST_URL: 'idem: define de build do app (#45), em app/config/defines.<modo>.json',
   };
 
   // Exige `_` no nome: e o que separa `BETTER_AUTH_SECRET` de `PATCH`. Todas as

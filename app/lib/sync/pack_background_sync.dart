@@ -19,16 +19,29 @@ library;
 import 'package:workmanager/workmanager.dart';
 
 import '../core/app_paths.dart';
+import 'endpoint_config.dart';
 import 'pack_store.dart';
 import 'pack_sync_scheduler.dart';
 import 'sync_service.dart';
 
-/// URL do manifest do município. Versionada no código, como o artefato do
-/// modelo: um espelho não pode redirecionar a frota para outro conteúdo.
-const String packManifestUrl = String.fromEnvironment(
-  'PACK_MANIFEST_URL',
-  defaultValue: 'http://127.0.0.1:9000/content-packs/0000000/manifest.json',
-);
+/// URL do manifest do município, constante de compilação: um espelho não
+/// pode redirecionar a frota para outro conteúdo.
+///
+/// ===========================================================================
+/// SEM VALOR PADRÃO, DE PROPÓSITO (#45)
+/// ===========================================================================
+///
+/// O padrão antigo era o loopback do próprio aparelho: um release construído
+/// sem o define buscava conteúdo em lugar nenhum, contava cada tentativa como
+/// falha, e a frota nunca recebia correção clínica — sem nenhum erro visível.
+/// Vazio (ou `http` fora do debug), o `SyncService` se declara não configurado
+/// e não toca a rede; o "Sobre" avisa; e `tool/build_apk.sh` recusa o build
+/// antes de compilar. O valor chega por
+/// `--dart-define-from-file=config/defines.<modo>.json`, como o `MODEL_URL`.
+const String packManifestUrl = String.fromEnvironment('PACK_MANIFEST_URL');
+
+/// [packManifestUrl] como `Uri`, vazio quando malformada (nunca lança).
+final Uri packManifestUri = parseEndpoint(packManifestUrl);
 
 /// Executa um ciclo da FSM-B.
 ///
@@ -36,7 +49,7 @@ const String packManifestUrl = String.fromEnvironment(
 /// `background_sync.dart`.
 Future<bool> runPackSyncTask() async {
     final service = SyncService(
-      manifestUrl: Uri.parse(packManifestUrl),
+      manifestUrl: packManifestUri,
       store: PackStore(await packsDirectory()),
       // Sem UI, sem sessão de triagem: a FSM-A está em repouso por construção.
       quiescence: () => true,
@@ -78,5 +91,7 @@ Future<void> schedulePackSync({
   );
 }
 
+/// Cancela o job periódico do pack. Usado quando o build não tem origem de
+/// conteúdo (#45), inclusive para o job herdado de um build antigo.
 Future<void> cancelPackSync() =>
     Workmanager().cancelByUniqueName(packSyncTaskName);

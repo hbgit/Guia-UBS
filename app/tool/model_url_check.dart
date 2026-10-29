@@ -1,20 +1,26 @@
-/// Guarda de build do `MODEL_URL` (P1-1, ADR-004).
+/// Guarda de build de `MODEL_URL` (P1-1, ADR-004) e `PACK_MANIFEST_URL` (#45).
 ///
-/// O catálogo do modelo não tem host padrão (`lib/sync/model_catalog.dart`):
-/// um build sem `--dart-define=MODEL_URL` compila e sai sem assistente. Isto
-/// impede que ele saia assim POR ENGANO, e que saia apontando para o lugar
-/// errado. Roda antes de compilar, chamado por `tool/build_apk.sh`:
+/// Nenhuma das duas tem host padrão (`lib/sync/model_catalog.dart`,
+/// `lib/sync/pack_background_sync.dart`): um build sem elas compila e sai sem
+/// assistente e sem conteúdo novo. Isto impede que ele saia assim POR ENGANO,
+/// e que saia apontando para o lugar errado. Roda antes de compilar, chamado
+/// por `tool/build_apk.sh`:
 ///
 /// ```sh
 /// dart run tool/model_url_check.dart --config config/defines.release.json --mode release
 /// ```
 ///
-/// Saída: 0 ok; 1 `MODEL_URL` reprovada; 64 uso.
+/// Saída: 0 ok; 1 alguma URL reprovada; 64 uso.
+///
+/// O app tem a sua própria proteção (`lib/sync/endpoint_config.dart`): fora do
+/// debug, URL sem `https` conta como não configurada. Este guarda é mais
+/// estrito, porque roda onde ainda dá para corrigir.
 library;
 
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:guia_ubs/sync/endpoint_config.dart';
 import 'package:guia_ubs/sync/model_catalog.dart';
 
 /// A exceção do ADR-004: enquanto o projeto não tem servidor, o modelo vem
@@ -71,11 +77,56 @@ String? modelUrlProblem(
   if (release && uri.scheme != 'https') {
     return 'MODEL_URL precisa ser https no release (LGPD-RF17): "$url"';
   }
+  if (release && isLocalOrReservedHost(uri.host)) {
+    return 'MODEL_URL aponta para um host local ou reservado (${uri.host}): '
+        'um release assim nao baixa nada no aparelho de ninguem';
+  }
   if (!uri.path.toLowerCase().endsWith('-${expectedSha256.toLowerCase()}.gguf')) {
     return 'MODEL_URL nao e o objeto do modelo deste build: o caminho precisa '
         'terminar em -$expectedSha256.gguf';
   }
   return null;
+}
+
+/// `null` quando [url] serve como `PACK_MANIFEST_URL` (#45).
+String? packManifestUrlProblem(String? url, {required bool release}) {
+  if (url == null || url.trim().isEmpty) {
+    return 'PACK_MANIFEST_URL ausente: passe --dart-define-from-file com a URL '
+        'do manifest.json do municipio no storage do projeto';
+  }
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    return 'PACK_MANIFEST_URL precisa ser absoluta (https://<host>/...): "$url"';
+  }
+  if (release && uri.scheme != 'https') {
+    return 'PACK_MANIFEST_URL precisa ser https no release (LGPD-RF17): "$url"';
+  }
+  if (release && isLocalOrReservedHost(uri.host)) {
+    return 'PACK_MANIFEST_URL aponta para um host local ou reservado '
+        '(${uri.host}): um release assim nao recebe conteudo';
+  }
+  if (!uri.path.endsWith('/manifest.json')) {
+    return 'PACK_MANIFEST_URL precisa apontar para o manifest.json: "$url"';
+  }
+  return null;
+}
+
+/// No release, o modelo e o manifest saem do MESMO edge de conteúdo (#45):
+/// pega configurações misturadas que nenhuma lista de hosts pegaria.
+///
+/// Exceção: o `MODEL_URL` da exceção do ADR-004 (Hugging Face). Quando a #55
+/// encerrar a exceção, a regra passa a valer inteira.
+String? sameHostProblem(
+  String modelUrl,
+  String manifestUrl, {
+  required bool release,
+}) {
+  if (!release || modelUrl == huggingFaceExceptionUrl) return null;
+  final model = Uri.tryParse(modelUrl)?.host ?? '';
+  final pack = Uri.tryParse(manifestUrl)?.host ?? '';
+  if (model == pack) return null;
+  return 'MODEL_URL ($model) e PACK_MANIFEST_URL ($pack) precisam ser do mesmo '
+      'host no release: os dois saem do mesmo edge de conteudo';
 }
 
 void main(List<String> args) {
@@ -92,22 +143,33 @@ void main(List<String> args) {
   }
 
   final file = File(config);
-  String? url;
+  final defines = <String, String>{};
   if (file.existsSync()) {
     final decoded = jsonDecode(file.readAsStringSync());
-    if (decoded is Map && decoded['MODEL_URL'] is String) {
-      url = decoded['MODEL_URL'] as String;
+    if (decoded is Map) {
+      for (final MapEntry(:key, :value) in decoded.entries) {
+        if (key is String && value is String) defines[key] = value;
+      }
     }
   }
+  final model = defines['MODEL_URL'];
+  final pack = defines['PACK_MANIFEST_URL'];
+  // Profile tem as regras de release: o app exige `https` fora do debug
+  // (`endpoint_config.dart`), então um profile com `http` sairia sem origem.
+  final release = mode != 'debug';
 
-  final problem = modelUrlProblem(
-    url,
-    release: mode == 'release',
-    expectedSha256: activeModel.sha256,
-  );
-  if (problem != null) {
-    stderr.writeln('FALHOU  $problem  ($config)');
-    exit(1);
+  final problems = [
+    modelUrlProblem(model, release: release, expectedSha256: activeModel.sha256),
+    packManifestUrlProblem(pack, release: release),
+    if (model != null && pack != null)
+      sameHostProblem(model, pack, release: release),
+  ].whereType<String>().toList();
+
+  for (final p in problems) {
+    stderr.writeln('FALHOU  $p  ($config)');
   }
-  stdout.writeln('ok  MODEL_URL $url');
+  if (problems.isNotEmpty) exit(1);
+  stdout
+    ..writeln('ok  MODEL_URL $model')
+    ..writeln('ok  PACK_MANIFEST_URL $pack');
 }

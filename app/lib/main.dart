@@ -28,6 +28,7 @@ import 'speech/speaker.dart';
 import 'sync/pack_store.dart';
 import 'sync/background_sync.dart';
 import 'sync/model_background_sync.dart';
+import 'sync/pack_sync_scheduler.dart';
 import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
@@ -51,7 +52,13 @@ Future<void> main() async {
     await initBackgroundSync();
     // O sync de conteúdo (FSM-B) também roda em background: o usuário nunca
     // pede um sync, então ele precisa acontecer sem ninguém abrir o app.
-    await schedulePackSync();
+    // Sem origem (#45), nenhum job: e o herdado de um build antigo, que
+    // apontava para o loopback, é cancelado.
+    if (shouldSchedulePackSync(packManifestUri)) {
+      await schedulePackSync();
+    } else {
+      await cancelPackSync();
+    }
   } on Object {
     // Segue sem sync em background. O ciclo de primeiro plano ainda roda ao
     // voltar do segundo plano, e o pack ativo continua servindo conteúdo.

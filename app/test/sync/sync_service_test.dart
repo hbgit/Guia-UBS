@@ -194,6 +194,129 @@ void main() {
       ..etag = 'v2';
   }
 
+  SyncService semOrigem(String url) => SyncService(
+        manifestUrl: Uri.parse(url),
+        store: store,
+        quiescence: () => idle,
+        verifier: const ManifestVerifier(keys: _devKeys),
+        now: () => clock,
+      );
+
+  String estadoGravado() {
+    final f = File('${tmp.path}/packs/state.json');
+    return f.existsSync() ? f.readAsStringSync() : '<ausente>';
+  }
+
+  group('origem nao configurada (#45)', () {
+    test('sem URL: nao faz requisicao, nao registra falha e diz por que',
+        () async {
+      final antes = estadoGravado();
+      final s = semOrigem('');
+      addTearDown(s.close);
+
+      final report = await s.runCycle();
+
+      expect(report.configured, isFalse);
+      expect(report.detail, contains('PACK_MANIFEST_URL'));
+      expect(origin.manifestRequests, 0);
+      expect(estadoGravado(), antes, reason: 'nem falha, nem origem gravada');
+    });
+
+    test('pack ativo continua ativo', () async {
+      expect((await service.runCycle()).committed, isTrue);
+      final ativo = estadoGravado();
+      final s = semOrigem('');
+      addTearDown(s.close);
+
+      await s.runCycle();
+      await s.runCycle();
+
+      expect(estadoGravado(), ativo);
+      expect(await store.activeVersion(), 1);
+    });
+
+    test('circuito aberto e build sem URL: estado intacto', () async {
+      await store.saveRetryState(SyncRetryState(
+        failures: 5,
+        circuitOpenUntil: clock.add(const Duration(hours: 6)),
+      ));
+      final antes = estadoGravado();
+      final s = semOrigem('');
+      addTearDown(s.close);
+
+      await s.runCycle();
+
+      expect(estadoGravado(), antes);
+    });
+
+    test('URL relativa conta como nao configurada', () async {
+      final s = semOrigem('content-packs/0000000/manifest.json');
+      addTearDown(s.close);
+
+      expect((await s.runCycle()).configured, isFalse);
+      expect(origin.manifestRequests, 0);
+    });
+  });
+
+  group('retentativa por origem (#45)', () {
+    // A origem de builds antigos: `127.0.0.1` do proprio aparelho.
+    const antiga = 'http://127.0.0.1:9000/content-packs/0000000/manifest.json';
+
+    test('circuito aberto para a origem A nao atrasa a origem B', () async {
+      await store.saveRetryState(SyncRetryState(
+        failures: 5,
+        circuitOpenUntil: clock.add(const Duration(hours: 6)),
+      ));
+      await store.saveRetryOrigin(antiga);
+
+      final report = await service.runCycle();
+
+      expect(report.committed, isTrue,
+          reason: 'o conteudo real nao espera o circuito da origem errada');
+      expect((await store.readRetryState()).failures, 0);
+      expect(await store.readRetryOrigin(), syncOrigin(origin.manifestUrl));
+    });
+
+    test('estado anterior a #45 (sem origem) com circuito aberto: o primeiro '
+        'ciclo instala (revisao final, I-2)', () async {
+      // O cenario real da frota: o state.json de todo aparelho atualizado
+      // nao tem `retryOrigin`, e o circuito foi aberto contra o loopback.
+      await store.saveRetryState(SyncRetryState(
+        failures: 5,
+        circuitOpenUntil: clock.add(const Duration(hours: 6)),
+      ));
+      expect(await store.readRetryOrigin(), isNull);
+
+      final report = await service.runCycle();
+
+      expect(report.committed, isTrue);
+      expect((await store.readRetryState()).failures, 0);
+    });
+
+    test('ETag de outra origem nao e reaproveitado', () async {
+      await store.saveEtag(origin.etag); // a origem B responderia 304 a isto
+      await store.saveRetryOrigin(antiga);
+
+      final report = await service.runCycle();
+
+      expect(origin.notModifiedResponses, 0);
+      expect(report.committed, isTrue);
+    });
+
+    test('mesma origem preserva o circuito', () async {
+      await store.saveRetryState(SyncRetryState(
+        failures: 5,
+        circuitOpenUntil: clock.add(const Duration(hours: 6)),
+      ));
+      await store.saveRetryOrigin(syncOrigin(origin.manifestUrl));
+
+      await service.runCycle();
+
+      expect(origin.manifestRequests, 0);
+      expect((await store.readRetryState()).failures, 5);
+    });
+  });
+
   group('caminho feliz', () {
     test('primeiro ciclo instala o pack e o deixa ativo', () async {
       final report = await service.runCycle();

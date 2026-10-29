@@ -198,6 +198,11 @@
   "termsGateDecline": "Usar sem o assistente",
   "aboutAssistantEnable": "Li e concordo: usar o assistente",
   "aboutAssistantDisable": "Parar de usar o assistente",
+  "aboutNoContentOrigin": "Este aparelho não tem origem de conteúdo configurada.",
+  "aboutNoAssistantOrigin": "Este aparelho não tem origem do assistente configurada.",
+  "@aboutNoContentOrigin": {
+    "description": "Diagnostico do build (#45): so aparece quando o APK foi gerado sem PACK_MANIFEST_URL utilizavel. Descreve o APK, nao a rede."
+  },
   "aboutLicenses": "Licenças dos componentes",
   "aboutClinicalNotice": "As orientações deste aplicativo ainda não passaram por revisão clínica. Não use para decidir sozinho sobre a sua saúde.",
   "@aboutClinicalNotice": {

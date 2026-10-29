@@ -14,6 +14,23 @@ import 'package:guia_ubs/sync/pack_sync_scheduler.dart';
 import 'package:guia_ubs/sync/sync_retry_state.dart';
 
 void main() {
+  group('agendar so com origem (#45)', () {
+    test('sem origem, nao agenda: o job acordaria o aparelho para nada', () {
+      expect(shouldSchedulePackSync(Uri.parse('')), isFalse);
+      expect(shouldSchedulePackSync(Uri.parse('m.json')), isFalse);
+    });
+
+    test('com origem utilizavel, agenda', () {
+      // Fictício; o teste não faz rede. Trocar pelo domínio real quando a #55
+      // decidir.
+      expect(
+        shouldSchedulePackSync(Uri.parse(
+            'https://edge.dominio-do-projeto-a-definir.org/content-packs/0000000/manifest.json')),
+        isTrue,
+      );
+    });
+  });
+
   group('política do pack', () {
     test('pack tolera dados móveis; modelo não', () {
       // O modelo tem ~800 MB e é baixado uma vez. Um pack tem centenas de KB e

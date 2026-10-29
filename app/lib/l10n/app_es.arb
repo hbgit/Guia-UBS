@@ -120,6 +120,8 @@
   "termsGateDecline": "Usar sin el asistente",
   "aboutAssistantEnable": "Leí y acepto: usar el asistente",
   "aboutAssistantDisable": "Dejar de usar el asistente",
+  "aboutNoContentOrigin": "Este teléfono no tiene origen de contenido configurado.",
+  "aboutNoAssistantOrigin": "Este teléfono no tiene origen del asistente configurado.",
   "aboutLicenses": "Licencias de los componentes",
   "aboutClinicalNotice": "Las orientaciones de esta aplicación todavía no pasaron por revisión clínica. No la use para decidir solo sobre su salud.",
   "provenanceRules": "Orientación de las reglas del puesto",

@@ -394,7 +394,12 @@ O que `model:publish` faz, em ordem:
    do git); para restaurar um à mão:
    `docker compose -f infra/compose.yaml run --rm --no-deps -T -v <backup>:/in/p.json:ro --entrypoint sh storage -c 'mc alias set local http://storage:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc anonymous set-json /in/p.json local/content-packs'`;
 4. roda `model:check` pelo edge e imprime a `MODEL_URL` para o
-   `app/config/defines.release.json`.
+   `app/config/defines.release.json`. O mesmo arquivo leva a
+   `PACK_MANIFEST_URL` (o `manifest.json` do município), e no release o
+   `tool/build_apk.sh` exige as duas em `https`, fora de host local ou
+   reservado e, terminada a exceção, no **mesmo host** (#45). Fora do debug, o
+   próprio app trata `http` como "não configurado": o `dart:io` não respeita a
+   política de cleartext do Android (medido na #45).
 
 `npm run model:publish -- --policy-only` aplica e confere só a política.
 

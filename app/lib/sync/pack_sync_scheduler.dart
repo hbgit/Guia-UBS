@@ -14,6 +14,8 @@ library;
 
 import 'package:meta/meta.dart';
 
+import 'endpoint_config.dart';
+
 const String packSyncTaskName = 'br.gov.exemplo.guia_ubs.pack_sync';
 
 @immutable
@@ -36,3 +38,8 @@ class PackSyncPolicy {
 
   final Duration backoff;
 }
+
+/// Agendar o job periódico do pack só faz sentido com origem utilizável
+/// (#45). Sem ela, o job acordaria o aparelho para não fazer nada — e o job
+/// herdado de um build antigo, que apontava para o loopback, é cancelado.
+bool shouldSchedulePackSync(Uri manifestUrl) => isUsableEndpoint(manifestUrl);

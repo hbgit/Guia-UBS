@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Build do APK com o MODEL_URL conferido ANTES de compilar (P1-1, ADR-004).
+# Build do APK com MODEL_URL e PACK_MANIFEST_URL conferidos ANTES de compilar
+# (P1-1/ADR-004 e #45).
 #
 # O catalogo do modelo nao tem host padrao: sem --dart-define, o app compila e
 # sai sem assistente. Este script e o caminho de build que nao deixa isso
@@ -14,6 +15,10 @@
 # build: flutter run --dart-define-from-file=config/defines.debug.json
 
 set -euo pipefail
+
+# Substituivel nos testes (test/tool/build_apk_test.dart), como o DOCKER do
+# infra/scripts/publish-model.sh.
+FLUTTER="${FLUTTER:-flutter}"
 
 MODE="${1:-}"
 case "$MODE" in
@@ -30,5 +35,5 @@ if [ ! -f "$CONFIG" ]; then
 fi
 
 dart run tool/model_url_check.dart --config "$CONFIG" --mode "$MODE"
-flutter build apk "--$MODE" --target-platform=android-arm64 \
+"$FLUTTER" build apk "--$MODE" --target-platform=android-arm64 \
   "--dart-define-from-file=$CONFIG"
