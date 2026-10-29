@@ -1,0 +1,5 @@
+Gemma is provided under and subject to the Gemma Terms of Use found at gemma.ai/resources/terms
+Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
+
+Notice of modification: gemma-3-1b-it-Q4_K_M.gguf is not an original Google file. It was converted to the GGUF format and quantized to Q4_K_M by ggml-org (https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF) from google/gemma-3-1b-it, and Guia UBS downloads or redistributes it without further modification.
+SHA-256: 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135

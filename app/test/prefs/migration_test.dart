@@ -14,7 +14,7 @@
 /// aparelho de alguém, e só então deixa o Drift abri-lo.
 library;
 
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/prefs/locale_store.dart';
@@ -61,8 +61,67 @@ QueryExecutor _databaseOnV1({
         ..execute('PRAGMA user_version = 1');
     });
 
+/// O esquema da v2 (tema e fonte), transcrito pelo mesmo motivo do da v1.
+const String _v2Schema = '''
+CREATE TABLE preferences (
+  id INTEGER NOT NULL DEFAULT 1,
+  locale_code TEXT NULL,
+  telemetry_enabled INTEGER NOT NULL DEFAULT 1
+    CHECK (telemetry_enabled IN (0, 1)),
+  allow_metered_download INTEGER NOT NULL DEFAULT 0
+    CHECK (allow_metered_download IN (0, 1)),
+  setup_completed INTEGER NOT NULL DEFAULT 0
+    CHECK (setup_completed IN (0, 1)),
+  theme_mode TEXT NOT NULL DEFAULT 'system',
+  font_scale REAL NOT NULL DEFAULT 1.0,
+  PRIMARY KEY (id)
+);
+''';
+
+QueryExecutor _databaseOnV2() => NativeDatabase.memory(setup: (raw) {
+      raw
+        ..execute(_v2Schema)
+        ..execute(
+          "INSERT INTO preferences (id, locale_code, telemetry_enabled, "
+          "allow_metered_download, setup_completed, theme_mode, font_scale) "
+          "VALUES (1, 'es', 0, 1, 1, 'dark', 1.6)",
+        )
+        ..execute('PRAGMA user_version = 2');
+    });
+
 void main() {
   setUpAll(configureSqliteForTests);
+
+  group('v2 para v3 (termos de uso, ADR-004)', () {
+    test('a migracao preserva as preferencias e cria as colunas de termos '
+        'vazias', () async {
+      final db = UserDatabase(_databaseOnV2());
+      addTearDown(db.close);
+      final prefs = await PreferencesRepository(db).readAll();
+
+      expect(prefs.locale, AppLocale.es);
+      expect(prefs.telemetryEnabled, isFalse);
+      expect(prefs.allowMeteredDownload, isTrue);
+      expect(prefs.setupCompleted, isTrue);
+      expect(prefs.themeMode, GubsThemeMode.dark);
+      expect(prefs.fontScale, 1.6);
+      expect(prefs.termsVersionAnswered, isNull,
+          reason: 'quem ja usava o app responde aos termos novos');
+      expect(prefs.termsAccepted, isFalse);
+    });
+
+    test('depois de migrar, a resposta aos termos grava', () async {
+      final db = UserDatabase(_databaseOnV2());
+      addTearDown(db.close);
+      final repo = PreferencesRepository(db);
+
+      await repo.setTermsAnswer(version: '2026-10-29', accepted: true);
+
+      final prefs = await repo.readAll();
+      expect(prefs.termsVersionAnswered, '2026-10-29');
+      expect(prefs.termsAccepted, isTrue);
+    });
+  });
 
   test('o app abre um user.db da v1 sem lançar', () async {
     final db = UserDatabase(_databaseOnV1());

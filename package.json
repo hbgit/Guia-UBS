@@ -33,6 +33,8 @@
     "pack:build": "npm --workspace @guia-ubs/packer run build:pack",
     "pack:publish": "npm --workspace @guia-ubs/packer run publish:pack",
     "pack:check": "npm --workspace @guia-ubs/packer run build:pack:dry",
-    "pack:worker": "npm --workspace @guia-ubs/packer run worker --"
+    "pack:worker": "npm --workspace @guia-ubs/packer run worker --",
+    "model:publish": "bash infra/scripts/publish-model.sh",
+    "model:check": "bash infra/scripts/check-model-endpoint.sh"
   }
 }

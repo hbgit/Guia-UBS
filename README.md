@@ -285,3 +285,8 @@ tema, sync ou dados no aparelho.
 MIT — ver [LICENSE](LICENSE). Toda a stack é open source por decisão registrada
 ([stack.md §9](spec/stack.md)); o modelo Gemma 3 1B é *open weights* sob termos
 Google, com alternativas OSI documentadas.
+
+O grupo de pesquisa PRISM responde pelo aplicativo que ele distribui. Quem
+compilar e distribuir a própria versão a partir deste código responde por ela,
+inclusive pelo cumprimento dos termos do modelo de linguagem que embarcar ou
+redistribuir ([ADR-004](spec/stack.md)).

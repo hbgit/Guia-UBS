@@ -151,6 +151,7 @@ test('toda variavel de ambiente citada existe em infra/.env.example', () => {
   const NAO_SAO_ENV: Readonly<Record<string, string>> = {
     CMS_DATABASE_URL: 'variavel de shell, definida na hora; nao mora no .env',
     FALSO_NEGATIVO: 'valor de resposta da simulacao de regra, nao configuracao',
+    MODEL_URL: 'define de build do app (--dart-define), nao variavel do servidor; mora em app/config/defines.<modo>.json',
   };
 
   // Exige `_` no nome: e o que separa `BETTER_AUTH_SECRET` de `PATCH`. Todas as

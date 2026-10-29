@@ -1,4 +1,4 @@
-<!-- versao: 2026-08-22 -->
+<!-- versao: 2026-10-29 -->
 # Termos de uso
 
 MINUTA. Este texto ainda não passou por revisão jurídica.
@@ -34,6 +34,29 @@ houver rede disponível; até lá, continua valendo o que já está no aparelho.
 
 O aplicativo é gratuito, não tem publicidade e não vende dado nenhum.
 
+## Modelo de linguagem (Gemma)
+
+O assistente deste aplicativo usa o Gemma, um modelo de linguagem do Google,
+que roda dentro do aparelho. O uso do Gemma está sujeito aos Gemma Terms of Use.
+
+As restrições de uso da Seção 3.2 dos Gemma Terms of Use, incluindo a Gemma
+Prohibited Use Policy, fazem parte destes termos. Elas valem para quem usa o
+aplicativo e para quem repassa o modelo a outra pessoa, por exemplo por
+pendrive. Não é permitido usar o aplicativo nem o modelo para os usos que elas
+proíbem.
+
+Quem repassa o modelo entrega junto o aviso abaixo e uma cópia dos Gemma Terms
+of Use.
+
+O texto completo está no aplicativo, em Mais, Sobre, Modelo de linguagem: o
+original em inglês, que é o que vale, e um resumo e uma tradução da política em
+português, como cortesia.
+
+O Google não desenvolveu, não revisou e não endossa este aplicativo.
+
+Gemma is provided under and subject to the Gemma Terms of Use found at gemma.ai/resources/terms
+
 ## Responsável
 
-A ser preenchido antes da publicação.
+Guia UBS, projeto de pesquisa e extensão desenvolvido pelo grupo de pesquisa
+PRISM. Contato: prismufrr@gmail.com.

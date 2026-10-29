@@ -3,8 +3,9 @@
 /// ## Por que embarcados, e não um link
 ///
 /// Um app offline-only que manda a pessoa "consultar a política no site" não
-/// tem política nenhuma para o público que ele existe para atender. Os quatro
-/// arquivos vivem em `assets/legal/` e abrem com o rádio desligado.
+/// tem política nenhuma para o público que ele existe para atender. Os onze
+/// arquivos vivem em `assets/legal/` e abrem com o rádio desligado: privacidade
+/// e termos em pt/es, e os documentos do Gemma (ADR-004).
 ///
 /// ## A data da versão vem do texto, não do arquivo
 ///
@@ -26,6 +27,8 @@
 library;
 
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
+
+export '../../legal/terms.dart';
 
 /// Um pedaço de documento já classificado para virar widget.
 enum LegalBlockKind { title, heading, paragraph, bullet }
@@ -152,4 +155,58 @@ Future<List<LegalDocument>> loadLegalDocuments(
     }
   }
   return documents;
+}
+
+
+/// O arquivo "Notice" que a §3.1(4) dos Gemma Terms of Use exige, literal e em
+/// inglês (ADR-004). Não tem cabeçalho de versão: é o texto que os termos
+/// pedem, e ele não muda.
+const String gemmaNoticeAsset = 'assets/legal/gemma_notice.txt';
+
+/// A primeira linha de [gemmaNoticeAsset], para os portões que não podem
+/// esperar uma leitura de asset (onboarding, "li e concordo"). Um teste
+/// confere que é idêntica à do arquivo.
+const String gemmaNoticeLine = 'Gemma is provided under and subject to the '
+    'Gemma Terms of Use found at gemma.ai/resources/terms';
+
+/// Os documentos do Gemma, na ordem da tela: o resumo e a Política traduzidos
+/// (cortesia), depois os dois originais em inglês, que são os que valem.
+///
+/// Mesmo recuo para `pt` de [legalAssetsFor].
+List<String> gemmaAssetsFor(String languageCode) {
+  const traduzidos = {'pt', 'es'};
+  final code = traduzidos.contains(languageCode) ? languageCode : 'pt';
+  return [
+    'assets/legal/gemma_terms_$code.md',
+    'assets/legal/gemma_prohibited_use_$code.md',
+    'assets/legal/gemma_terms_en.md',
+    'assets/legal/gemma_prohibited_use_en.md',
+  ];
+}
+
+/// O Notice e os documentos do Gemma, prontos para a tela.
+typedef GemmaDocuments = ({String notice, List<LegalDocument> documents});
+
+/// Carrega e converte. **Nunca lança**, como [loadLegalDocuments]: Notice
+/// ausente vira `''` e documento ilegível some da lista, sem esconder os outros.
+Future<GemmaDocuments> loadGemmaDocuments(
+  String languageCode, {
+  AssetBundle? bundle,
+}) async {
+  final source = bundle ?? rootBundle;
+  var notice = '';
+  try {
+    notice = (await source.loadString(gemmaNoticeAsset)).trim();
+  } on Object {
+    // A tela mostra que não conseguiu abrir.
+  }
+  final documents = <LegalDocument>[];
+  for (final asset in gemmaAssetsFor(languageCode)) {
+    try {
+      documents.add(parseLegalDocument(asset, await source.loadString(asset)));
+    } on Object {
+      continue;
+    }
+  }
+  return (notice: notice, documents: documents);
 }

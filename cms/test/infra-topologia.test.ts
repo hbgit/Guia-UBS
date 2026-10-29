@@ -162,3 +162,16 @@ test('BETTER_AUTH_URL em http:// fora do loopback DERRUBA o boot', async () => {
     'https://cms.exemplo.invalid',
   );
 });
+
+test('o site de conteudo trata models/ como imutavel nos dois Caddyfiles', () => {
+  // P1-1 (#3): o modelo e nomeado pelo SHA-256 (`models/<nome>-<sha256>.gguf`),
+  // entao e imutavel como packs e assets. Sem cache longo, cada aparelho que
+  // retoma um download de 806 MB bateria no MinIO de novo.
+  for (const arquivo of ['Caddyfile', 'Caddyfile.dev']) {
+    const linha = readFileSync(join(RAIZ, 'infra', arquivo), 'utf8')
+      .split('\n')
+      .find((l) => l.includes('@immutable path_regexp'));
+    assert.ok(linha, `${arquivo} perdeu o matcher @immutable`);
+    assert.match(linha, /\bmodels\b/, `${arquivo}: models/ fora da classe imutavel`);
+  }
+});

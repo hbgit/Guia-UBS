@@ -36,6 +36,10 @@ enum ModelUnavailableReason {
 
   /// Conteúdo não confere com o hash esperado, ou recurso inexistente.
   rejected,
+
+  /// Este build não sabe de onde baixar (`MODEL_URL` ausente ou inválida), e
+  /// não há arquivo local que resolva sem rede. Nenhuma requisição foi feita.
+  notConfigured,
 }
 
 @immutable
@@ -91,6 +95,16 @@ class ModelArtifact {
   final String fileName;
 
   Uri get uri => Uri.parse(url);
+
+  /// `true` quando [url] é absoluta, `http`/`https` e com host. A política de
+  /// `https` no release é do guarda de build (`tool/model_url_check.dart`),
+  /// não daqui: em dev, o emulador fala com `http://10.0.2.2`.
+  bool get isConfigured {
+    final parsed = Uri.tryParse(url);
+    return parsed != null &&
+        (parsed.scheme == 'https' || parsed.scheme == 'http') &&
+        parsed.host.isNotEmpty;
+  }
 }
 
 class ModelDownloader {
@@ -114,6 +128,18 @@ class ModelDownloader {
   /// O total vem do servidor; quando ele não informa, cai para o tamanho
   /// anunciado no catálogo — a barra de progresso precisa de um denominador.
   Future<ModelFetchResult> ensureAvailable({DownloadProgress? onProgress}) async {
+    // Sem URL, só seguem os caminhos que o `ResumableDownloader` resolve sem
+    // rede: destino existente, ou `.parcial` com exatamente o tamanho
+    // anunciado (importação OTG, ou app morto antes do rename). Qualquer outro
+    // caso iria para o `fetch` com URL vazia e voltaria como um erro de rede
+    // que não explica nada. O parcial incompleto fica: uma URL futura retoma.
+    if (!artifact.isConfigured && !_resolvesOffline()) {
+      return const ModelUnavailable(
+        ModelUnavailableReason.notConfigured,
+        detail: 'MODEL_URL ausente ou invalida neste build',
+      );
+    }
+
     // Portão de disco ANTES de qualquer byte de rede. Começar um download de
     // 1,2 GB num aparelho sem espaço deixa o usuário pior do que não começar.
     //
@@ -155,6 +181,12 @@ class ModelDownloader {
           detail: reason,
         ),
     };
+  }
+
+  bool _resolvesOffline() {
+    if (destination.existsSync()) return true;
+    final partial = File('${destination.path}.parcial');
+    return partial.existsSync() && partial.lengthSync() == artifact.sizeBytes;
   }
 
   void close() => _downloader.close();

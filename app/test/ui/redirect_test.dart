@@ -8,6 +8,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/prefs/locale_store.dart';
 import 'package:guia_ubs/sync/model_provisioning.dart';
+import 'package:guia_ubs/ui/app_scope.dart';
 import 'package:guia_ubs/ui/router_provider.dart';
 
 String? redirect(
@@ -15,15 +16,76 @@ String? redirect(
   AppLocale? locale = AppLocale.pt,
   SetupStage stage = SetupStage.ready,
   bool completed = true,
+  TermsAnswer? terms,
 }) =>
     gubsRedirect(
       location: location,
       locale: locale,
       setupStage: stage,
       setupCompleted: completed,
+      terms: terms,
+      currentTerms: '2026-10-29',
     );
 
 void main() {
+  group('portao de termos (ADR-004)', () {
+    const nunca = TermsAnswer(version: null, accepted: false);
+    const aceitou = TermsAnswer(version: '2026-10-29', accepted: true);
+    const recusou = TermsAnswer(version: '2026-10-29', accepted: false);
+    const antiga = TermsAnswer(version: '2026-08-22', accepted: true);
+
+    test('sem resposta, tudo vai para os termos', () {
+      for (final path in ['/', '/onde-ir', '/triagem', setupGatePath]) {
+        expect(redirect(path, terms: nunca), termsGatePath);
+      }
+    });
+
+    test('a propria tela de termos nao se redireciona', () {
+      expect(redirect(termsGatePath, terms: nunca), isNull);
+    });
+
+    test('resposta a versao vigente, aceita OU recusada, deixa passar', () {
+      expect(redirect('/', terms: aceitou), isNull);
+      expect(redirect('/', terms: recusou), isNull);
+      expect(redirect(termsGatePath, terms: aceitou), '/');
+    });
+
+    test('resposta a versao anterior pergunta de novo, mesmo a quem aceitou',
+        () {
+      expect(redirect('/', terms: antiga), termsGatePath);
+    });
+
+    test('preferencias ainda nao lidas: nao ha portao que pisque no boot', () {
+      expect(redirect('/', terms: null), isNull);
+    });
+
+    test('o idioma vem antes dos termos', () {
+      expect(redirect('/', locale: null, terms: nunca), languageGatePath);
+    });
+
+    test('recusar libera o app inteiro, triagem inclusive, sem o setup', () {
+      // Recusar desliga SO o assistente: a orientacao segue pelo gate
+      // deterministico e pelas regras (INV-1, INV-8).
+      for (final path in ['/', '/triagem', '/triagem/resultado', '/onde-ir']) {
+        expect(
+          redirect(path, terms: recusou, stage: SetupStage.awaitingConsent,
+              completed: false),
+          isNull,
+          reason: path,
+        );
+      }
+      expect(redirect(setupGatePath, terms: recusou, completed: false), '/');
+    });
+
+    test('aceitar leva ao setup do modelo se ele ainda nao foi feito', () {
+      expect(
+        redirect('/', terms: aceitou, stage: SetupStage.awaitingConsent,
+            completed: false),
+        setupGatePath,
+      );
+    });
+  });
+
   group('portão de idioma (RF-01)', () {
     test('sem idioma escolhido, tudo vai para a seleção', () {
       for (final path in ['/', '/onde-ir', '/documentos', '/triagem']) {

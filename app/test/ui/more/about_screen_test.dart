@@ -13,6 +13,8 @@ import 'package:guia_ubs/prefs/locale_store.dart';
 import 'package:guia_ubs/ui/app_router.dart';
 import 'package:guia_ubs/ui/app_scope.dart';
 import 'package:guia_ubs/ui/more/about_screen.dart';
+import 'package:guia_ubs/ui/more/gemma_documents_screen.dart';
+import 'package:guia_ubs/ui/more/legal_document.dart';
 import 'package:guia_ubs/ui/theme/gubs_metrics.dart';
 import 'package:guia_ubs/ui/theme/gubs_theme.dart';
 
@@ -22,9 +24,14 @@ void main() {
     WidgetTester tester, {
     AppLocale locale = AppLocale.pt,
     AppRelease? release = (version: '1.2.3', build: '42'),
+    TermsAnswerController? terms,
   }) async {
     final router = buildGubsRouter(initialLocation: '/mais/sobre');
     addTearDown(router.dispose);
+    // Documentos do Gemma lidos com I/O real FORA do relogio falso: dentro do
+    // `pumpAndSettle`, o `rootBundle` nunca completa (ver legal_documents_test).
+    final gemma =
+        await tester.runAsync(() => loadGemmaDocuments(locale.code));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -34,6 +41,11 @@ void main() {
           // O plugin fica FORA do teste: canal de plataforma em teste de
           // widget testaria o mock, nao a tela.
           appReleaseProvider.overrideWith((ref) async => release),
+          gemmaDocumentsProvider.overrideWith((ref, arg) => gemma!),
+          termsAnswerProvider.overrideWith((ref) =>
+              terms ??
+              TermsAnswerController.memory(
+                  const TermsAnswer(version: termsVersion, accepted: true))),
         ],
         child: MaterialApp.router(
           theme: gubsLightTheme,
@@ -130,5 +142,100 @@ void main() {
     await pump(tester);
 
     expect(tester.takeException(), isNull);
+  });
+
+  group('modelo de linguagem (ADR-004)', () {
+    testWidgets('lista o Notice e os termos do Gemma, e abre os dois',
+        (tester) async {
+      await pump(tester);
+      await reveal(tester, find.byKey(const ValueKey('about-gemma-open')));
+
+      expect(find.byKey(const ValueKey('about-gemma')), findsOneWidget);
+      expect(find.textContaining('Notice'), findsWidgets);
+      expect(find.textContaining('Gemma Terms of Use'), findsWidgets);
+
+      await tester.tap(find.byKey(const ValueKey('about-gemma-open')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('gemma-notice')), findsOneWidget);
+      expect(find.textContaining('Gemma is provided under and subject to'),
+          findsWidgets);
+      // A lista e preguicosa: os originais em ingles ficam abaixo da cortesia.
+      for (final titulo in ['Gemma Terms of Use', 'Gemma Prohibited Use Policy']) {
+        await reveal(tester, find.text(titulo));
+        expect(find.text(titulo), findsOneWidget);
+      }
+    });
+
+    testWidgets('o credito ao modelo nega endosso', (tester) async {
+      await pump(tester);
+      await reveal(tester, find.byKey(const ValueKey('about-gemma')));
+
+      expect(find.textContaining('não desenvolveu, não revisou e não endossa'),
+          findsOneWidget);
+    });
+
+    testWidgets('o botao do modelo tem 64 dp', (tester) async {
+      await pump(tester);
+      final alvo = find.byKey(const ValueKey('about-gemma-open'));
+      await reveal(tester, alvo);
+      expect(tester.getSize(alvo).height, greaterThanOrEqualTo(64));
+    });
+
+    testWidgets('a tela dos documentos sobrevive a fonte 2x em tela pequena',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester, locale: AppLocale.es);
+      await reveal(tester, find.byKey(const ValueKey('about-gemma-open')));
+      await tester.tap(find.byKey(const ValueKey('about-gemma-open')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final prevalece = find.textContaining('prevalece la versión en inglés');
+      // Os dois textos de cortesia dizem isto; basta o primeiro aparecer.
+      await tester.scrollUntilVisible(prevalece, 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(prevalece, findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('mudar a resposta aos termos depois (ADR-004)', () {
+    testWidgets('quem recusou pode aceitar depois', (tester) async {
+      final terms = TermsAnswerController.memory(
+          const TermsAnswer(version: termsVersion, accepted: false));
+      await pump(tester, terms: terms);
+      final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
+      await reveal(tester, alvo);
+
+      expect(find.text('Li e concordo: usar o assistente'), findsOneWidget);
+      await tester.tap(alvo);
+      await tester.pump();
+      expect(terms.state,
+          const TermsAnswer(version: termsVersion, accepted: true));
+    });
+
+    testWidgets('quem aceitou pode parar de usar o assistente', (tester) async {
+      final terms = TermsAnswerController.memory(
+          const TermsAnswer(version: termsVersion, accepted: true));
+      await pump(tester, terms: terms);
+      final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
+      await reveal(tester, alvo);
+
+      expect(find.text('Parar de usar o assistente'), findsOneWidget);
+      await tester.tap(alvo);
+      await tester.pump();
+      expect(terms.state,
+          const TermsAnswer(version: termsVersion, accepted: false));
+    });
+
+    testWidgets('o botao tem 64 dp', (tester) async {
+      await pump(tester);
+      final alvo = find.byKey(const ValueKey('about-assistant-toggle'));
+      await reveal(tester, alvo);
+      expect(tester.getSize(alvo).height, greaterThanOrEqualTo(64));
+    });
   });
 }

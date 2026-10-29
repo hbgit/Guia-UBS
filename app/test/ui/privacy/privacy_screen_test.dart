@@ -108,6 +108,8 @@ void main() {
         'Se o posto liberou baixar por dados móveis',
         'As cores que você escolheu',
         'O tamanho de letra que você escolheu',
+        'Qual versão dos termos de uso você respondeu',
+        'Se você aceitou os termos de uso',
       ];
       for (final item in declared) {
         expect(find.text(item), findsOneWidget);

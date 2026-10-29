@@ -8,7 +8,8 @@
 # gravacao — com um 405 que ninguem associa ao Caddy.
 #
 # Duas classes de cache (stack.md 4.2):
-#   - packs e assets: nomeados por hash => imutaveis, cache infinito
+#   - packs, assets e o modelo SLM (models/): nomeados por hash => imutaveis,
+#     cache infinito
 #   - manifest.json:  unico objeto mutavel => cache curto + revalidacao por ETag
 #
 # A borda NAO e confiavel: o device verifica assinatura Ed25519 e SHA-256 de
@@ -34,7 +35,7 @@
 
 	# Regex e nao `path`: as chaves chegam prefixadas pelo bucket
 	# (/<bucket>/packs/...), entao um matcher ancorado na raiz nunca casaria.
-	@immutable path_regexp immutable ^/.+/(packs|assets)/.+$
+	@immutable path_regexp immutable ^/.+/(packs|assets|models)/.+$
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
 	# Somente leitura publica: publicacao acontece pela rede interna.

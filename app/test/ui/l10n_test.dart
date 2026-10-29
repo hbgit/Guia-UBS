@@ -57,6 +57,9 @@ void main() {
     // provavelmente copiar-e-colar que ninguém traduziu.
     const legitimatelyIdentical = {
       'appTitle',
+      // Nomes de documentos do Google, que ficam em ingles nos dois idiomas
+      // (ADR-004): traduzir o titulo sugeriria uma versao oficial que nao existe.
+      'aboutModelDocuments',
       'homeDocuments',
       'documentsTitle',
       'actionContinue',

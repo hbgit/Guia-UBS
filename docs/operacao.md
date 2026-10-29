@@ -349,6 +349,82 @@ no lugar de `127.0.0.1:8082`. O `cms` não publica porta nenhuma nos dois casos.
 > `__Secure-`. Com `http://`, senha e sessão trafegam em claro e nada acusa — por
 > isso `loadEnv()` **derruba o processo** nesse caso, em vez de deixar subir.
 
+### 2.10 Publicar o modelo SLM
+
+O aplicativo baixa o modelo de linguagem (Gemma 3 1B, ~806 MB) **do storage do
+projeto**, não de terceiro ([ADR-004](../spec/stack.md)). Redistribuir o Gemma
+obriga a cumprir os Gemma Terms of Use: o arquivo nunca sai sem o Notice e a
+cópia dos termos ao lado, e o script se recusa a publicar sem eles.
+
+**Enquanto não há servidor do projeto: a exceção do ADR-004.** Os builds usam
+como `MODEL_URL` a URL do Hugging Face fixada numa revisão (a de
+`app/config/defines.example.json`), e o guarda de build aceita `huggingface.co`
+só nela. O IP do aparelho chega ao Hugging Face e à CDN deles no download — o
+aviso de privacidade diz isso. **Para sair da exceção:** publicar com
+`npm run model:publish` (abaixo) e trocar o `MODEL_URL` dos builds para a URL
+que o script imprime. Aparelhos já provisionados não baixam de novo: a
+identidade do modelo é o SHA-256, não a URL.
+
+**Antes de implantar: o domínio.** A URL do modelo entra embutida em cada build
+(`--dart-define=MODEL_URL`), então trocar de domínio depois exige distribuir
+builds novos para a frota inteira. Recomendação registrada no plano da #3:
+domínio fora de `.br` (registro `.br` exige CPF ou CNPJ e expõe o nome do
+titular), num registrador com proteção de WHOIS; conta do registrador **do
+grupo**, com pelo menos dois administradores; dois nomes desde já (produção e
+staging); e banda de saída para ~806 MB por aparelho — 50 aparelhos são ~40 GB,
+e um provisionamento em mutirão concentra tudo num dia.
+
+```sh
+app/tool/fetch_model.sh gemma-3-1b                              # baixa da origem e confere o SHA-256
+npm run model:publish -- app/assets/models/gemma-3-1b.gguf --check-only   # só confere contra o app
+npm run model:publish -- app/assets/models/gemma-3-1b.gguf      # publica e confere pelo edge
+```
+
+O que `model:publish` faz, em ordem:
+
+1. confere SHA-256 e tamanho contra `app/lib/sync/model_catalog.dart` — o
+   arquivo errado é recusado antes de qualquer rede;
+2. envia `models/gemma-3-1b-it-Q4_K_M-<sha256>.NOTICE.txt`,
+   `models/gemma-terms-of-use.md`, `models/gemma-prohibited-use-policy.md` e só
+   então `models/gemma-3-1b-it-Q4_K_M-<sha256>.gguf` (fonte única dos textos:
+   `app/assets/legal/`);
+3. acrescenta à política anônima do bucket **só** `s3:GetObject` em `models/*`,
+   sem listagem, e confere que nenhuma permissão anterior sumiu; se sumiu,
+   reaplica o backup e sai 1. Backups em `infra/scripts/.policy-backup/` (fora
+   do git); para restaurar um à mão:
+   `docker compose -f infra/compose.yaml run --rm --no-deps -T -v <backup>:/in/p.json:ro --entrypoint sh storage -c 'mc alias set local http://storage:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc anonymous set-json /in/p.json local/content-packs'`;
+4. roda `model:check` pelo edge e imprime a `MODEL_URL` para o
+   `app/config/defines.release.json`.
+
+`npm run model:publish -- --policy-only` aplica e confere só a política.
+
+```sh
+npm run model:check -- <url-do-.gguf> <sha256> <bytes> --manifest <url-do-manifest>
+```
+
+Confere o que o `ResumableDownloader` do app exige, com o mesmo
+`Accept-Encoding: gzip` que o `dart:io` manda: `HEAD` 200 com `Content-Length`
+exato, `Accept-Ranges: bytes` e sem `Content-Encoding`; `Range` 206 com
+`Content-Range` e `Content-Length` certos; 416 além do fim; escrita anônima
+recusada; listagem de `models/` recusada; chave vizinha (`models-x/`) fechada;
+o manifest dos packs ainda servido; e o SHA-256 do download completo.
+
+Variáveis (`infra/.env`): `MODEL_PUBLIC_BASE_URL` (base pública do bucket no
+edge) e `MODEL_CHECK_MANIFEST_URL` (um manifest já publicado; vazio em ambiente
+novo, e o script avisa).
+
+> ⚠️ **Quem redistribui o modelo também precisa cumprir os termos.** Espelho
+> federado recebe os quatro objetos juntos. Cópia por pendrive (OTG) leva o
+> `.NOTICE.txt` e as duas cópias dos termos junto com o `.gguf`.
+
+> ⚠️ **Página da loja:** não está no repositório. Antes de publicar, confira que
+> nada nela sugere endosso do Google (§4.2 dos Gemma Terms of Use) nem vínculo
+> institucional que não existe.
+
+> ⚠️ **A política dos packs continua fora do repositório** até a #46. O
+> `model:publish` a preserva, mas não a cria: num MinIO novo, o aparelho recebe
+> `403` no manifest até alguém configurá-la.
+
 
 ## 3. Os três papéis
 
@@ -856,6 +932,7 @@ publique uma versão nova e corrigida.
 | **Sem importador de conteúdo** | `cms:import-golden` traz os casos clínicos, mas não há equivalente para o conteúdo de `seed/`. Um CMS recém-implantado começa vazio, e a primeira release é montada pela API, item a item |
 | **Sem upload de asset** | `asset` guarda metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível |
 | **Sem expurgo por retenção** | A LGPD-RF07 exige prazo de retenção com expurgo; o procedimento está desenhado mas não implementado — depende da tabela de retenção aprovada pelo encarregado |
+| **Termos de uso mudaram para o piloto** | A versão de 2026-10-29 dos termos do app incorpora as restrições de uso do Gemma ([ADR-004](../spec/stack.md)). O app pede "li e concordo" a cada versão nova, mas o termo de consentimento do piloto UAT (LGPD-RF02) não está no repositório: a mudança precisa ser lida em voz alta aos participantes já inscritos, no idioma de cada um |
 | **Casos golden sem revisão clínica** | Os 24 casos semeados não têm revisor. Desde a P0-2 o packer (`build` sem `--dry-run`, `publish`) e o worker **bloqueiam** e nada é assinado; `pack:check` apenas avisa. Roteiro da revisão: [`revisao-golden.md`](revisao-golden.md) |
 
 ---

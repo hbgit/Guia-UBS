@@ -5,6 +5,8 @@
 /// nada disso toca a rede.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +14,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:guia_ubs/l10n/app_localizations.dart';
 import 'package:guia_ubs/prefs/locale_store.dart';
+import 'package:guia_ubs/sync/model_catalog.dart';
 import 'package:guia_ubs/ui/app_router.dart';
 import 'package:guia_ubs/ui/app_scope.dart';
 import 'package:guia_ubs/ui/more/legal_document.dart';
 import 'package:guia_ubs/ui/more/legal_documents_screen.dart';
 import 'package:guia_ubs/ui/theme/gubs_theme.dart';
+
+/// E-mail compartilhado do projeto (ADR-004). Uma caixa do grupo, nunca de
+/// uma pessoa: o repositorio e publico.
+const String projectContactEmail = 'prismufrr@gmail.com';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -58,12 +65,219 @@ void main() {
       expect(legalAssetsFor('es').first, contains('_es'));
     });
 
+    for (final (idioma, grupo) in [
+      ('pt', 'grupo de pesquisa PRISM'),
+      ('es', 'grupo de investigación PRISM'),
+    ]) {
+      test('termos_$idioma identificam o projeto, sem e-mail pessoal nem '
+          'vinculo institucional', () async {
+        // ADR-004: o responsavel e o PROJETO, identificado pelo grupo. A linha
+        // identifica quem mantem o app; nao cria parte que assina contrato.
+        // Espacos normalizados: os arquivos quebram em 80 colunas e o parser
+        // junta as linhas do paragrafo, entao "grupo de pesquisa\nPRISM" e o
+        // que o leitor ve como uma frase so.
+        final termos =
+            (await rootBundle.loadString('assets/legal/termos_$idioma.md'))
+                .replaceAll(RegExp(r'\s+'), ' ');
+
+        expect(termos, contains(grupo));
+        expect(termos, contains(projectContactEmail));
+        expect(termos, isNot(contains('A ser preenchido')));
+        expect(termos, isNot(contains('Para completar')));
+
+        // Unica excecao nomeada: o endereco do projeto carrega "ufrr". Fora
+        // dele, citar a universidade sugeriria um vinculo formal que nao
+        // existe (ADR-004).
+        final semEndereco = termos.replaceAll(projectContactEmail, '');
+        expect(semEndereco.toUpperCase(), isNot(contains('UFRR')));
+        expect(semEndereco, isNot(contains('Universidad')));
+      });
+    }
+
     test('os documentos ainda estao marcados como minuta', () async {
       // Este teste SAI junto com a aprovacao juridica. Enquanto ele passa, o
       // texto nao pode ser apresentado como definitivo.
       final pt = await rootBundle.loadString('assets/legal/privacidade_pt.md');
       expect(pt.toUpperCase(), contains('MINUTA'));
     });
+  });
+
+  group('documentos do Gemma (ADR-004)', () {
+    test('o Notice traz as duas frases literais da §3.1(4), na ordem da D-A',
+        () async {
+      final linhas =
+          (await rootBundle.loadString(gemmaNoticeAsset)).split('\n');
+      const frase = 'Gemma is provided under and subject to the Gemma Terms '
+          'of Use found at ';
+      expect(linhas[0], '${frase}gemma.ai/resources/terms');
+      expect(linhas[1], '${frase}ai.google.dev/gemma/terms');
+    });
+
+    test('o Notice acompanha o modelo ativo', () async {
+      final notice = await rootBundle.loadString(gemmaNoticeAsset);
+      expect(notice, contains(activeModel.sha256));
+      expect(notice, contains('gemma-3-1b-it-Q4_K_M.gguf'));
+      expect(notice, contains('Notice of modification'));
+    });
+
+    for (final idioma in ['pt', 'es']) {
+      test('os documentos do Gemma em $idioma carregam, com versao', () async {
+        final r = await loadGemmaDocuments(idioma);
+        expect(r.notice, isNotEmpty);
+        expect(r.documents, hasLength(4),
+            reason: 'resumo, Politica traduzida e os dois originais');
+        for (final d in r.documents) {
+          expect(d.versionDate, matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')),
+              reason: d.asset);
+          expect(d.blocks, isNotEmpty, reason: d.asset);
+        }
+      });
+    }
+
+    test('a copia em ingles e integral', () async {
+      // A §3.1(2) pede "a copy of this Agreement": o texto em ingles, inteiro.
+      final t = await rootBundle.loadString('assets/legal/gemma_terms_en.md');
+      expect(t, contains('Last modified: April 1, 2026'));
+      for (final trecho in [
+        '3.1 Distribution and Redistribution',
+        '3.2 Use Restrictions',
+        '3.3 Generated Output',
+        '4.2 Trademarks',
+        '## Appendix',
+      ]) {
+        expect(t, contains(trecho));
+      }
+      final p =
+          await rootBundle.loadString('assets/legal/gemma_prohibited_use_en.md');
+      expect(p, contains('Last modified: February 21, 2024'));
+      expect(
+          p,
+          contains('Making automated decisions in domains that affect '
+              'material or individual rights or well-being'));
+    });
+
+    for (final arquivo in ['gemma_terms', 'gemma_prohibited_use']) {
+      test('$arquivo: a cortesia diz que o ingles prevalece', () async {
+        final pt = (await rootBundle.loadString('assets/legal/${arquivo}_pt.md'))
+            .replaceAll(RegExp(r'\s+'), ' ');
+        final es = (await rootBundle.loadString('assets/legal/${arquivo}_es.md'))
+            .replaceAll(RegExp(r'\s+'), ' ');
+        expect(pt, contains('prevalece a versão em inglês'));
+        expect(es, contains('prevalece la versión en inglés'));
+      });
+    }
+
+    for (final (idioma, resumo, clausula, automatizada) in [
+      ('pt', '## Resumo dos termos', 'Distribuição e Redistribuição',
+          'decisões automatizadas'),
+      ('es', '## Resumen de los términos', 'Distribución y Redistribución',
+          'decisiones automatizadas'),
+    ]) {
+      test('o resumo em $idioma resume, e nao traduz, os termos', () async {
+        final t =
+            await rootBundle.loadString('assets/legal/gemma_terms_$idioma.md');
+        expect(t, contains(resumo));
+        // Resumo, nao traducao: o titulo da secao contratual traduzido nao
+        // aparece. Traduzir o contrato criaria um segundo texto lido como
+        // vinculante (mudanca de escopo registrada na #3).
+        expect(t.toLowerCase(), isNot(contains(clausula.toLowerCase())));
+      });
+
+      test('a Politica em $idioma e traduzida inteira', () async {
+        final p = await rootBundle
+            .loadString('assets/legal/gemma_prohibited_use_$idioma.md');
+        // Os quatro itens de topo, na numeracao do original, e o item 3.4.
+        for (final n in ['1.', '2.', '3.', '4.']) {
+          expect(
+              RegExp('^- ${RegExp.escape(n)} ', multiLine: true).hasMatch(p),
+              isTrue,
+              reason: 'falta o item $n');
+        }
+        expect(RegExp(r'^- 3\.4\. ', multiLine: true).hasMatch(p), isTrue);
+        expect(p.toLowerCase(), contains(automatizada));
+      });
+    }
+
+    test('a linha do Notice no app e a primeira linha do arquivo', () async {
+      // O onboarding mostra a frase sem ler o asset (leitura assincrona num
+      // portao de primeiro acesso). A constante e o arquivo nao podem divergir.
+      final arquivo = await rootBundle.loadString(gemmaNoticeAsset);
+      expect(arquivo.split('\n').first, gemmaNoticeLine);
+    });
+
+    for (final (idioma, secao, faz) in [
+      ('pt', '## Modelo de linguagem (Gemma)', 'fazem parte destes termos'),
+      ('es', '## Modelo de lenguaje (Gemma)', 'forman parte de estos términos'),
+    ]) {
+      test('termos_$idioma incorporam as restricoes de uso do Gemma como '
+          'clausula', () async {
+        // §3.1(1): as restricoes da §3.2 (que incorporam a Politica) entram
+        // como clausula vinculante no acordo que rege o uso do app.
+        final t = (await rootBundle.loadString('assets/legal/termos_$idioma.md'))
+            .replaceAll(RegExp(r'[ \t]*\n(?!\n|#|- )[ \t]*'), ' ');
+        expect(t, contains(secao));
+        expect(t, contains('Gemma Prohibited Use Policy'));
+        expect(t, contains(gemmaNoticeLine));
+        expect(t, contains(faz));
+      });
+    }
+
+    test('a versao dos termos avancou com a clausula', () async {
+      for (final idioma in ['pt', 'es']) {
+        final docs = await loadLegalDocuments(idioma);
+        final termos =
+            docs.firstWhere((d) => d.asset.endsWith('termos_$idioma.md'));
+        // Comparado com a ultima versao DISTRIBUIDA (2026-08-22). A de
+        // 2026-10-29 sem a clausula so existiu neste branch.
+        expect(termos.versionDate!.compareTo('2026-08-22'), greaterThan(0),
+            reason: 'termos com clausula nova precisam de versao nova: e ela '
+                'que dispara o "li e concordo" (Task 4b)');
+      }
+    });
+
+    for (final (idioma, fora, ip) in [
+      ('pt', 'fora do Brasil', 'endereço IP'),
+      ('es', 'fuera de Brasil', 'dirección IP'),
+    ]) {
+      test('privacidade_$idioma diz de quem vem o modelo e que o IP sai do '
+          'pais', () async {
+        // Excecao do ADR-004: o download do modelo vem do Hugging Face, e o IP
+        // do aparelho chega a um servico fora do Brasil (LGPD, arts. 33 a 36).
+        final t =
+            (await rootBundle.loadString('assets/legal/privacidade_$idioma.md'))
+                .replaceAll(RegExp(r'\s+'), ' ');
+        expect(t, contains('Hugging Face'));
+        expect(t, contains(fora));
+        expect(t, contains(ip));
+      });
+    }
+
+    test('idioma sem traducao recua para pt', () {
+      expect(gemmaAssetsFor('fr'), gemmaAssetsFor('pt'));
+      expect(gemmaAssetsFor('es').first, contains('_es'));
+    });
+  });
+
+  test('nenhum item de lista continua na linha seguinte', () {
+    // O parser fecha o item no fim da linha: o que vier embaixo vira um
+    // paragrafo solto, e o leitor ve o item cortado no meio da frase. Ja
+    // aconteceu com o resumo dos termos do Gemma e com o aviso de privacidade.
+    final problemas = <String>[];
+    for (final f in Directory('assets/legal').listSync().whereType<File>()) {
+      if (!f.path.endsWith('.md')) continue;
+      final linhas = f.readAsLinesSync();
+      for (var i = 1; i < linhas.length; i++) {
+        final anterior = linhas[i - 1];
+        final atual = linhas[i];
+        if (anterior.startsWith('- ') &&
+            atual.trim().isNotEmpty &&
+            !atual.startsWith('- ') &&
+            !atual.startsWith('#')) {
+          problemas.add('${f.uri.pathSegments.last}:${i + 1}');
+        }
+      }
+    }
+    expect(problemas, isEmpty);
   });
 
   group('o parser', () {

@@ -34,7 +34,9 @@ import 'sync/model_sync_scheduler.dart';
 import 'sync/pack_background_sync.dart';
 import 'sync/resumable_downloader.dart';
 import 'triage/engine/llama_engine.dart';
+import 'triage/engine/triage_engine.dart';
 import 'ui/app_scope.dart';
+import 'ui/assistant_lifecycle.dart';
 import 'ui/router_provider.dart';
 import 'ui/triage/triage_controller.dart';
 import 'ui/theme/gubs_theme.dart';
@@ -93,7 +95,7 @@ Future<void> main() async {
         localeStoreProvider.overrideWithValue(preferences),
         activeContentProvider.overrideWithValue(content),
         // O motor SLM NAO e sobrescrito aqui: ele comeca nulo e e preenchido
-        // depois do boot, em `_startEngine`. Carregar 800 MB de GGUF leva
+        // depois do boot, em `_loadEngine`. Carregar 800 MB de GGUF leva
         // segundos, e esperar por isso antes da primeira tela travaria o app
         // por causa de um componente que a INV-8 classifica como opcional.
         speakerProvider.overrideWithValue(SystemSpeaker()),
@@ -167,8 +169,33 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
     ref.read(fontScaleProvider.notifier).restore();
     ref.read(meteredDownloadProvider.notifier).restore();
 
-    // Fora do caminho do boot, de propósito. Ver `_startEngine`.
-    unawaited(_startEngine());
+    // Fora do caminho do boot, de propósito. Ver `_loadEngine`. Espera a
+    // resposta aos termos: sem aceite da versão vigente, o modelo não sobe
+    // (ADR-004).
+    //
+    // Um caminho só, DEPOIS de ler o aceite: `fireImmediately` entrega o valor
+    // inicial ao mesmo `AssistantLifecycle` que trata as mudanças. Aceitou:
+    // sobe o motor (single-flight). Sem aceite: desce o motor e cancela o
+    // download agendado, inclusive o herdado de uma versão anterior. O
+    // arquivo fica no disco, sem uso — apagar 800 MB por um toque seria pior.
+    final lifecycle = AssistantLifecycle(
+      isAllowed: () => ref.read(assistantAllowedProvider),
+      current: () => ref.read(triageEngineProvider),
+      install: (engine) =>
+          ref.read(triageEngineProvider.notifier).state = engine,
+      load: _loadEngine,
+      cancelSync: cancelModelSync,
+    );
+    unawaited(
+      ref.read(termsAnswerProvider.notifier).restore().then((_) {
+        if (!mounted) return;
+        ref.listenManual(
+          assistantAllowedProvider,
+          (previous, allowed) => unawaited(lifecycle.onAllowed(allowed)),
+          fireImmediately: true,
+        );
+      }),
+    );
 
     // O agendador só interessa enquanto falta modelo. Quando o provisionamento
     // conclui, cancelamos: manter um job periódico para baixar algo que já
@@ -183,7 +210,8 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
       switch (state.stage) {
         case SetupStage.ready:
           cancelModelSync().ignore();
-        case SetupStage.readyDegraded || SetupStage.blocked:
+        case SetupStage.readyDegraded || SetupStage.blocked
+            when ref.read(assistantAllowedProvider):
           scheduleModelSync(
             policy: const ModelSyncPolicy().withMeteredOverride(
               allowed: ref.read(provisioningProvider).allowMeteredNetworks,
@@ -211,15 +239,18 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
   /// que morre — todos os caminhos terminam em "sem motor", que é degradação
   /// prevista. Uma exceção aqui derrubaria o app por causa do componente que a
   /// INV-8 declara opcional.
-  Future<void> _startEngine() async {
+  ///
+  /// Só CARREGA. Quem decide se pode (aceite dos termos), se já há motor e se
+  /// o motor que chegou ainda é bem-vindo é o `AssistantLifecycle`.
+  Future<TriageEngine?> _loadEngine() async {
     try {
       final model = await ref.read(provisioningProvider).verifiedModel();
-      if (model == null) return;
+      if (model == null) return null;
 
       // As regras do pack são exigidas pelo motor: ele escolhe entre desfechos
       // que existem NAQUELE pacote, e sem elas não há o que escolher.
       final rules = ref.read(ruleModelProvider);
-      if (rules == null) return;
+      if (rules == null) return null;
 
       final engine = await startLlamaEngine(
         model: rules,
@@ -227,11 +258,12 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
       );
       if (engine == null || !mounted) {
         await engine?.dispose();
-        return;
+        return null;
       }
-      ref.read(triageEngineProvider.notifier).state = engine;
+      return engine;
     } on Object {
       // Segue sem motor. Ver o comentário acima.
+      return null;
     }
   }
 

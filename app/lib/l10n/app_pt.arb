@@ -140,6 +140,8 @@
   "howToStep5Body": "Tudo aqui funciona com o aparelho desligado da rede.",
   "privacyStoredTheme": "As cores que você escolheu",
   "privacyStoredFontScale": "O tamanho de letra que você escolheu",
+  "privacyStoredTermsVersion": "Qual versão dos termos de uso você respondeu",
+  "privacyStoredTermsAccepted": "Se você aceitou os termos de uso",
   "privacyDocuments": "Ler os documentos",
   "privacyDocumentsVersion": "Versão de {data}",
   "@privacyDocumentsVersion": {
@@ -173,6 +175,29 @@
     }
   },
   "aboutCredits": "Realização",
+  "aboutModelTitle": "Modelo de linguagem",
+  "@aboutModelDocuments": {
+    "description": "Nomes dos documentos, em ingles por serem titulos deles. Mencao neutra: sem \"Google\" (no_endorsement_test)."
+  },
+  "aboutModelCredit": "O assistente usa o modelo Gemma, do Google, sob os Gemma Terms of Use. O Google não desenvolveu, não revisou e não endossa este aplicativo.",
+  "@aboutModelCredit": {
+    "description": "§4.2 dos Gemma Terms of Use: nada pode sugerir endosso do Google. A negacao e exigida por no_endorsement_test."
+  },
+  "aboutModelDocuments": "Notice · Gemma Terms of Use",
+  "gemmaDocumentsTitle": "Modelo de linguagem",
+  "gemmaDocumentsUnavailable": "Não foi possível abrir os documentos do modelo.",
+  "termsGateTitle": "Termos de uso",
+  "termsGateChangedTitle": "Os termos de uso mudaram",
+  "termsGateBody": "O Guia UBS orienta sobre os serviços da UBS e não faz diagnóstico. O assistente usa o modelo Gemma, do Google, e as restrições de uso do Gemma fazem parte destes termos. O Google não desenvolveu, não revisou e não endossa este aplicativo. Se você não concordar, o aplicativo funciona sem o assistente.",
+  "@termsGateBody": {
+    "description": "Texto descritivo do modelo: precisa negar o endosso do Google (no_endorsement_test). E o que o botao Ouvir fala."
+  },
+  "termsGateListen": "Ouvir",
+  "termsGateOpenTerms": "Ler os termos",
+  "termsGateAccept": "Li e concordo",
+  "termsGateDecline": "Usar sem o assistente",
+  "aboutAssistantEnable": "Li e concordo: usar o assistente",
+  "aboutAssistantDisable": "Parar de usar o assistente",
   "aboutLicenses": "Licenças dos componentes",
   "aboutClinicalNotice": "As orientações deste aplicativo ainda não passaram por revisão clínica. Não use para decidir sozinho sobre a sua saúde.",
   "@aboutClinicalNotice": {

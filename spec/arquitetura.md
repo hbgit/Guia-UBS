@@ -1259,6 +1259,29 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 |---|---|---|---|
 | — | — | — | — |
 
+#### 5.18 Resultado da P1-1 (issue #3) — modelo pela exceção do Hugging Face, sem host no código (2026-10-29)
+
+**O host saiu do código.** `model_catalog.dart` fixava `huggingface.co`; agora o modelo vem de `--dart-define=MODEL_URL`, sem valor padrão (`grep -r huggingface.co app/lib` vazio). Sem o define, o artefato se declara "não configurado": nenhuma requisição, e o onboarding oferece pendrive ou seguir sem o assistente. A identidade do modelo continua sendo o SHA-256 e o nome do arquivo versionados no app, não a URL. `tool/build_apk.sh` roda `tool/model_url_check.dart` antes de compilar e recusa release sem URL, em `http`, apontando para o Hugging Face fora da exceção, ou para outro modelo.
+
+**A exceção ([ADR-004](stack.md)).** Enquanto o projeto não tem servidor, a URL é a do Hugging Face fixada no commit `f9c28bc` do repositório da `ggml-org` — `302` para `us.aws.cdn.hf.co`, que honra `Range` (`206`, `Content-Range: bytes 100-199/806058240`). A saída da exceção já está pronta: `npm run model:publish` e `model:check` (storage próprio), verificados ao vivo num compose descartável com objeto sintético de 8 MiB — 14/14 conferências, e as duas sabotagens pegas (política com listagem e recurso sem barra; mescla que apagava a política dos packs, revertida pelo backup).
+
+**Termos (ADR-004).** Notice com as duas frases (`gemma.ai` e `ai.google.dev`) e aviso de modificação; cópia literal dos Gemma Terms of Use e da Política em inglês, gerada do markdown oficial com a sequência de palavras conferida por máquina (1409/1409 e 501/501); resumo dos termos e tradução da Política em pt/es como cortesia; cláusula nos termos do app; "li e concordo" a cada versão, guardado no `user.db` v3; e o aviso de privacidade dizendo que o download vai ao Hugging Face, fora do Brasil.
+
+**Verificado em emulador** — `AVD sinalacs_ci36 · system-image android-36 google_apis x86_64 rev 7 (userdebug, BE2A.250530.026.F3) · API 36 · emulador 37.2.12.0 · APK arm64-v8a sob libndk_translation · build release, commit 11b07e0 · assinado com debug.keystore (cert SHA-256 62c33cab…46b2) · APK com MODEL_URL 25.702.260 B, SHA-256 5bfc2780…76bc · 2026-10-29`. Tradução ARM não é CPU arm64, e a inferência não foi medida aqui.
+
+1. **Recusar desliga só o assistente.** Instalação limpa → idioma → portão de termos → "Usar sem o assistente": inicial imediata, zero linhas `gubs-dl`, nenhum job do modelo no `jobscheduler`, e "Estou com sintomas" abre sem passar pelo setup.
+2. **Aceitar depois pelo Sobre reabre o setup**, com a primeira frase do Notice e "Termos do Gemma" antes de "Baixar agora"; "Termos do Gemma" abre os documentos por cima do portão e volta; "Importar de um pendrive" passa pela confirmação com o Notice antes do seletor.
+3. **Download pela URL da exceção:** `w=primeiro-plano inicio off=0` · `http status=200 range=-` · `sha ok bytes=806058240 ms=17334` · `fim desfecho=Completed`. Em disco (`adb root`): `gemma-3-1b-q4.gguf` com 806.058.240 B, SHA-256 `8ccc5cd1…a135`, e `.verificado`, sem `.parcial` nem `.trava`.
+4. **Retomada:** rede cortada em 22% (`fim desfecho=Interrupted bytes=185347566`); ao religar, o **worker do WorkManager** retomou — `w=worker inicio off=185347566` · `http status=206 range=185347566` · `sha ok bytes=806058240` · `Completed`, zero `ANOMALIA`. De quebra, prova que o `MODEL_URL` chega ao isolate de background (constante de compilação do mesmo snapshot).
+5. **Aparelho que já tem o modelo não baixa de novo:** APK release **sem** `MODEL_URL` (SHA-256 `51c8a82c…`), mesma chave (cert `62c33cab…46b2` nos dois), instalado com `install -r`: boot direto na inicial, nenhuma linha `gubs-dl`, modelo e `.verificado` intactos.
+6. **Atualização sobre o `develop` (`user.db` v2):** APK do `develop` (`956ab68`), idioma `es`; por cima, o APK do branch: `PRAGMA user_version` 2 → 3, `locale_code` `es` preservado, `terms_version_answered` nulo e `terms_accepted` 0, portão "Términos de uso" em espanhol, nenhum `FATAL` no logcat.
+
+**Sabotagens (todas pegas, todas revertidas):** catálogo com host padrão; `notConfigured` removido; parcial incompleto tratado como resolvível; exceção em `resolve/main` e com SHA trocado; Notice sem a segunda frase, com SHA errado; cópia sem a §3.1; cortesia sem "prevalece"; tradução da §3.1 no resumo; Política sem o item 3.4; crédito "em parceria com o Google"; seção do Sobre removida; cláusula removida dos termos `es`; versão dos termos recuada; Notice fora do download; pendrive direto ao seletor; tela de privacidade sem a coluna nova; `onUpgrade` v3 removido; aceite de versão antiga valendo; recusa caindo no setup; "usar sem" gravando aceite; `models` fora do `@immutable` do Caddy.
+
+**Achados no caminho.** O aviso de privacidade prometia um teste que comparasse a lista dele com o banco, e o teste não existia (a lista estava em 6 itens para 8 colunas): agora existe. Itens de lista quebrados em várias linhas apareciam cortados na tela (o parser fecha o item no fim da linha); corrigido nos documentos e guardado por teste.
+
+**Pendências.** #45 (`PACK_MANIFEST_URL` com `127.0.0.1` padrão: a instalação limpa ficou sem pack, "Conteúdo ainda não disponível"); #46 (política anônima dos packs fora do repositório); #47 (o modelo só sinaliza escalada); #48 (enquadramento educacional e "Não é emergência." no pack); validação do encarregado (DPO) sobre a transferência do IP ao Hugging Face; a página da loja (checklist em `docs/operacao.md`); e o fim da exceção quando houver domínio e servidor.
+
 ### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅

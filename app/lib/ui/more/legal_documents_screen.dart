@@ -26,7 +26,10 @@ final legalDocumentsProvider =
 );
 
 class LegalDocumentsScreen extends ConsumerWidget {
-  const LegalDocumentsScreen({super.key});
+  const LegalDocumentsScreen({this.onBack, super.key});
+
+  /// Voltar quando aberta por cima de um portão, fora do roteador.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,6 +39,7 @@ class LegalDocumentsScreen extends ConsumerWidget {
 
     return GubsScaffold(
       title: l.legalTitle,
+      onBack: onBack,
       child: documents.when(
         // Espaço vazio, e NÃO um `CircularProgressIndicator`: ler dois
         // arquivos do bundle leva um frame, então o giro seria teatro — e um
@@ -74,7 +78,7 @@ class _Documents extends StatelessWidget {
         _DraftWarning(text: l.legalDraft),
         for (final document in documents) ...[
           const SizedBox(height: spacing * 3),
-          for (final block in document.blocks) _Block(block: block),
+          for (final block in document.blocks) LegalBlockView(block: block),
         ],
         const SizedBox(height: spacing * 4),
       ],
@@ -82,8 +86,10 @@ class _Documents extends StatelessWidget {
   }
 }
 
-class _Block extends StatelessWidget {
-  const _Block({required this.block});
+/// Um bloco de documento legal como widget. Público para a tela dos
+/// documentos do Gemma usar o mesmo desenho.
+class LegalBlockView extends StatelessWidget {
+  const LegalBlockView({required this.block, super.key});
 
   final LegalBlock block;
 

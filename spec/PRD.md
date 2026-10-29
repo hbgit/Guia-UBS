@@ -224,7 +224,7 @@ erDiagram
 | Inferência SLM (device ≥ 4 GB) | p95 entre 3 s e 5 s; timeout hard 5 s | Idem; `fallback_rate` **por coorte de aparelho** como guardrail |
 | Resposta total da triagem (toque→cartão) | p95 < 4 s | Telemetria agregada |
 | Cold start do app | < 2,5 s em device de entrada | Bench M5 |
-| `GET manifest.json` (edge Caddy/espelhos) | p99 < 300 ms; 99,5% disponibilidade (BASE tolera indisponibilidade) | Métricas do Caddy — única superfície de rede do app |
+| `GET manifest.json` (edge Caddy/espelhos) | p99 < 300 ms; 99,5% disponibilidade (BASE tolera indisponibilidade) | Métricas do Caddy — superfície de rede do conteúdo. A outra chamada do app é o download do modelo no 1º acesso ([ADR-003/ADR-004](stack.md)), fora do caminho do usuário |
 | API CMS | p95 < 400 ms | APM do plano de controle |
 | Footprint | APK+modelo+pack ≤ **1,2 GB**; APK base 50–80 MB; modelo 700 MB–1,2 GB; disco livre ≥ 3 GB; RAM inferência ≤ 1,5 GB | Pipeline de release |
 | Estabilidade | Crash-free ≥ 99,5%; 72 h offline sem crash | M5 + telemetria |
