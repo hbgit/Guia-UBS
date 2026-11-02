@@ -465,6 +465,73 @@ Custos aceitos:
 
 **Revisão.** Reabrir também se os termos ou a Política mudarem (a data de "Last modified" é conferida a cada troca de modelo), quando a #47 mudar o papel do modelo, ou se a alternativa Gemma 4 passar a caber no orçamento.
 
+### ADR-005 — Enquadramento institucional: projeto educativo aberto, sem vínculo com unidades de saúde: **ACEITO** (2026-11-02)
+
+**Aprovação.** Contexto institucional e decisões de implantação definidos pelo dono do projeto em 2026-11-02. O nome do app foi decidido na mesma data. O plano de execução está em [`docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md`](../docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md).
+
+**Contexto.** A especificação foi escrita supondo que o produto seria adotado e operado por uma rede municipal de saúde. Essa suposição aparece em vários pontos:
+- a Secretaria Municipal de Saúde como controladora e como quem indica os revisores clínicos ([lgpd.md](lgpd.md), [`docs/revisao-golden.md`](../docs/revisao-golden.md));
+- o piloto "em 2 UBS", com aprovação dos gestores das unidades ([PRD](PRD.md) §1.3 e §6.2, [brainstorm](brainstorm.md) M6);
+- um admin de conteúdo municipal ([espec](espec.md) §1.3);
+- o selo "regras do posto" (RF-15);
+- a triagem como "coração do produto".
+
+Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-de-decisões-arquiteturais-adr) chegou a registrar "não há vínculo formal com a UFRR", que também deixou de descrever a situação.
+
+**Decisão.**
+
+1. **Quem faz.** O Guia UBS é desenvolvido pelo **Grupo de Pesquisa PRISM (UFRR)** em cooperação com o **Programa de Educação pelo Trabalho para a Saúde (PET-Saúde): Inovação e Saúde Digital**, iniciativa do **Núcleo de Telessaúde da UFRR**.
+   - A cooperação está **em andamento, com formalização pendente**. Isto é provisório (ver Revisão).
+   - Até haver instrumento formal, os textos ao usuário só citam o PET-Saúde pelo nome com autorização registrada.
+2. **O que é, nesta ordem.** O foco primário é **educação social em saúde**: entender o SUS e a Atenção Primária, direitos, documentos e sinais de alerta. Dizer onde procurar atendimento é apoio **secundário**. Especificação, termos de uso, ficha das lojas e textos ao usuário seguem essa hierarquia.
+   - As regras R1–R3 do ADR-004 já apontam nessa direção e passam a ser a regra geral, não só uma resposta à Política do Gemma.
+3. **Aberto.** Código aberto, repositório público, sob a licença do repositório.
+4. **Sem vínculo com unidades de saúde.** O projeto não tem vínculo com unidades de saúde públicas ou privadas, secretarias ou prefeituras. Nenhum requisito pode pressupor integração, dados, operação ou aprovação delas.
+   - "UBS", "UPA" e "posto" continuam no vocabulário como **categorias de serviço do SUS**, que são conteúdo educativo. Nunca aparecem como unidade parceira.
+   - O que fica proibido é **atribuir** regra, decisão ou configuração do app a uma unidade (exemplo: "regras do posto").
+   - Parceria com unidade, secretaria ou prefeitura não é ajuste de texto: exige um ADR novo.
+5. **Nome.** O app continua **"Guia UBS"**. Ele passa a carregar, no 1º uso, na tela "Sobre" e na ficha das lojas, um aviso de não afiliação e de caráter educativo (RF-16, a especificar no E2).
+   - O `applicationId` é **neutro**: não codifica o nome. Assim, uma renomeação futura custa uma ficha nova, nunca um app novo (ADR-009, E2).
+6. **Infraestrutura própria.** Implantação, hospedagem e operação não dependem de infraestrutura de unidades de saúde nem da UFRR. O plano de controle roda numa **VPS mantida pelo PRISM** (ADR-007, E2).
+   - O APK é distribuído por **GitHub Releases e Google Play** (ADR-006, E2).
+7. **"Piloto" passa a ser o estudo piloto do projeto.** É conduzido pelo PRISM/PET-Saúde com voluntários da comunidade, fora de unidades de saúde. Há dois portões:
+   - **dogfooding interno**, só com a equipe;
+   - **estudo com participantes externos**. Este exige a política de privacidade com o controlador identificado (LGPD, art. 9º), o RIPD e, se houver coleta de dados de participantes, TCLE e parecer de Comitê de Ética em Pesquisa.
+   - **Critério de saída:** zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto.
+   - Nenhum dos dois passa por unidade de saúde.
+8. **Controlador LGPD: pendente de consulta institucional.** Um grupo de pesquisa não tem personalidade jurídica. A escolha entre a UFRR e uma pessoa física do PRISM como controladora depende de consulta ao encarregado ou à procuradoria e **não** é decidida aqui.
+   - Até a resposta, nenhum texto aponta a Secretaria como controladora, e os textos ao usuário usam o marcador "[a definir]".
+   - A identificação de quem mantém o app ("grupo de pesquisa PRISM", `prismufrr@gmail.com`; ADR-004, "Responsável") continua valendo como **identificação**, não como controlador.
+
+**Relação com o ADR-004.** Na parte institucional, este ADR prevalece sobre o "Enquadramento do projeto" e sobre o "Logo do Telessaúde UFRR" do ADR-004: a cooperação existe, e a frase "não há vínculo formal com a UFRR" deixa de valer. A revisão textual do ADR-004 vem no estágio E2, junto com o registro de que a publicação no Google Play **dispara** o gatilho "publicar o app em loja". Até lá, vale o que este ADR diz.
+
+**Fundamentos.**
+
+1. **A especificação precisa descrever o projeto que existe.** Requisito que pressupõe um parceiro inexistente não tem como ser cumprido, e o piloto ficaria esperando uma aprovação que ninguém tem autoridade para dar.
+2. **Segurança clínica não depende de parceiro.** INV-1…8, dual review, assinatura Ed25519 e a suíte golden protegem o usuário independentemente de quem opera. Nada nesta decisão os afrouxa. Os revisores clínicos passam a ser colaboradores do projeto, com registro profissional ativo, sem representar unidade.
+3. **Educação primeiro reduz a superfície regulatória.** O enquadramento "bem-estar" da RDC Anvisa nº 657/2022 (ADR-004) só se sustenta enquanto produto e textos forem coerentes com o rótulo educacional. Ordenar o produto pela educação torna essa leitura mais robusta. A leitura continua sujeita à revisão jurídica.
+4. **Atribuir regra a um posto é afirmar vínculo.** Para quem lê pouco, "regras do posto" e "Guia UBS" sugerem canal oficial. O nome fica, por decisão consciente, e o aviso de não afiliação passa a ser requisito, não cortesia.
+
+**Custos aceitos.**
+
+1. **Nome "Guia UBS" mantido.**
+   - Na revisão do Google Play, o nome pode ser lido como *misrepresentation* (aparência de canal oficial), com risco de rejeição ou suspensão da ficha.
+   - Quem lê pouco pode ler "UBS" como "oficial", mesmo com o aviso.
+   - Mitigação: o RF-16, o aviso na ficha e o `applicationId` neutro, que permite renomear sem app novo. O GitHub Releases continua como canal se a Play recusar.
+2. **Perde-se o canal "a prefeitura distribui"** (antiga H4). O alcance passa a depender dos canais públicos e das ações do PET-Saúde.
+3. **Todo texto ao usuário é revisto**, em pt e es. A versão nova dos termos reabre o "li e concordo", até duas vezes durante a transição: uma antes e outra depois da revisão jurídica.
+4. **O estudo com participantes externos espera o controlador.** O dogfooding interno pode começar antes.
+
+**Revisão.**
+- Decisões provisórias, a rever no fim do estudo piloto:
+  - a cooperação "em andamento, formalização pendente" (rever quando houver instrumento formal ou se o PET-Saúde pedir outra redação);
+  - a métrica-norte "módulos educativos concluídos sem mediação" e a meta de alcance do estudo, a fixar com o PET-Saúde.
+- **Reabrir** se:
+  - a Play recusar ou suspender a ficha pelo nome;
+  - o estudo piloto mostrar que o público lê o app como serviço oficial;
+  - surgir proposta de vínculo com unidade de saúde, secretaria ou prefeitura (aí exige ADR novo, não emenda).
+- **Emendar** quando a consulta institucional definir o controlador.
+
 ---
 
 ## 11. Para o Sponsor — Por que um app "100% offline" ainda precisa de serviços web?
