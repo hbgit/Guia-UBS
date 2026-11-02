@@ -477,14 +477,14 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | # | Situação | Resposta (só o que é público por natureza) |
 |---|---|---|
 | F-0 | respondida em 2026-11-02 | **Manter "Guia UBS"**, com aviso forte de não afiliação (RF-16). O risco vai para os Custos aceitos do ADR-005 |
-| F-3 | **parcial** em 2026-11-02 | Domínio reverso: **subdomínio da UFRR** (`br.ufrr.prism.<sufixo>`). Pendentes: o sufixo neutro e a confirmação de que o PRISM controla ou pode obter `prism.ufrr.br`. Bloqueia só o ADR-009 (E2) e o item 25 |
+| F-3 | **parcial** em 2026-11-02 | Sufixo: **`guiasaude`**: neutro quanto ao nome, específico deste app (o PRISM tem outro app com o PET-Saúde). Prefixo: **domínio próprio do PRISM, não `br.ufrr`**. O PRISM não controla `prism.ufrr.br`, e o id gravaria a UFRR para sempre. **Pendente:** registrar o domínio (junto com a F-7). Bloqueia só o ADR-009 (E2) e o item 25 |
 | F-6 | respondida em 2026-11-02 | **Play App Signing com chave gerada pela Google.** APK do GitHub e da Play não se atualizam um sobre o outro; o aviso de canal é obrigatório |
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas; revisão no fim do estudo piloto |
 | F-11 | aberta (consulta institucional) | — |
 | F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
 
-**Liberado:** E1. **E2 espera:** o sufixo e a confirmação de domínio da F-3.
+**Liberado:** E1. **E2 espera:** o registro do domínio próprio do PRISM, que fecha a F-3 (prefixo do id) e a F-7 (domínio de conteúdo e URL da política). Os administradores do domínio (F-2) ficam no registro fora do repositório.
 
 ### F.1 Material para decidir a F-0 (nome do app)
 

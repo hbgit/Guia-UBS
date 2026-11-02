@@ -476,13 +476,14 @@ Custos aceitos:
 - o selo "regras do posto" (RF-15);
 - a triagem como "coração do produto".
 
-Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-de-decisões-arquiteturais-adr) chegou a registrar "não há vínculo formal com a UFRR", que também deixou de descrever a situação.
+Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-de-decisões-arquiteturais-adr) registra "não há vínculo formal com a UFRR". A frase continua literalmente verdadeira, porque a formalização está pendente (Decisão 1), mas ficou incompleta: ela cala a cooperação com o PET-Saúde, que existe.
 
 **Decisão.**
 
 1. **Quem faz.** O Guia UBS é desenvolvido pelo **Grupo de Pesquisa PRISM (UFRR)** em cooperação com o **Programa de Educação pelo Trabalho para a Saúde (PET-Saúde): Inovação e Saúde Digital**, iniciativa do **Núcleo de Telessaúde da UFRR**.
    - A cooperação está **em andamento, com formalização pendente**. Isto é provisório (ver Revisão).
-   - Até haver instrumento formal, os textos ao usuário só citam o PET-Saúde pelo nome com autorização registrada.
+   - Até haver instrumento formal, os textos ao usuário só citam o PET-Saúde pelo nome com autorização registrada. O crédito que já existe (logo do Telessaúde UFRR sob "Realização", na tela "Sobre"; ADR-004) fica como está.
+   - A UFRR, como instituição, não responde pelo app distribuído enquanto a Decisão 8 não disser outra coisa.
 2. **O que é, nesta ordem.** O foco primário é **educação social em saúde**: entender o SUS e a Atenção Primária, direitos, documentos e sinais de alerta. Dizer onde procurar atendimento é apoio **secundário**. Especificação, termos de uso, ficha das lojas e textos ao usuário seguem essa hierarquia.
    - As regras R1–R3 do ADR-004 já apontam nessa direção e passam a ser a regra geral, não só uma resposta à Política do Gemma.
 3. **Aberto.** Código aberto, repositório público, sob a licença do repositório.
@@ -491,7 +492,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - O que fica proibido é **atribuir** regra, decisão ou configuração do app a uma unidade (exemplo: "regras do posto").
    - Parceria com unidade, secretaria ou prefeitura não é ajuste de texto: exige um ADR novo.
 5. **Nome.** O app continua **"Guia UBS"**. Ele passa a carregar, no 1º uso, na tela "Sobre" e na ficha das lojas, um aviso de não afiliação e de caráter educativo (RF-16, a especificar no E2).
-   - O `applicationId` é **neutro**: não codifica o nome. Assim, uma renomeação futura custa uma ficha nova, nunca um app novo (ADR-009, E2).
+   - O `applicationId` é **neutro quanto ao nome e específico deste app**: sufixo `guiasaude`, que sobrevive a tirar o "UBS" do nome e não colide com outros apps do PRISM com o PET-Saúde. Assim, uma renomeação futura custa uma ficha nova, nunca um app novo.
+   - O **prefixo** vem de um domínio que o PRISM controla por conta própria, **não** de `ufrr.br`: o PRISM não controla `prism.ufrr.br`, e o id é permanente, enquanto a relação com a UFRR ainda está em formalização. O domínio é registrado junto com o domínio de conteúdo da VPS (ADR-007), e o id completo é fixado no ADR-009 (E2).
 6. **Infraestrutura própria.** Implantação, hospedagem e operação não dependem de infraestrutura de unidades de saúde nem da UFRR. O plano de controle roda numa **VPS mantida pelo PRISM** (ADR-007, E2).
    - O APK é distribuído por **GitHub Releases e Google Play** (ADR-006, E2).
 7. **"Piloto" passa a ser o estudo piloto do projeto.** É conduzido pelo PRISM/PET-Saúde com voluntários da comunidade, fora de unidades de saúde. Há dois portões:
@@ -500,10 +502,10 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - **Critério de saída:** zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto.
    - Nenhum dos dois passa por unidade de saúde.
 8. **Controlador LGPD: pendente de consulta institucional.** Um grupo de pesquisa não tem personalidade jurídica. A escolha entre a UFRR e uma pessoa física do PRISM como controladora depende de consulta ao encarregado ou à procuradoria e **não** é decidida aqui.
-   - Até a resposta, nenhum texto aponta a Secretaria como controladora, e os textos ao usuário usam o marcador "[a definir]".
+   - Até a resposta, nenhum texto aponta a Secretaria como controladora. Os textos ao usuário **passam a usar** o marcador "[a definir]" no estágio E5; hoje a política de privacidade ainda diz "A ser preenchido pelo responsável pelo tratamento".
    - A identificação de quem mantém o app ("grupo de pesquisa PRISM", `prismufrr@gmail.com`; ADR-004, "Responsável") continua valendo como **identificação**, não como controlador.
 
-**Relação com o ADR-004.** Na parte institucional, este ADR prevalece sobre o "Enquadramento do projeto" e sobre o "Logo do Telessaúde UFRR" do ADR-004: a cooperação existe, e a frase "não há vínculo formal com a UFRR" deixa de valer. A revisão textual do ADR-004 vem no estágio E2, junto com o registro de que a publicação no Google Play **dispara** o gatilho "publicar o app em loja". Até lá, vale o que este ADR diz.
+**Relação com o ADR-004.** Na parte institucional, este ADR prevalece sobre o "Enquadramento do projeto" e sobre o "Logo do Telessaúde UFRR" do ADR-004: a cooperação existe e é declarada. A frase "não há vínculo formal com a UFRR" deixa de ser o enquadramento do projeto, embora continue literalmente verdadeira enquanto a formalização estiver pendente. A revisão textual do ADR-004 vem no estágio E2, junto com o registro de que a publicação no Google Play **dispara** o gatilho "publicar o app em loja". Até lá, vale o que este ADR diz.
 
 **Fundamentos.**
 
