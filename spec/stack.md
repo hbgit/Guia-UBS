@@ -530,7 +530,11 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 
 **Revisão.**
 - Decisões provisórias, cada uma com data de revisão. A revisão acontece **na primeira destas datas** que chegar: a data fixa ou o evento.
-  - **Cooperação "em andamento, formalização pendente"** (Decisão 1). Revisar até **2027-02-01**, ou quando houver instrumento formal, ou se o PET-Saúde pedir outra redação.
+  - **Cooperação "em andamento, formalização pendente"** (Decisão 1). Revisar até **2027-02-01**, ou quando houver instrumento formal, ou se o PET-Saúde pedir outra redação. **Se 2027-02-01 chegar sem instrumento formal:**
+    - a cooperação continua registrada aqui como **informal**;
+    - a citação do PET-Saúde pelo nome em texto ao usuário fica **suspensa** até a formalização: o que já tiver sido publicado sai na versão seguinte dos termos, e nada novo é acrescentado;
+    - o logo do Telessaúde UFRR na tela "Sobre" continua sob as condições do ADR-004 (crédito, não aval; sai se a UFRR ou o PET pedirem);
+    - a próxima revisão fica marcada para seis meses depois.
   - **Métrica-norte "módulos educativos concluídos sem mediação"** e meta de alcance do estudo, a fixar com o PET-Saúde. A meta precisa estar fixada **antes do 1º participante externo**; a métrica-norte é revisada até **2027-05-01** ou no fim do estudo piloto.
 - **Reabrir** se:
   - a Play recusar ou suspender a ficha pelo nome;

@@ -477,7 +477,7 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | # | Situação | Resposta (só o que é público por natureza) |
 |---|---|---|
 | F-0 | respondida em 2026-11-02 | **Manter "Guia UBS"**, com aviso forte de não afiliação (RF-16). O risco vai para os Custos aceitos do ADR-005 |
-| F-3 | **parcial** em 2026-11-02 | Sufixo: **`guiasaude`**: neutro quanto ao nome, específico deste app (o PRISM tem outro app com o PET-Saúde). Prefixo: **domínio próprio do PRISM, não `br.ufrr`**. O PRISM não controla `prism.ufrr.br`, e o id gravaria a UFRR para sempre. **Pendente:** registrar o domínio (junto com a F-7). Bloqueia só o ADR-009 (E2) e o item 25 |
+| F-3 | **parcial** em 2026-11-02 (2 registros) | **(1) 1ª resposta do dono do projeto, 2026-11-02:** "subdomínio da UFRR" (`br.ufrr.prism.<sufixo>`). **(2) Substituída pelo dono do projeto em 2026-11-02**, nas respostas ao PR #63, com as palavras: *"O PRISM não controla ou pode obter prism.ufrr.br, focar na ADR-007 (VPS do PRISM)"*. Fica valendo a (2): prefixo de **domínio próprio do PRISM, fora de `ufrr.br`**, e sufixo **`guiasaude`**, indicado na mesma rodada (neutro quanto ao nome, específico deste app; o PRISM tem outro app com o PET-Saúde). O executor não decidiu: registrou. **Pendente:** registrar o domínio (junto com a F-7). Bloqueia só o ADR-009 (E2) e o item 25 |
 | F-6 | respondida em 2026-11-02 | **Play App Signing com chave gerada pela Google.** APK do GitHub e da Play não se atualizam um sobre o outro; o aviso de canal é obrigatório |
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
@@ -623,7 +623,7 @@ A T11 (varredura) roda **no fim de cada estágio**, sobre os arquivos daquele PR
 **Leia:** §A (linhas com `stack.md`, C19, C20), §B (linhas stack), §D (para os fundamentos dos ADRs), §F (classes P), §G, §J.3 ("Plano B", para a Revisão do ADR-001).
 
 - [ ] **Passo 1:** ADR-004: acrescentar "**Revisão 2026-11-xx.**" e corrigir o Enquadramento, sem apagar o histórico.
-- [ ] **Passo 2:** escrever os ADR-006 a 009 (§G), com **Custos aceitos** e as decisões provisórias em **Revisão**.
+- [ ] **Passo 2:** escrever os ADR-006 a 009 (§G), com **Custos aceitos** e as decisões provisórias em **Revisão**. O ADR-006 (canais) e o ADR-007 (VPS) **citam a Decisão 6 do ADR-005 como origem** e só detalham. Não reapresentam a decisão como nova: os dois canais e a VPS do PRISM vieram do pedido do dono do projeto, não de pergunta aberta.
 - [ ] **Passo 3:** §1.1, §4.1 (incluindo "Turso" → `sqld`), §4.2, §5, §6, §7 (compose real, C19), §9, §11 e os fundamentos 4 e 5 do ADR-001. O fundamento 4 cita a política "assinatura só no CI" (`stack.md:314`), que faz parte da C19: passa a "assinatura pelo job `packer` sem porta, com a chave do cofre; exceção provisória na **Revisão** deste ADR (§J.3)". A **Revisão** do ADR-001 ganha o procedimento provisório da §J.3.
 - [ ] **Passo 4:** `grep -c "^### ADR-" spec/stack.md` = 9. `grep -nE "admins municipais|servidores municipais|secretaria municipal|F-Droid" spec/stack.md` só pode trazer ocorrências dentro de citação histórica do ADR-004.
 
@@ -797,7 +797,7 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
     - Quem aceitou a versão anterior vê o gate de novo. Esse teste já existe e só passa a usar a constante nova.
   - **`privacy_screen_test.dart`:** a lista declarada usa a redação nova de `privacyStoredMetered`.
 - [ ] **Passo 2:** `cd app && flutter test test/ui/more test/ui/legal test/ui/privacy`. Esperado: FAIL nos testes novos. O corpus passa nas permitidas e reprova pelo texto atual nas proibidas.
-- [ ] **Passo 3:** editar ARB e Markdown (§E.1, §E.2 parte T8a, §E.3, C13). Avançar o `<!-- versao -->` dos quatro documentos e as constantes (**1º bump**).
+- [ ] **Passo 3:** editar ARB e Markdown (§E.1, §E.2 parte T8a, §E.3, C13). O texto de `aboutNoAffiliation` (RF-16) diz **explicitamente que apoio institucional não é responsabilidade institucional**. O logo do Telessaúde UFRR na tela "Sobre" fica (ADR-005, Decisão 1), e para quem lê pouco o logo diz o contrário da frase "a UFRR não responde pelo app". Por isso o aviso fica **ao lado** dos logos, e o `about_screen_test` confere que os dois aparecem na mesma tela. Avançar o `<!-- versao -->` dos quatro documentos e as constantes (**1º bump**).
 - [ ] **Passo 4:** `flutter pub get && flutter analyze --fatal-infos && flutter test`. Esperado: tudo verde, incluindo `accessibility_test.dart` e `lgpd_surface_test.dart`.
 - [ ] **Passo 5:** instalar no aparelho e conferir gate, Sobre, privacidade e selo, em pt e es, retrato e paisagem.
 - [ ] **Passo 6:** PR do E5.
