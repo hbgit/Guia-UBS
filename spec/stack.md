@@ -492,8 +492,10 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - O que fica proibido é **atribuir** regra, decisão ou configuração do app a uma unidade (exemplo: "regras do posto").
    - Parceria com unidade, secretaria ou prefeitura não é ajuste de texto: exige um ADR novo.
 5. **Nome.** O app continua **"Guia UBS"**. Ele passa a carregar, no 1º uso, na tela "Sobre" e na ficha das lojas, um aviso de não afiliação e de caráter educativo (RF-16, a especificar no E2).
-   - O `applicationId` é **neutro quanto ao nome e específico deste app**: sufixo `guiasaude`, que sobrevive a tirar o "UBS" do nome e não colide com outros apps do PRISM com o PET-Saúde. Assim, uma renomeação futura custa uma ficha nova, nunca um app novo.
-   - O **prefixo** vem de um domínio que o PRISM controla por conta própria, **não** de `ufrr.br`: o PRISM não controla `prism.ufrr.br`, e o id é permanente, enquanto a relação com a UFRR ainda está em formalização. O domínio é registrado junto com o domínio de conteúdo da VPS (ADR-007), e o id completo é fixado no ADR-009 (E2).
+   - **Princípio do `applicationId`** (o id em si é fixado inteiro, e só, no ADR-009, no E2):
+     - não codifica "UBS", para sobreviver a uma renomeação: renomear custa uma ficha nova, nunca um app novo;
+     - é específico deste app, sem consumir um nome genérico que caberia a outro app do PRISM;
+     - fica **fora de `ufrr.br`**: o PRISM não controla `prism.ufrr.br`, e o id é permanente, enquanto a relação com a UFRR está em formalização. O prefixo vem de um domínio próprio do PRISM, registrado junto com o domínio de conteúdo (ADR-007).
 6. **Infraestrutura própria.** Implantação, hospedagem e operação não dependem de infraestrutura de unidades de saúde nem da UFRR. O plano de controle roda numa **VPS mantida pelo PRISM** (ADR-007, E2).
    - O APK é distribuído por **GitHub Releases e Google Play** (ADR-006, E2).
 7. **"Piloto" passa a ser o estudo piloto do projeto.** É conduzido pelo PRISM/PET-Saúde com voluntários da comunidade, fora de unidades de saúde. Há dois portões:
@@ -504,6 +506,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 8. **Controlador LGPD: pendente de consulta institucional.** Um grupo de pesquisa não tem personalidade jurídica. A escolha entre a UFRR e uma pessoa física do PRISM como controladora depende de consulta ao encarregado ou à procuradoria e **não** é decidida aqui.
    - Até a resposta, nenhum texto aponta a Secretaria como controladora. Os textos ao usuário **passam a usar** o marcador "[a definir]" no estágio E5; hoje a política de privacidade ainda diz "A ser preenchido pelo responsável pelo tratamento".
    - A identificação de quem mantém o app ("grupo de pesquisa PRISM", `prismufrr@gmail.com`; ADR-004, "Responsável") continua valendo como **identificação**, não como controlador.
+
+**Precedência durante a transição.** Este ADR prevalece sobre o PRD, a espec e o lgpd **no enquadramento institucional** até a propagação do estágio E2. Isso cobre: quem faz, a hierarquia educação × apoio, a ausência de vínculo com unidades de saúde, o nome, a infraestrutura própria, o estudo piloto e o controlador. Para decisões novas, vale este ADR. O PRD, que governa a hierarquia, declara essa exceção no próprio cabeçalho, para que ela não dependa de um documento subordinado afirmar que prevalece. No E2, o PRD, a espec e o lgpd passam a dizer o mesmo que este ADR, e a exceção é retirada dos dois lugares. Fora do enquadramento institucional (invariantes, FSMs, RF/RNF, bases legais), a precedência de sempre continua valendo.
 
 **Relação com o ADR-004.** Na parte institucional, este ADR prevalece sobre o "Enquadramento do projeto" e sobre o "Logo do Telessaúde UFRR" do ADR-004: a cooperação existe e é declarada. A frase "não há vínculo formal com a UFRR" deixa de ser o enquadramento do projeto, embora continue literalmente verdadeira enquanto a formalização estiver pendente. A revisão textual do ADR-004 vem no estágio E2, junto com o registro de que a publicação no Google Play **dispara** o gatilho "publicar o app em loja". Até lá, vale o que este ADR diz.
 
@@ -525,9 +529,9 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 4. **O estudo com participantes externos espera o controlador.** O dogfooding interno pode começar antes.
 
 **Revisão.**
-- Decisões provisórias, a rever no fim do estudo piloto:
-  - a cooperação "em andamento, formalização pendente" (rever quando houver instrumento formal ou se o PET-Saúde pedir outra redação);
-  - a métrica-norte "módulos educativos concluídos sem mediação" e a meta de alcance do estudo, a fixar com o PET-Saúde.
+- Decisões provisórias, cada uma com data de revisão. A revisão acontece **na primeira destas datas** que chegar: a data fixa ou o evento.
+  - **Cooperação "em andamento, formalização pendente"** (Decisão 1). Revisar até **2027-02-01**, ou quando houver instrumento formal, ou se o PET-Saúde pedir outra redação.
+  - **Métrica-norte "módulos educativos concluídos sem mediação"** e meta de alcance do estudo, a fixar com o PET-Saúde. A meta precisa estar fixada **antes do 1º participante externo**; a métrica-norte é revisada até **2027-05-01** ou no fim do estudo piloto.
 - **Reabrir** se:
   - a Play recusar ou suspender a ficha pelo nome;
   - o estudo piloto mostrar que o público lê o app como serviço oficial;

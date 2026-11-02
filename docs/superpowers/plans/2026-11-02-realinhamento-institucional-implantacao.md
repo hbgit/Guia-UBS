@@ -480,7 +480,7 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | F-3 | **parcial** em 2026-11-02 | Sufixo: **`guiasaude`**: neutro quanto ao nome, específico deste app (o PRISM tem outro app com o PET-Saúde). Prefixo: **domínio próprio do PRISM, não `br.ufrr`**. O PRISM não controla `prism.ufrr.br`, e o id gravaria a UFRR para sempre. **Pendente:** registrar o domínio (junto com a F-7). Bloqueia só o ADR-009 (E2) e o item 25 |
 | F-6 | respondida em 2026-11-02 | **Play App Signing com chave gerada pela Google.** APK do GitHub e da Play não se atualizam um sobre o outro; o aviso de canal é obrigatório |
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
-| F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas; revisão no fim do estudo piloto |
+| F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
 | F-11 | aberta (consulta institucional) | — |
 | F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
 
@@ -526,7 +526,7 @@ Formato vigente: `### ADR-NNN — <Título>: **VEREDITO** (AAAA-MM-DD)`, com **C
 | ADR-006 | Canais oficiais: GitHub Releases e Google Play | Dois canais; F-Droid é futuro; repasse entre pessoas não é canal oficial; RF-17 | — |
 | ADR-007 | Plano de controle numa VPS mantida pelo PRISM | Dono, requisitos mínimos, compose sem override, backup fora do host, Ansible. Complementa ADR-001 e §9. Referência cruzada: a assinatura do pack enquanto a VPS não existe está na **Revisão do ADR-001** (§J.3) | P: F-8, F-10 |
 | ADR-008 | Escopo de conteúdo: de "município" para "edição" | `municipality` fica no contrato, reinterpretado como edição, sem curador municipal. Renomear só com motivo de código | P: F-16 |
-| ADR-009 | Identidade, versionamento, ABIs e assinatura do app | `applicationId` neutro; SemVer + `versionCode` com os limites da §D.1; modelo de promoção; ABIs e `minSdk` (32-bit sem shim e sem download do modelo; um build por ABI **sem `--split-per-abi`**, para o `versionCode` ser único); `minAppBuild` compara com esse código único; custódia do keystore; Play App Signing e a consequência entre canais. A decisão sobre ABIs fica em **Revisão** até a verificação do plano A | F-3, F-6; P: F-5, F-17 |
+| ADR-009 | Identidade, versionamento, ABIs e assinatura do app | `applicationId` **inteiro**, num lugar só: prefixo do domínio próprio do PRISM + sufixo `guiasaude` (registro da T0); o ADR-005 só traz o princípio; SemVer + `versionCode` com os limites da §D.1; modelo de promoção; ABIs e `minSdk` (32-bit sem shim e sem download do modelo; um build por ABI **sem `--split-per-abi`**, para o `versionCode` ser único); `minAppBuild` compara com esse código único; custódia do keystore; Play App Signing e a consequência entre canais. A decisão sobre ABIs fica em **Revisão** até a verificação do plano A | F-3, F-6; P: F-5, F-17 |
 
 ---
 
@@ -599,7 +599,7 @@ A T11 (varredura) roda **no fim de cada estágio**, sobre os arquivos daquele PR
   - §4.1: linha `manifest`.
   - §6.2: Fase 2 com o estudo piloto e o critério de saída; Fase 3 com os canais do ADR-006.
   - §6.3: R6 (VPS do PRISM); R8 ("baixo alcance pelos canais"); **R9** novo ("rejeição ou suspensão na Play por política de saúde ou *misrepresentation*"; contingência: GitHub Releases continua).
-- [ ] **Passo 4:** hierarquia com `implantacao.md`. Rodapé de aprovação: coordenação do projeto, revisor clínico responsável, encarregado.
+- [ ] **Passo 4:** hierarquia com `implantacao.md`. Rodapé de aprovação: coordenação do projeto, revisor clínico responsável, encarregado. **Retirar** a nota "Transição (2026-11-02)" do cabeçalho do PRD e o parágrafo "Precedência durante a transição" do ADR-005: com o E2, PRD, espec e lgpd passam a dizer o mesmo.
 - [ ] **Passo 5:** verificar com grep frásico. `grep -nE "2 UBS|UBS piloto|unidades piloto|gestor(es)? (municipa|da UBS|das unidades)|prefeituras?/ONGs|F-Droid" spec/PRD.md` deve sair vazio. Conferir também que cada trecho do PRD citado na §A sumiu ou foi reescrito.
 
 *Aceite:* o grep sai vazio e o PRD cita os ADR-005 e 006.

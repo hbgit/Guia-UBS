@@ -1,6 +1,7 @@
 # Guia UBS — PRD Técnico (Single Source of Truth)
 
 > **Hierarquia documental:** este PRD consolida e governa [brainstorm.md](brainstorm.md) (visão), [stack.md](stack.md) (MVTS), [espec.md](espec.md) (spec formal/FSM), [lgpd.md](lgpd.md) (conformidade) e [design.html](design.html) (protótipo navegável). Em caso de conflito, vale este documento; detalhes formais (matrizes FSM completas, invariantes proposicionais) permanecem normativos na espec.
+> **Transição (2026-11-02):** no **enquadramento institucional** (quem faz, educação como foco primário e orientação de atendimento como apoio secundário, ausência de vínculo com unidades de saúde, nome, infraestrutura própria, estudo piloto, controlador), prevalece o [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr) sobre este PRD, a espec e o lgpd, até a propagação do estágio E2, que retira esta nota. Fora disso, vale a hierarquia acima.
 > **Status:** DRAFT para aprovação de stakeholders. Convenções: severidade `EMERGENCY > ROUTINE_UBS`; prioridades P0/P1/P2; complexidade S/M/L.
 
 ---
