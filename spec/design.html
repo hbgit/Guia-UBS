@@ -356,6 +356,13 @@
   .langover .brand-mark{width:72px;height:72px;border-radius:24px}
   .langover h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
   .langover p{font-size:13px;color:var(--ink-soft)}
+  /* Aviso de nao afiliacao (RF-16) e rodape institucional: texto estatico,
+     nunca botao nem link -- nao conta no teto de 8 elementos (RNF-06). */
+  .langover .notice{max-width:300px;font-size:12px;line-height:1.45;color:var(--ink-soft);
+    border-top:1px solid var(--line);padding-top:12px;text-wrap:balance}
+  .inst-foot{margin-top:auto;padding:10px 4px 2px;text-align:center;font-size:11px;
+    line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);text-wrap:balance}
+  .inst-foot strong{font-weight:700;color:var(--ink)}
   .langbtns{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:320px}
   .langbtn{
     display:flex;flex-direction:column;align-items:center;gap:8px;
@@ -422,6 +429,8 @@
         <button class="langbtn" data-lang="pt"><span class="flag">🇧🇷</span>Português</button>
         <button class="langbtn" data-lang="es"><span class="flag">🇪🇸</span>Español</button>
       </div>
+      <!-- RF-16: aviso de nao afiliacao no 1o uso, nos dois idiomas, antes da escolha -->
+      <p class="notice" role="note">Projeto educativo do PRISM/UFRR com o PET-Saúde. Não é serviço de saúde e não fala por UBS, SUS, Secretaria ou Ministério.<br>Proyecto educativo del PRISM/UFRR con el PET-Saúde. No es un servicio de salud y no habla por UBS, SUS, Secretaría ni Ministerio.</p>
     </div>
 
     <!-- app bar -->
@@ -440,33 +449,38 @@
     <main class="screens" id="screens">
 
       <!-- TAB 1 · home -->
+      <!-- Enfase educativa (ADR-005, Decisao 2; plano §E.4): os modulos educativos
+           vem primeiro e a triagem vira apoio secundario, abaixo da grade e sem
+           preenchimento. Mesmos 5 elementos acionaveis de antes + 3 abas = 8. -->
       <section class="screen active" data-screen="home">
         <div class="hero-q">
-          <h2 data-i18n="home_t">Como você está?</h2>
-          <p data-i18n="home_s">Toque em uma opção para começar</p>
+          <h2 data-i18n="home_t">O que você quer entender?</h2>
+          <p data-i18n="home_s">Aprenda como funciona o SUS</p>
         </div>
-        <button class="cta" id="startTriage">
-          <svg class="ic" viewBox="0 0 24 24"><use href="#i-body"/></svg>
-          <span data-i18n="home_cta">Estou com sintomas</span>
-        </button>
         <div class="icon-grid">
           <button class="tile tile-blue" data-goto="whereto">
             <svg class="ic" viewBox="0 0 24 24"><use href="#i-pin"/></svg>
             <span class="lbl" data-i18n="t_where">Onde ir?</span>
           </button>
-          <button class="tile tile-blue" data-goto="docs">
-            <svg class="ic" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
-            <span class="lbl" data-i18n="t_docs">Documentos</span>
-          </button>
           <button class="tile" data-goto="flow">
             <svg class="ic" viewBox="0 0 24 24"><use href="#i-desk"/></svg>
             <span class="lbl" data-i18n="t_flow">Como funciona a UBS</span>
+          </button>
+          <button class="tile tile-blue" data-goto="docs">
+            <svg class="ic" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            <span class="lbl" data-i18n="t_docs">Documentos</span>
           </button>
           <button class="tile tile-red" data-goto="emergency">
             <svg class="ic" viewBox="0 0 24 24"><use href="#i-ambulance"/></svg>
             <span class="lbl" data-i18n="t_emerg">Emergência</span>
           </button>
         </div>
+        <button class="cta cta-ghost" id="startTriage">
+          <svg class="ic" viewBox="0 0 24 24"><use href="#i-body"/></svg>
+          <span data-i18n="home_cta">Estou com sintomas</span>
+        </button>
+        <!-- rodape institucional: texto estatico, sem link -->
+        <p class="inst-foot" role="note" data-i18n-html="foot">Projeto educativo <strong>PRISM/UFRR</strong> · <strong>PET-Saúde</strong><br>Sem vínculo com unidades de saúde</p>
       </section>
 
       <!-- triage step 1: body -->
@@ -599,8 +613,8 @@
           <div style="width:48px"></div>
         </div>
         <div class="hero-q">
-          <h2 data-i18n="f_t">Na UBS é assim</h2>
-          <p data-i18n="f_s">Passo a passo do atendimento</p>
+          <h2 data-i18n="f_t">Na UBS costuma ser assim</h2>
+          <p data-i18n="f_s">Passo a passo típico do atendimento</p>
         </div>
         <div class="flow">
           <div class="fstep">
@@ -636,7 +650,7 @@
           <div class="docart" style="background:var(--green-soft);color:var(--green)">
             <svg width="44" height="44" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
           </div>
-          <div><h4 data-i18n="d1">Cartão SUS</h4><p data-i18n="d1s">Se não tiver, faça na hora — é grátis</p></div>
+          <div><h4 data-i18n="d1">Cartão SUS</h4><p data-i18n="d1s">Se não tiver, pergunte na recepção — é grátis</p></div>
         </div>
         <div class="doccard">
           <div class="docart" style="background:var(--blue-soft);color:var(--blue)">
@@ -682,7 +696,7 @@
   /* ---------- i18n ---------- */
   const STR = {
     pt: {
-      offline:"100% offline", home_t:"Como você está?", home_s:"Toque em uma opção para começar",
+      offline:"100% offline", home_t:"O que você quer entender?", home_s:"Aprenda como funciona o SUS",
       home_cta:"Estou com sintomas", t_where:"Onde ir?", t_docs:"Documentos",
       t_flow:"Como funciona a UBS", t_emerg:"Emergência",
       body_t:"Onde dói ou incomoda?", body_s:"Toque na parte do corpo",
@@ -698,21 +712,22 @@
       w_t:"Onde ir?", w_s:"Cada lugar cuida de uma coisa",
       w_ubs:"Vacina, receita, consulta, curativo", w_upa:"Acidente grave, dor forte no peito",
       w_say:"A UBS cuida de vacina, receita e consulta. A UPA e o hospital cuidam de acidente grave e dor forte no peito.",
-      f_t:"Na UBS é assim", f_s:"Passo a passo do atendimento",
+      f_t:"Na UBS costuma ser assim", f_s:"Passo a passo típico do atendimento",
       f1:"Recepção", f1s:"Mostre seu documento no balcão",
       f2:"Acolhimento", f2s:"Enfermeiro mede pressão e escuta você",
       f3:"Consulta", f3s:"Converse com o médico",
       f4:"Farmácia", f4s:"Pegue o remédio de graça, se receitado",
-      f_say:"Na UBS: primeiro a recepção, depois o acolhimento com o enfermeiro, depois a consulta com o médico, e por fim a farmácia.",
+      f_say:"Na UBS, costuma ser assim: primeiro a recepção, depois o acolhimento com o enfermeiro, depois a consulta com o médico, e por fim a farmácia.",
       d_t:"O que levar?", d_s:"Para ser atendido na UBS",
-      d1:"Cartão SUS", d1s:"Se não tiver, faça na hora — é grátis",
+      d1:"Cartão SUS", d1s:"Se não tiver, pergunte na recepção — é grátis",
       d2:"Identidade ou passaporte", d2s:"Qualquer documento com foto vale",
       d3:"Comprovante de endereço", d3s:"Conta de luz ou declaração do bairro",
-      d_say:"Leve o Cartão SUS, um documento com foto e um comprovante de endereço. Se não tiver Cartão SUS, você faz na hora, de graça.",
+      d_say:"Leve o Cartão SUS, um documento com foto e um comprovante de endereço. Se não tiver Cartão SUS, pergunte na recepção. É de graça.",
+      foot:"Projeto educativo <strong>PRISM/UFRR</strong> · <strong>PET-Saúde</strong><br>Sem vínculo com unidades de saúde",
       n_home:"Início", n_where:"Onde ir", n_docs:"Documentos", flag:"🇧🇷", tts:"pt-BR"
     },
     es: {
-      offline:"100% sin internet", home_t:"¿Cómo estás?", home_s:"Toca una opción para empezar",
+      offline:"100% sin internet", home_t:"¿Qué quieres entender?", home_s:"Aprende cómo funciona el SUS",
       home_cta:"Tengo síntomas", t_where:"¿Dónde ir?", t_docs:"Documentos",
       t_flow:"Cómo funciona la UBS", t_emerg:"Emergencia",
       body_t:"¿Dónde te duele?", body_s:"Toca la parte del cuerpo",
@@ -728,17 +743,18 @@
       w_t:"¿Dónde ir?", w_s:"Cada lugar cuida de algo",
       w_ubs:"Vacuna, receta, consulta, curación", w_upa:"Accidente grave, dolor fuerte de pecho",
       w_say:"La UBS cuida de vacunas, recetas y consultas. La UPA y el hospital cuidan de accidentes graves y dolor fuerte de pecho.",
-      f_t:"En la UBS es así", f_s:"Paso a paso de la atención",
+      f_t:"En la UBS suele ser así", f_s:"Paso a paso típico de la atención",
       f1:"Recepción", f1s:"Muestra tu documento en el mostrador",
       f2:"Acogida", f2s:"El enfermero mide la presión y te escucha",
       f3:"Consulta", f3s:"Habla con el médico",
       f4:"Farmacia", f4s:"Recoge el medicamento gratis, si es recetado",
-      f_say:"En la UBS: primero la recepción, después la acogida con el enfermero, después la consulta con el médico, y al final la farmacia.",
+      f_say:"En la UBS, suele ser así: primero la recepción, después la acogida con el enfermero, después la consulta con el médico, y al final la farmacia.",
       d_t:"¿Qué llevar?", d_s:"Para ser atendido en la UBS",
-      d1:"Tarjeta SUS", d1s:"Si no la tienes, se hace al momento — es gratis",
+      d1:"Tarjeta SUS", d1s:"Si no la tienes, pregunta en la recepción — es gratis",
       d2:"Identidad o pasaporte", d2s:"Cualquier documento con foto sirve",
       d3:"Comprobante de dirección", d3s:"Cuenta de luz o declaración del barrio",
-      d_say:"Lleva la tarjeta SUS, un documento con foto y un comprobante de dirección. Si no tienes tarjeta SUS, se hace al momento, gratis.",
+      d_say:"Lleva la tarjeta SUS, un documento con foto y un comprobante de dirección. Si no tienes tarjeta SUS, pregunta en la recepción. Es gratis.",
+      foot:"Proyecto educativo <strong>PRISM/UFRR</strong> · <strong>PET-Saúde</strong><br>Sin vínculo con unidades de salud",
       n_home:"Inicio", n_where:"Dónde ir", n_docs:"Documentos", flag:"🇪🇸", tts:"es-ES"
     }
   };
@@ -751,6 +767,8 @@
   function applyLang(){
     const t = STR[state.lang];
     $$("[data-i18n]").forEach(el=>{ const k=el.getAttribute("data-i18n"); if(t[k]) el.textContent=t[k]; });
+    /* so para strings estaticas do proprio STR (rodape), nunca para conteudo externo */
+    $$("[data-i18n-html]").forEach(el=>{ const k=el.getAttribute("data-i18n-html"); if(t[k]) el.innerHTML=t[k]; });
     $("#langchip").textContent = t.flag;
   }
 

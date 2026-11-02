@@ -1,6 +1,6 @@
 # Guia UBS — Especificação Técnica de Engenharia (Spec)
 
-> Documentos-base: [brainstorm.md](brainstorm.md) (domínio) e [stack.md](stack.md) (MVTS). Esta spec formaliza comportamento, estrutura e falhas do MVP (RF-01…RF-12). Convenção de severidade clínica: `EMERGENCY > ROUTINE_UBS`.
+> Documentos-base: [brainstorm.md](brainstorm.md) (domínio) e [stack.md](stack.md) (MVTS). Esta spec formaliza comportamento, estrutura e falhas do MVP (RF-01…RF-17, RNF-01…RNF-11). Enquadramento institucional: [ADR-005](stack.md) — projeto educativo aberto do Grupo de Pesquisa PRISM (UFRR) em cooperação com o PET-Saúde, sem vínculo com unidades de saúde. Convenção de severidade clínica: `EMERGENCY > ROUTINE_UBS`.
 
 ---
 
@@ -8,8 +8,8 @@
 
 ### 1.1 Resumo Executivo
 
-**Problema:** populações rurais, imigrantes hispanofalantes e pessoas de baixo letramento não conseguem descobrir offline quando/onde/como usar os serviços da UBS, gerando deslocamentos inúteis e sobrecarga de UPAs.
-**Solução:** app Flutter offline-only em runtime, com entrada exclusivamente iconográfica, triagem híbrida (gate determinístico de red flags + SLM local via llama.cpp/FFI), resposta multimodal (cartões + TTS) e atualização de conteúdo por pacotes SQLite assinados (Ed25519) distribuídos via CDN em janelas oportunistas de conectividade.
+**Problema:** populações rurais, imigrantes hispanofalantes e pessoas de baixo letramento não têm, offline, uma forma acessível de entender o SUS e a Atenção Primária — direitos, documentos, sinais de alerta e a diferença entre UBS, UPA e hospital —, o que gera deslocamentos inúteis e sobrecarga de UPAs.
+**Solução:** app Flutter offline-only em runtime, de **educação social em saúde** ([ADR-005](stack.md), Decisão 2): módulos educativos iconográficos com áudio são o foco primário; a orientação de onde buscar atendimento é apoio **secundário**, feita por triagem híbrida (gate determinístico de red flags + SLM local via llama.cpp/FFI) com entrada exclusivamente iconográfica, resposta multimodal (cartões + TTS) e atualização de conteúdo por pacotes SQLite assinados (Ed25519) distribuídos via CDN em janelas oportunistas de conectividade.
 **Valor técnico:** eliminação do caminho request-usuário→servidor (custo marginal ~0, escala por CDN), determinismo verificável na camada clínica crítica (zero falso negativo por construção + testes golden), e consistência de conteúdo por versionamento monotônico de artefatos imutáveis — sem sync bidirecional, sem CRDT, sem estado de servidor por usuário.
 
 ### 1.2 Matriz de Requisitos
@@ -24,15 +24,17 @@
 | RF-04 | Gate determinístico de red flags avaliado ANTES de qualquer inferência | Função pura e total sobre o domínio de tokens; 100% dos casos da tabela `red_flag_rules` → `EMERGENCY`; suite golden com pass criteria 100% (zero falso negativo tolerado) |
 | RF-05 | Inferência SLM local para casos não red-flag | p95 **entre 3 s e 5 s** em device mínimo (≥ 4 GB RAM) — [ADR-003](stack.md); contexto máximo de **512–1024 tokens por atendimento**; timeout hard de 5 s dispara RF-12; prompt determinístico (decodificação gulosa, temperatura 0) |
 | RF-06 | Resposta multimodal: cartão visual + TTS | Áudio no idioma ativo; renderização do cartão independe do TTS (falha de TTS ⇒ resposta apenas visual, nunca bloqueio) |
-| RF-07 | Guia de encaminhamento UBS vs. UPA/Hospital | Conteúdo 100% oriundo do `content.db` ativo (aberto **somente leitura**); navegável offline |
+| RF-07 | Guia educativo de encaminhamento UBS vs. UPA/Hospital (o que cada serviço do SUS faz e quando procurá-lo) | Conteúdo 100% oriundo do `content.db` ativo (aberto **somente leitura**); navegável offline |
 | RF-08 | Orientador de documentação por serviço | Idem RF-07; imagens dos documentos embarcadas no pack |
-| RF-09 | Fluxograma de atendimento da unidade | Cartões sequenciais ordenados por `step_order`; idem RF-07 |
+| RF-09 | Fluxo **típico** de atendimento na Atenção Primária (o caminho comum na UBS, sem descrever uma unidade específica) | Cartões sequenciais ordenados por `step_order`; idem RF-07 |
 | RF-10 | Sincronização de oportunidade em background | Agendada via WorkManager (`NetworkType.connected`); download retomável (HTTP Range + ETag); manifest + delta operáveis em janela de 30 s |
 | RF-11 | Verificação de integridade e swap atômico de pack | Assinatura Ed25519 do manifest + SHA-256 dos artefatos verificados antes do swap; pack inválido jamais ativado; swap via rename atômico; re-verificação no cold start |
 | RF-12 | Degradação graciosa da triagem (kill switch) | Com engine LLM inoperante, a triagem completa via `RuleOnlyEngine` com resultado conservador; flag `degraded=true` no resultado |
 | RF-13 | Ajustes de apresentação persistidos (CAP-19) | Idioma, tema (`system`, `light`, `dark`) e tamanho de letra (`1.0`, `1.3`, `1.6`) escolhidos em `/mais/ajustes`; a interface reflete em ≤ 200 ms **sem reinício** (herda o orçamento da RF-01) e a escolha sobrevive ao fechamento. Persistência exclusivamente no `user.db` (`theme_mode`, `font_scale`), enumerada pelo controle da LGPD-RF13. A ampliação escolhida no app **multiplica** a do sistema, limitada a 2× — teto do que as telas têm layout verificado |
-| RF-15 | Selo de procedência no resultado (CAP-06) | Todo cartão declara qual mecanismo produziu a orientação: `regras do posto` (o gate decidiu sem o modelo participar — na prática, red flag), `assistente virtual` (o modelo escalou acima do gate) ou `sem o assistente` (modelo indisponível, com falha ou sem opinião). Derivado de `TriageResult.source` × `degraded`, nunca persistido. O selo é o primeiro elemento do cartão e o primeiro anunciado pelo leitor de tela — ordem obrigatória: procedência → severidade → título → orientação → aviso —, e a mesma frase alimenta o TTS. **Não altera a cor de severidade do cartão.** Aviso de falibilidade estático e sempre visível, **suprimido apenas quando a severidade é emergência**, onde competiria com a instrução de procurar atendimento. **Lacuna de verificação declarada:** os estados `regras do posto` e `sem o assistente` foram verificados em aparelho real, nos dois temas; `assistente virtual` está coberto **apenas por teste de widget com motor falso** (`test/ui/triage/provenance_badge_test.dart`). Observá-lo em aparelho exige pack de conteúdo instalado, modelo provisionado **e** uma composição em que o SLM escale acima do gate — as três ao mesmo tempo. Fechar esta lacuna é pré-requisito de piloto, não de merge |
+| RF-15 | Selo de procedência no resultado (CAP-06) | Todo cartão declara qual mecanismo produziu a orientação: `regras de segurança do app` (o gate decidiu sem o modelo participar — na prática, red flag), `assistente virtual` (o modelo escalou acima do gate) ou `sem o assistente` (modelo indisponível, com falha ou sem opinião). Derivado de `TriageResult.source` × `degraded`, nunca persistido. O selo é o primeiro elemento do cartão e o primeiro anunciado pelo leitor de tela — ordem obrigatória: procedência → severidade → título → orientação → aviso —, e a mesma frase alimenta o TTS. **Não altera a cor de severidade do cartão.** Aviso de falibilidade estático e sempre visível, **suprimido apenas quando a severidade é emergência**, onde competiria com a instrução de procurar atendimento. **Lacuna de verificação declarada:** os estados `regras de segurança do app` e `sem o assistente` foram verificados em aparelho real, nos dois temas; `assistente virtual` está coberto **apenas por teste de widget com motor falso** (`test/ui/triage/provenance_badge_test.dart`). Observá-lo em aparelho exige pack de conteúdo instalado, modelo provisionado **e** uma composição em que o SLM escale acima do gate — as três ao mesmo tempo. Fechar esta lacuna é pré-requisito do estudo piloto do projeto, não de merge |
 | RF-14 | Documentos legais embarcados (CAP-19) | Aviso de privacidade e termos de uso empacotados no APK (`assets/legal/`), legíveis com o rádio desligado, em pt e es, cada um declarando a data da própria versão. Idioma sem tradução recua para `pt` em vez de omitir o documento |
+| RF-16 | Aviso de não afiliação e caráter educativo ([ADR-005](stack.md), Decisão 5) | Aparece no 1º uso (gate dos termos), na tela Sobre e na ficha da Google Play e na nota de cada release do GitHub (GitHub Releases e Google Play), em pt e es, com áudio. Diz que o app é um projeto educativo do PRISM/UFRR com o PET-Saúde, que **não é serviço de saúde** e que **não fala por UBS, SUS, Secretaria ou Ministério**. **Aceite:** chave ARB nos dois idiomas; teste confere a exibição no gate e no Sobre; o checklist de release confere a ficha |
+| RF-17 | Procedência verificável do binário | A release no GitHub traz o SHA-256 do APK e a impressão do certificado de assinatura; a versão do app aparece na tela Sobre. **Aceite:** o job de release falha sem `SHA256SUMS` |
 
 #### Não Funcionais
 
@@ -41,27 +43,30 @@
 | RNF-01 | Offline total em runtime | Toda funcionalidade do ator A1 executável com rádio desligado (verificado em teste de integração com airplane mode) |
 | RNF-02 | Latência de triagem | Gate < 50 ms; inferência p95 entre 3 s e 5 s; resposta total (toque final → cartão) p95 < 6 s |
 | RNF-03 | Footprint | APK + modelo + pack ≤ **1,2 GB** ([ADR-003](stack.md)); APK base 50–80 MB; modelo SLM 700 MB–1,2 GB (baixado no 1º acesso ou embarcado como asset); **espaço livre em disco ≥ 3 GB** verificado ANTES do download; RAM pico de inferência ≤ 1,5 GB |
-| RNF-04 | Privacidade (LGPD by design) | Zero PII em disco, logs e rede; telemetria apenas agregada por coorte (município+versão), nunca por device |
+| RNF-04 | Privacidade (LGPD by design) | Zero PII em disco, logs e rede; telemetria apenas agregada por coorte `(versão_app, versão_pack, edição)` ([ADR-008](stack.md)), k ≥ 20, nunca por device |
 | RNF-05 | Integridade de conteúdo | Cadeia de confiança: chave pública embarcada → manifest assinado → hashes dos artefatos; CDN tratada como não-confiável |
 | RNF-06 | Acessibilidade | Alvos de toque ≥ 64 dp; contraste WCAG 2.2 AA; semântica de cor fixa (verde/vermelho/azul); zero texto obrigatório |
 | RNF-07 | Estabilidade | 72 h de uso simulado offline sem crash; crash-free sessions ≥ 99,5% |
 | RNF-08 | Energia | Inferência apenas sob demanda; sem wakelocks persistentes; sync limitado à janela do WorkManager |
 | RNF-09 | Compatibilidade | Android 8.0+ (minSdk 26), arm64-v8a prioritário; **RAM mínima 4 GB, recomendada 6–8 GB** ([ADR-003](stack.md)); degradação verificada em SoCs de entrada — RAM mínima não garante classe de CPU, e SoCs dominados por Cortex-A55 operam predominantemente via `RuleOnlyEngine` |
+| RNF-10 | Release em pipeline | APK e AAB saem do CI a partir de tag `vX.Y.Z` em `main`, com `versionCode` monotônico e chave de assinatura nunca versionada; as guardas `build_apk.sh`/`model_url_check` e `check_release_permissions` rodam no job. **Aceite:** uma tag gera os artefatos; `versionCode` ≤ o publicado reprova |
+| RNF-11 | Operação do plano de controle | Backup diário cifrado fora do host, com restauração testada a cada trimestre; monitoramento externo de `manifest.json` e do CMS; imagens pinadas e atualizadas por PR; TLS automático. **Aceite:** conforme as diretrizes de operação do CMS na VPS do PRISM (`implantacao.md`) |
 
 ### 1.3 Atores e Fronteiras
 
 | Ator | Tipo | Interação |
 |---|---|---|
 | A1 Usuário final | Humano (anônimo, sem identidade) | Toques em ícones; consome cartões + áudio |
-| A2 Admin de conteúdo municipal | Humano | Edita catálogo no CMS (autenticado, Better Auth) |
-| A3 Revisor clínico | Humano | Aprova `red_flag_rules` e conteúdo antes do empacotamento (dual review) |
+| A2 Editor de conteúdo da equipe do projeto | Humano | Edita catálogo no CMS (autenticado, Better Auth) |
+| A3 Revisor clínico | Humano (profissional de saúde colaborador do projeto, com registro profissional ativo, sem representar unidade de saúde) | Aprova `red_flag_rules` e conteúdo antes do empacotamento (dual review) |
 | S1 Android OS | Sistema | WorkManager (agenda sync), engine TTS do sistema |
-| S2 Servidor de conteúdo (MinIO+Caddy self-host / espelhos) | Sistema | Serve `manifest.json` + packs imutáveis (não-confiável) |
-| S3 Packer (CI) | Sistema | Compila, assina (Ed25519) e publica packs |
+| S2 Servidor de conteúdo (MinIO+Caddy na VPS mantida pelo PRISM — [ADR-007](stack.md) — e espelhos estáticos opcionais) | Sistema | Serve `manifest.json` + packs imutáveis (não-confiável) |
+| S3 Packer (job `packer` do compose, sem porta exposta) | Sistema | Compila, assina (Ed25519) e publica packs de releases aprovadas; a chave privada nunca toca o processo HTTP do CMS |
 | S4 libSQL/`sqld` (self-host) | Sistema | Master DB do plano de controle |
 
 **Dentro da fronteira:** app device (UI, gate, engines, sync, repositórios), plano de controle (CMS, packer, buckets).
-**Fora da fronteira:** sistemas do SUS (prontuário, agendamento), Play Store, engine TTS (dependência do SO — tratada como serviço externo falível), conectividade (não garantida por definição).
+**Fora da fronteira:** sistemas do SUS (prontuário, agendamento), canais de distribuição do APK (GitHub Releases e Google Play), engine TTS (dependência do SO — tratada como serviço externo falível), conectividade (não garantida por definição).
+**Restrição explícita ([ADR-005](stack.md), Decisão 4):** o projeto não tem vínculo com unidades de saúde, secretarias ou prefeituras. Nenhum requisito pressupõe integração, dados, operação ou aprovação delas. "UBS", "UPA" e "posto" aparecem só como **categorias de serviço do SUS** (conteúdo educativo); atribuir regra, decisão ou configuração do app a uma unidade é proibido.
 
 ---
 
@@ -452,7 +457,7 @@ stateDiagram-v2
 | INV-5 | `¬∃ PII` em disco, log ou rede | Sem cadastro; telemetria por coorte; revisão de schema de telemetria no CI |
 | INV-6 | `schemaVersion(pack_ativo) ∈ faixa_suportada(binário)` | Guard em P1; contrato `pack-schema.json` versionado (stack §3.3) |
 | INV-7 | `version(pack_ativo)` é monotônica não-decrescente | Guard anti-downgrade em P1 |
-| INV-8 | Falha de LLM, TTS ou sync nunca impede navegação de conteúdo estático | Módulos falíveis são folhas; nenhuma feature depende de sync/speech. **EXCEÇÃO ÚNICA — First-Time Setup ([ADR-003](stack.md)):** no primeiro acesso, a tela clínica fica travada até o modelo ser baixado e verificado. A exceção vale só para `SetupStage != ready` no primeiro provisionamento; depois disso a INV-8 volta a valer integralmente — modelo ausente ou corrompido degrada para `RuleOnlyEngine` sem bloquear ninguém. Duas saídas obrigatórias mitigam o risco de posto sem rede: importação por pendrive/OTG e override de dados móveis pelo administrador. |
+| INV-8 | Falha de LLM, TTS ou sync nunca impede navegação de conteúdo estático | Módulos falíveis são folhas; nenhuma feature depende de sync/speech. **EXCEÇÃO ÚNICA — First-Time Setup ([ADR-003](stack.md)):** no primeiro acesso, a tela clínica fica travada até o modelo ser baixado e verificado. A exceção vale só para `SetupStage != ready` no primeiro provisionamento; depois disso a INV-8 volta a valer integralmente — modelo ausente ou corrompido degrada para `RuleOnlyEngine` sem bloquear ninguém. Duas saídas obrigatórias mitigam o risco de a pessoa estar sem rede: importação por pendrive/OTG e download por dados móveis por escolha do próprio usuário. |
 
 ### 5.2 Políticas de Consistência
 
@@ -469,11 +474,11 @@ stateDiagram-v2
 
 | SPOF | Falha catastrófica | Mitigação |
 |---|---|---|
-| **Chave privada Ed25519** | Comprometimento ⇒ atacante assina conteúdo clínico malicioso para toda a frota | Chave em cofre offline/HSM; assinatura só no CI com aprovação; **dual-key embarcada no app** (rotação sem release de binário); blast radius limitado por anti-downgrade |
+| **Chave privada Ed25519** | Comprometimento ⇒ atacante assina conteúdo clínico malicioso para toda a frota | Chave em cofre offline/HSM; assinatura só no job `packer` do compose (sem porta), depois do dual review; **dual-key embarcada no app** (rotação sem release de binário); blast radius limitado por anti-downgrade |
 | **Tabela `red_flag_rules` incorreta** | Falso negativo clínico distribuído em escala | Dual review (A3 obrigatório) + suite golden clínica em CI (pass 100%) + auditoria pós-pack; regra ausente falha para o lado conservador do RuleOnly |
 | Modelo GGUF corrompido em disco | Engine crasha no load | Checksum no boot ⇒ desativa engine ⇒ RuleOnly (RF-12); re-download do modelo em janela futura |
 | Engine TTS ausente/quebrada (ROMs cortadas) | Perda do canal de áudio p/ baixo letramento | Detecção no boot; resposta visual íntegra (INV-8); v2: áudios gravados como fallback universal |
-| Servidor de conteúdo indisponível (VPS único) | Frota congela em vN | Não catastrófico por design: app 100% funcional; convergência apenas atrasa (BASE); espelhos estáticos por rsync reduzem a janela |
+| Servidor de conteúdo indisponível (VPS único, mantido pelo PRISM) | Frota congela em vN | Não catastrófico por design: app 100% funcional; convergência apenas atrasa (BASE); espelhos estáticos por rsync reduzem a janela |
 
 ### 6.2 Estratégias de Mitigação
 
@@ -485,7 +490,7 @@ stateDiagram-v2
 ### 6.3 Segurança e Observabilidade
 
 - **Logar (local, ring buffer 1 MB, zero PII):** transições de FSM com `session_uuid` efêmero, latências de gate/inferência, causa de fallback, resultado da verificação de pack, versão ativa.
-- **Telemetria agregada (upload só na janela de sync, INV-5):** contadores por coorte `(município_do_pack, versão_app, versão_pack)` — triagens por severidade, `fallback_rate`, `p50/p95` de inferência, sucesso/falha de sync, crash count. **Nunca** device ID, timestamps finos ou sequência de tokens individual.
+- **Telemetria agregada (upload só na janela de sync, INV-5):** contadores por coorte `(versão_app, versão_pack, edição)` ([ADR-008](stack.md)), k ≥ 20, — triagens por severidade, `fallback_rate`, `p50/p95` de inferência, sucesso/falha de sync, crash count. **Nunca** device ID, timestamps finos ou sequência de tokens individual.
 - **Monitorar (plano de controle):** taxa de convergência da frota por versão de pack (métrica-alvo: ≥ 90% em 7 dias), `fallback_rate` (proxy de saúde do elo mais fraco — FFI), rejeições de assinatura (proxy de ataque ou corrupção de CDN).
 - **Propagação de identidade:** **não existe identidade de usuário** (decisão de produto). A única identidade propagada entre estados é o `session_uuid` (aleatório, in-memory, morre em S0_IDLE); no plano de controle, identidade de A2/A3 via sessão Better Auth com trilha de auditoria de edição/aprovação por pack (quem aprovou o quê está no manifest do CMS, não no device).
 
@@ -495,7 +500,7 @@ stateDiagram-v2
 
 ### 7.1 Escalabilidade
 
-- **Horizontal por conteúdo (natural):** pack por município = sharding sem infraestrutura — `manifest.json` por município sob prefixo próprio no bucket; o app aponta para o prefixo do seu município (seleção única, offline, na primeira execução ou via QR na UBS).
+- **Horizontal por conteúdo (natural):** pack por edição = sharding sem infraestrutura — `manifest.json` por edição sob prefixo próprio no bucket ([ADR-008](stack.md)); o app aponta para o prefixo da sua edição, fixado na configuração do build (`PACK_MANIFEST_URL`), sem curador municipal e sem depender de unidade de saúde. Provisoriamente há uma única edição nacional; o campo `municipality` do contrato é reinterpretado como edição.
 - **Vertical:** CMS e `sqld` escalam por upgrade de recurso do VPS (stack §5); nenhum componente de runtime do usuário escala com a base instalada além do servidor de conteúdo/espelhos.
 - **Delta packs (quando o pack crescer >10 MB):** publicar `bsdiff` entre versões consecutivas ao lado do pack completo; device aplica patch + verifica hash final — mesma cadeia de confiança, fração do egress na janela de 30 s.
 - **iOS:** mesma base Flutter; principal trabalho é a matriz de build do llama.cpp (Metal) — já isolado atrás de `TriageEngine`.
@@ -521,4 +526,4 @@ stateDiagram-v2
 > para um hispanofalante — o ícone permanece correto, e as duas línguas são
 > próximas. O sinal alimenta telemetria agregada, nunca a tela.
 
-*Rastreabilidade completa: FSM-A cobre RF-01…RF-06 e RF-12; FSM-B cobre RF-10…RF-11; RF-07…RF-09 são fluxos estáticos de leitura sob INV-3/INV-8. Critérios de aceitação herdam as métricas de sucesso do MVP (brainstorm §Métricas).*
+*Rastreabilidade completa: FSM-A cobre RF-01…RF-06 e RF-12; FSM-B cobre RF-10…RF-11; RF-07…RF-09 são fluxos estáticos de leitura sob INV-3/INV-8; RF-16 é texto estático; RF-17, RNF-10 e RNF-11 vivem fora do aparelho (pipeline de release e plano de controle). Critérios de aceitação herdam as métricas de sucesso do MVP (brainstorm §Métricas).*
