@@ -625,7 +625,7 @@ A T11 (varredura) roda **no fim de cada estágio**, sobre os arquivos daquele PR
 - [ ] **Passo 1:** ADR-004: acrescentar "**Revisão 2026-11-xx.**" e corrigir o Enquadramento, sem apagar o histórico.
 - [ ] **Passo 2:** escrever os ADR-006 a 009 (§G), com **Custos aceitos** e as decisões provisórias em **Revisão**. O ADR-006 (canais) e o ADR-007 (VPS) **citam a Decisão 6 do ADR-005 como origem** e só detalham. Não reapresentam a decisão como nova: os dois canais e a VPS do PRISM vieram do pedido do dono do projeto, não de pergunta aberta.
 - [ ] **Passo 3:** §1.1, §4.1 (incluindo "Turso" → `sqld`), §4.2, §5, §6, §7 (compose real, C19), §9, §11 e os fundamentos 4 e 5 do ADR-001. O fundamento 4 cita a política "assinatura só no CI" (`stack.md:314`), que faz parte da C19: passa a "assinatura pelo job `packer` sem porta, com a chave do cofre; exceção provisória na **Revisão** deste ADR (§J.3)". A **Revisão** do ADR-001 ganha o procedimento provisório da §J.3.
-- [ ] **Passo 4:** `grep -c "^### ADR-" spec/stack.md` = 9. `grep -nE "admins municipais|servidores municipais|secretaria municipal|F-Droid" spec/stack.md` só pode trazer ocorrências dentro de citação histórica do ADR-004.
+- [ ] **Passo 4:** `grep -c "^### ADR-" spec/stack.md` = 9. `grep -nE "admins municipais|servidores municipais|secretaria municipal" spec/stack.md` sai vazio. "F-Droid" pode aparecer no §9 e no ADR-006 **só** como canal futuro ou não previsto: o critério original o proibia fora do ADR-004 e contradizia o pedido da própria tarefa (corrigido na execução do E2).
 
 *Aceite:* os nove ADRs existem e todo item P tem data em **Revisão**.
 

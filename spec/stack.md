@@ -12,7 +12,7 @@
 |---|---|---|
 | Framework | **Flutter (Android-first, minSdk 26)** | Único runtime que entrega UI iconográfica custom + FFI para inferência nativa + um só codebase para o futuro iOS. Alternativa React Native descartada: bridge JS penaliza FFI de inferência e TTS; Kotlin puro descartado: perde iOS e o time já tem Dart como pré-requisito. |
 | Estado | **Riverpod (codegen) + freezed** | Sealed classes + exhaustive switch eliminam estados impossíveis na triagem (crítico: um estado inconsistente aqui é risco clínico). Menos boilerplate que BLoC para um app sem eventos complexos. |
-| Navegação | **GoRouter** | Declarativo, deep-link-ready (v2: abrir direto no calendário vacinal via QR na UBS). |
+| Navegação | **GoRouter** | Declarativo, deep-link-ready (v2: abrir direto num módulo educativo, como o calendário vacinal, por QR impresso no material do projeto). |
 | Inferência local | **llama.cpp via FFI (`llama_cpp_dart`) + Gemma 3 1B Q4_K_M (GGUF, `ggml-org`)**, origem por `--dart-define=MODEL_URL`: o storage próprio, ou a exceção do Hugging Face enquanto ele não existe — ver [ADR-004](#10-registro-de-decisões-arquiteturais-adr) | GGUF é o formato com maior liquidez de modelos e roda em qualquer SoC ARM sem depender de delegates. MediaPipe LLM Inference fica como *fallback* se o custo de manutenção do FFI apertar — API mais estável, porém formato `.task` proprietário e churn de versões do Google. |
 | Camada de segurança | **Motor de regras determinístico em Dart puro** (tabela de red flags versionada no content pack) | Red flags NUNCA passam pelo LLM. Regras são dados, não código → atualizáveis via sync sem release. |
 | TTS | **`flutter_tts` (engine do sistema)** pt/es; áudios gravados (Opus) para línguas indígenas | Zero MB no bundle vs. TTS neural embarcado (~80 MB/voz). Trade-off aceito: qualidade de voz varia por device. |
@@ -41,7 +41,7 @@
 ```
 ┌─ libSQL/sqld self-host (master DB) ────┐      ┌─ Device ─────────────────────┐
 │  CMS escreve via Drizzle               │      │  content.db (SQLite, RO)     │
-│         │ packer (CI)                  │ CDN  │  swap atômico no sync        │
+│         │ packer (job, sem porta)      │ CDN  │  swap atômico no sync        │
 │         ▼                              │─────▶│  user.db (Drift, RW local)   │
 │  content-pack vX.Y (SQLite file +      │      │  rules.json + modelo GGUF    │
 │  áudios Opus + manifest assinado)      │      └──────────────────────────────┘
@@ -69,8 +69,8 @@
 
 ### 3.2 IaC — Docker Compose + Ansible (100% open source)
 
-- **Ansible (GPL-3.0)** provisiona o VPS de forma reprodutível: Docker, firewall, volume criptografado (LUKS), usuário de deploy, unit systemd que roda `docker compose up -d`. Um playbook versionado no repo substitui todo o papel do SST/Railway.
-- **O `docker-compose.yaml` do §7 é o artefato de deploy** — não existe distinção dev/prod além do arquivo de override com o Caddy (TLS) e os segredos reais.
+- **Ansible (GPL-3.0)** provisiona o VPS de forma reprodutível: Docker, firewall, volume criptografado (LUKS), usuário de deploy, unit systemd que roda `docker compose -f compose.yaml up -d`. Um playbook versionado no repo substitui todo o papel do SST/Railway.
+- **O compose do §7 (`infra/compose.yaml`) é o artefato de deploy** — não existe distinção dev/prod além dos segredos reais e do `compose.override.yaml`, que é **só de dev** (edge sem TLS) e não entra na VPS ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)).
 - **Coolify (Apache-2.0)** como opção de PaaS self-hosted se a equipe quiser DX de deploy por git push — mesma máquina, zero SaaS.
 - SST v3 e Railway removidos: eram conveniência sobre nuvens comerciais; com a infra inteira num VPS, viram custo e dependência sem contrapartida. Kubernetes segue sendo autoflagelo nesta escala.
 
@@ -99,7 +99,7 @@ Renomeou uma coluna no Drizzle → o JSON Schema muda → o Dart gerado muda →
 ### 4.1 Autenticação
 
 - **Usuário final: zero auth, por design.** Nenhum cadastro, nenhum PII — isso é feature de produto (LGPD/confiança), não corte de escopo.
-- **Admin/CMS: Better Auth** (self-hosted, TS, roda em qualquer runtime incl. edge, sessões no próprio Turso via adapter Drizzle). Clerk/Auth0 descartados: vendor lock-in e custo por MAU para um sistema com ~dezenas de admins municipais é comprar problema. 2FA TOTP nativo — suficiente para editores de conteúdo de saúde.
+- **Admin/CMS: Better Auth** (self-hosted, TS, roda em qualquer runtime incl. edge, sessões no próprio `sqld` via adapter Drizzle). Clerk/Auth0 descartados: vendor lock-in e custo por MAU para um sistema com poucos operadores da equipe do projeto é comprar problema. 2FA TOTP nativo — suficiente para editores de conteúdo de saúde.
 
 ### 4.2 Cache & Entrega na Edge
 
@@ -109,11 +109,11 @@ domínio de conteúdo entrega packs ao aparelho e recusa tudo que não seja
 escreve. Blocos separados de propósito — herdar a guarda de somente-leitura no
 CMS quebraria login e aprovação.
 
-**MinIO (AGPL-3.0) atrás de Caddy (Apache-2.0)**, self-hosted no VPS, para os content packs. Caddy dá TLS automático (Let's Encrypt, gratuito) e cache de estáticos; MinIO dá a API S3 que o packer consome. Trade-off assumido ao remover a CDN comercial: perde-se capilaridade global — aceitável porque manifest e deltas são KB-scale e **qualquer servidor estático vira espelho** (nginx/Caddy + rsync, inclusive servidores municipais federados), sem nenhuma mudança no app.
+**MinIO (AGPL-3.0) atrás de Caddy (Apache-2.0)**, self-hosted no VPS, para os content packs. Caddy dá TLS automático (Let's Encrypt, gratuito) e cache de estáticos; MinIO dá a API S3 que o packer consome. Trade-off assumido ao remover a CDN comercial: perde-se capilaridade global — aceitável porque manifest e deltas são KB-scale e **qualquer servidor estático vira espelho** (nginx/Caddy + rsync, inclusive de terceiros, que não precisam ser confiáveis), sem nenhuma mudança no app.
 - Estratégia de cache em duas classes:
   - **Packs e áudios**: nomeados por hash de conteúdo (`pack-a1b2c3.db`), `Cache-Control: public, max-age=31536000, immutable` — cache infinito, invalidação impossível por construção.
   - **`manifest.json`**: `max-age=60` + ETag — único objeto mutável; o device faz um GET condicional barato e só baixa o resto se a versão mudou.
-- Assinatura **Ed25519 do manifest + hash dos artefatos** (chave pública embarcada no app): o servidor de conteúdo e qualquer espelho são infraestrutura não-confiável; o device verifica tudo. Isso torna os espelhos triviais de operar (não precisam ser confiáveis) e habilita distribuição sneakernet (APK + pack via Bluetooth/SD) com a mesma garantia de integridade.
+- Assinatura **Ed25519 do manifest + hash dos artefatos** (chave pública embarcada no app): o servidor de conteúdo e qualquer espelho são infraestrutura não-confiável; o device verifica tudo. Isso torna os espelhos triviais de operar (não precisam ser confiáveis) e mantém a garantia de integridade do **pack** mesmo quando ele chega por repasse (Bluetooth/SD). O repasse do APK entre pessoas, por sua vez, não é canal oficial ([ADR-006](#10-registro-de-decisões-arquiteturais-adr)): o binário se confere pelo SHA-256 publicado (RF-17).
 
 ---
 
@@ -126,7 +126,7 @@ CMS quebraria login e aprovação.
 | CMS (VPS/compose) | Tráfego interno (admins) | Upgrade vertical do VPS; irrelevante para usuários finais |
 | `sqld` (self-host) | Leitura só pelo packer/CMS | Já é self-host; réplica de leitura opcional em segundo container |
 
-O único caminho quente (download de pack em campanha de vacinação nacional) é arquivo estático cacheável e assinado — espelhável em qualquer servidor, de VPS comercial a máquina de secretaria municipal.
+O único caminho quente (download de pack numa ação educativa de grande alcance, como uma campanha de vacinação nacional) é arquivo estático cacheável e assinado — espelhável em qualquer servidor estático, sem que o espelho precise ser confiável.
 
 ---
 
@@ -138,97 +138,114 @@ O único caminho quente (download de pack em campanha de vacinação nacional) �
 - **Custo de longo prazo:** não é fatura de cloud — é **custo de engenharia recorrente**: recompilar `.so` para arm64/armv7, testar em matriz de SoCs de entrada, perseguir regressões de quantização. É o único componente da stack sem free tier de manutenção alheia.
 - **Migração futura:** média-alta. A mitigação está desenhada desde o dia 1: **isolar a inferência atrás de uma interface Dart única (`TriageEngine`)** com três implementações possíveis — llama.cpp FFI (default), MediaPipe LLM (fallback Google-supported), e **regras puras sem LLM** (kill switch: o app degrada para triagem 100% determinística e continua clinicamente seguro). O modelo em GGUF preserva liquidez de formato.
 
-Menção honrosa: **banda e disponibilidade do VPS único** — sem CDN comercial, o servidor de conteúdo é o gargalo de distribuição e um ponto único de indisponibilidade. Mitigação barata e já desenhada: espelhos estáticos por rsync (federáveis com servidores municipais — a assinatura Ed25519 dispensa confiança no espelho), e o app tolera indisponibilidade por design (BASE: a frota apenas converge mais devagar, nunca para de funcionar).
+Menção honrosa: **banda e disponibilidade do VPS único** — sem CDN comercial, o servidor de conteúdo é o gargalo de distribuição e um ponto único de indisponibilidade. Mitigação barata e já desenhada: espelhos estáticos por rsync (operáveis por terceiros — a assinatura Ed25519 dispensa confiança no espelho), e o app tolera indisponibilidade por design (BASE: a frota apenas converge mais devagar, nunca para de funcionar).
 
 ---
 
 ## 7. `docker-compose.yaml` de Síntese
 
-Este compose **é** a topologia de produção (não um stand-in): master DB `sqld`, CMS, MinIO como storage de packs, Caddy como edge TLS/cache e o job de empacotamento. Em dev, o app Flutter roda no host/emulador apontando para o MinIO local; o CI de build do APK usa a imagem `ghcr.io/cirruslabs/flutter` (mesmo princípio Docker-first, pipeline separado).
+Este compose **é** a topologia de produção (não um stand-in): master DB `sqld`, CMS, MinIO como storage de packs, Caddy como edge TLS/cache e o job de empacotamento. A fonte é [`infra/compose.yaml`](../infra/compose.yaml); o bloco abaixo é uma síntese dele, sem os comentários e com os `healthcheck` abreviados — em divergência, vale o arquivo. Em dev, `infra/compose.override.yaml` é sobreposto automaticamente (edge sem TLS, em `127.0.0.1:8081`/`8082`) e o app Flutter roda no host/emulador apontando para ele; **na VPS o override não entra** (`docker compose -f compose.yaml`, [ADR-007](#10-registro-de-decisões-arquiteturais-adr)). O CI do app instala o Flutter fixado por versão (`subosito/flutter-action`, `.github/workflows/app.yml`), em pipeline separado.
+
+Duas linhas de segurança aparecem pela **ausência**: `cms` e `packer` não têm `ports:`. A única porta publicada é a do `edge`; `db` e `storage` só escutam em `127.0.0.1`. A chave privada Ed25519 entra **só** no `packer`, montada `:ro` a partir do cofre, e nunca no `cms`, que atende HTTP — juntar os dois faria uma execução remota no serviço web virar conteúdo clínico assinado (INV-4). `cms/test/infra-topologia.test.ts` afirma essa topologia.
 
 ```yaml
 services:
-  db:
-    image: ghcr.io/tursodatabase/libsql-server:latest
+  db:                                   # banco master; mesmo dialeto SQLite do device
+    image: ghcr.io/tursodatabase/libsql-server:v0.24.32
+    restart: unless-stopped
+    environment:
+      SQLD_NODE: primary
     ports:
-      - "127.0.0.1:8080:8080"          # http (driver libsql)
+      - "127.0.0.1:8080:8080"
     volumes:
       - dbdata:/var/lib/sqld
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+    healthcheck: { test: ["CMD", "/bin/sqld", "--version"] }
 
-  cms:
-    build:
-      context: ./cms
-      target: dev                       # multi-stage: deps → dev → build → production
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=http://db:8080
-      - S3_ENDPOINT=http://storage:9000
-      - S3_BUCKET=content-packs
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?set in .env}
-      - PACK_SIGNING_KEY=${PACK_SIGNING_KEY:?set in .env}   # Ed25519 privada (dev key)
-    volumes:
-      - ./cms:/app
-      - /app/node_modules
-    depends_on:
-      db:
-        condition: service_healthy
-      storage:
-        condition: service_started
-    security_opt:
-      - no-new-privileges:true
-
-  storage:                              # storage de packs (dev e produção)
-    image: minio/minio:RELEASE.2025-06-13T11-33-47Z
+  storage:                              # S3-compatível: packs assinados e assets
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
     command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?defina em infra/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?defina em infra/.env}
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
-    environment:
-      MINIO_ROOT_USER: dev
-      MINIO_ROOT_PASSWORD: dev-secret
     volumes:
       - s3data:/data
+    healthcheck: { test: ["CMD", "mc", "ready", "local"] }
 
-  edge:                                 # produção: TLS automático + cache de estáticos
-    image: caddy:2.8-alpine
+  cms:                                  # plano de controle: auth com 2FA, RBAC, trilha
+    build: { context: .., dockerfile: cms/Dockerfile }
+    restart: unless-stopped
+    environment:
+      CMS_DATABASE_URL: http://db:8080
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina em infra/.env}
+      IP_HASH_SALT: ${IP_HASH_SALT:?defina em infra/.env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?defina em infra/.env}
+    # SEM `ports:` de propósito: só o edge alcança o CMS. Sem chave de assinatura.
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health')…"] }
+    security_opt: [no-new-privileges:true]
+
+  packer:                               # job: constrói, valida, assina e publica releases aprovadas
+    build: { context: .., dockerfile: cms/Dockerfile }
+    restart: unless-stopped
+    command: ["node", "--import", "tsx", "packer/src/worker.ts", "--interval", "60"]
+    environment:
+      CMS_DATABASE_URL: http://db:8080
+      S3_ENDPOINT: http://storage:9000
+      S3_BUCKET: ${S3_BUCKET:-content-packs}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?defina em infra/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?defina em infra/.env}
+      PACK_SIGNING_KEY_PATH: /run/secrets/pack_signing_key   # montada, nunca copiada para a imagem
+      PACK_SIGNING_KEY_ID: ${PACK_SIGNING_KEY_ID:-k1}
+      SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-}
+    volumes:
+      - ${PACK_SIGNING_KEY_HOST_PATH:?defina em infra/.env}:/run/secrets/pack_signing_key:ro
+    # SEM `ports:` de propósito: lê a chave privada Ed25519.
+    depends_on:
+      db: { condition: service_healthy }
+      storage: { condition: service_healthy }
+      cms: { condition: service_healthy }
+    security_opt: [no-new-privileges:true]
+
+  edge:                                 # borda pública: TLS automático e política de cache
+    image: caddy:2.9-alpine
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      CONTENT_DOMAIN: ${CONTENT_DOMAIN:?defina em infra/.env}   # só GET/HEAD
+      CMS_DOMAIN: ${CMS_DOMAIN:?defina em infra/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?defina em infra/.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
+      - caddyconfig:/config
     depends_on:
-      - storage
-      - cms
-
-  packer:                               # one-shot: compila e assina o content pack
-    build:
-      context: ./packer
-    profiles: ["tools"]                 # roda sob demanda: docker compose run --rm packer
-    environment:
-      - DATABASE_URL=http://db:8080
-      - S3_ENDPOINT=http://storage:9000
-      - PACK_SIGNING_KEY=${PACK_SIGNING_KEY:?set in .env}
-    depends_on:
-      db:
-        condition: service_healthy
+      storage: { condition: service_healthy }
+      cms: { condition: service_healthy }
 
 volumes:
   dbdata:
   s3data:
   caddydata:
+  caddyconfig:
 ```
 
+`db`, `storage` e `edge` também levam `security_opt: no-new-privileges:true` no arquivo. Em produção, `caddy:2.9-alpine` e a base `node:22-bookworm-slim` do `cms/Dockerfile` ainda são tags flutuantes; fixá-las por tag exata ou digest é diretriz de implantação do item 27 ([ADR-007](#10-registro-de-decisões-arquiteturais-adr); `spec/implantacao.md`, estágio E3).
+
 ```bash
-docker compose up -d                      # sobe plano de controle
-docker compose run --rm packer            # gera + assina + publica content-pack
+cd infra
+docker compose -f compose.yaml up -d      # VPS: sobe o plano de controle, sem o override de dev
+docker compose up -d                      # dev: o override entra automaticamente
+npm run pack:worker -- --once             # (raiz) uma rodada do job fora do laço: constrói, assina e publica
 ```
+
+**Enquanto a VPS não existe** (item 27), o pack é assinado fora dela, pelo procedimento de dois mantenedores da Revisão do [ADR-001](#10-registro-de-decisões-arquiteturais-adr); a chave continua fora de qualquer processo HTTP e fora de CI.
 
 ---
 
@@ -292,9 +309,9 @@ folga confortável.
 - **Modelo (Gemma 3 1B):** gratuito, mas *open weights* sob termos Google — **não é OSI**. Redistribuí-lo obriga a §3.1 dos Gemma Terms of Use (Notice, cópia dos termos, cláusula nos termos do app), e a Política de Uso Proibido restringe o uso; o enquadramento, a exceção do download direto do Hugging Face e o Gemma 4 (Apache 2.0, mas o E2B tem 2,84 GB e não cabe no ADR-003; não perseguido) estão no [ADR-004](#10-registro-de-decisões-arquiteturais-adr). Alternativas OSI-licenciadas de tamanho equivalente, compatíveis com o mesmo pipeline GGUF: **Qwen2.5 0.5B/1.5B (Apache-2.0)** e **Phi-3.5-mini (MIT)**. A troca é um arquivo — a interface `TriageEngine` e o eval harness clínico decidem por benchmark, não por ideologia.
 - **TTS:** o engine do sistema (Google TTS) é proprietário, embora gratuito e on-device. Opção 100% OSS que também mitiga o risco R7 (ROMs sem engine): **Piper (MIT) via sherpa-onnx**, com vozes pt-BR/es embarcadas (~20 MB/voz). Default continua `flutter_tts` (zero MB); Piper entra como fallback empacotável.
 - **CI:** GitHub Actions é serviço (gratuito para repositório público). Alternativas self-host quando desejado: **Woodpecker CI (Apache-2.0)** ou **Forgejo Actions (MIT)** no mesmo VPS.
-- **Distribuição:** Play Store cobra taxa única de publicação. Canais OSS-friendly já previstos: **F-Droid** (gratuito, exige build reprodutível — bônus de transparência para um app de saúde pública) e APK direto via sneakernet. O **packer** já é reprodutível sob `SOURCE_DATE_EPOCH` (mesma convenção do F-Droid): duas builds do mesmo conteúdo produzem `content.db` byte-idêntico, o que além da transparência evita que a frota re-baixe o pack a cada republicação sem mudança.
+- **Distribuição** ([ADR-006](#10-registro-de-decisões-arquiteturais-adr)): os canais oficiais do APK são **GitHub Releases** (gratuito, com o SHA-256 de cada APK e a impressão do certificado, RF-17) e **Google Play** (taxa única de registro da conta de desenvolvedor). O **F-Droid** fica como canal futuro, não previsto para o estudo piloto: é gratuito e exige build reprodutível — bônus de transparência para um app de saúde pública —, mas em regra assina com chave própria, o que soma mais um canal incompatível com os outros dois (ADR-009). Repasse do APK entre pessoas (Bluetooth/SD) não é canal oficial. O **packer** já é reprodutível sob `SOURCE_DATE_EPOCH` (a convenção de builds reprodutíveis): duas builds do mesmo conteúdo produzem `content.db` byte-idêntico, o que além da transparência evita que a frota re-baixe o pack a cada republicação sem mudança.
 
-**Custo remanescente honesto:** open source elimina licenças e SaaS, não hardware — resta o VPS (único item de fatura recorrente da stack inteira) e, opcionalmente, a taxa única da Play Store. Tudo o mais roda com custo marginal zero.
+**Custo remanescente honesto:** open source elimina licenças e SaaS, não hardware — resta a **VPS mantida pelo PRISM** ([ADR-007](#10-registro-de-decisões-arquiteturais-adr); único item de fatura recorrente da stack inteira), o destino do backup fora dela e a taxa única da conta do Google Play. Tudo o mais roda com custo marginal zero.
 
 ---
 
@@ -304,20 +321,38 @@ folga confortável.
 
 **Contexto:** avaliou-se o Vercel como alternativa de deploy para o plano de controle e/ou a entrega de conteúdo.
 
-**Decisão:** manter o deploy self-hosted (Compose + Ansible em VPS nacional, §3.2/§7). Vercel rejeitado.
+**Decisão:** manter o deploy self-hosted (Compose + Ansible numa VPS mantida pelo PRISM, §3.2/§7 e [ADR-007](#10-registro-de-decisões-arquiteturais-adr)). Vercel rejeitado.
 
 **Fundamentos (vinculados aos requisitos deste projeto):**
 
 1. **Perfil de carga invertido:** o Vercel otimiza frontend serverless com requisições dinâmicas na edge; este projeto tem zero requisição dinâmica de usuário — o caminho quente é download de binário estático assinado (HTTP Range para retomada), caso de uso de object storage, não de plataforma de frontend.
 2. **Docker-first violado:** requisito desta MVTS ("stack reprodutível via Dockerfile/Compose"); Vercel não executa containers arbitrários — o compose do §7, que é a topologia de produção, seria descartado.
 3. **Fragmentação da stack:** o CMS depende de `sqld` e MinIO, que o Vercel não hospeda — migrar exigiria recontratar banco gerenciado e storage externos, revertendo a auditoria do §9.
-4. **Segurança (SPOF R4):** o packer assina packs com a chave Ed25519; executá-lo em functions de terceiro colocaria o segredo mais crítico do modelo de ameaças sob custódia de SaaS, contra a política "cofre offline/HSM, assinatura só no CI". Timeout de 60 s em functions também é inadequado ao job.
-5. **Custo/termos:** o tier Hobby proíbe uso comercial/institucional — operação para prefeituras exigiria plano pago, conflitando com a decisão de stack 100% OSS (§9); banda de 100 GB/mês é insuficiente para campanhas de vacinação (milhares de devices × packs de MB).
+4. **Segurança (SPOF R4):** o packer assina packs com a chave Ed25519; executá-lo em functions de terceiro colocaria o segredo mais crítico do modelo de ameaças sob custódia de SaaS. A política é a do §7: a assinatura é feita pelo **job `packer` do compose, sem porta, com a chave trazida do cofre e montada `:ro`** — nunca no processo que atende HTTP, nunca em CI de terceiro. A exceção provisória, enquanto a VPS não existe, está na **Revisão** deste ADR. Timeout de 60 s em functions também é inadequado ao job.
+
+   *Correção de 2026-11-02:* o texto original dizia "cofre offline/HSM, assinatura só no CI", o que contradizia a topologia implementada (o `packer` assina no compose desde o item 19). O fundamento — segredo fora de SaaS — não muda.
+5. **Custo/termos:** o tier Hobby proíbe uso comercial/institucional — a operação de um projeto institucional de pesquisa e extensão ([ADR-005](#10-registro-de-decisões-arquiteturais-adr)) exigiria plano pago, conflitando com a decisão de stack 100% OSS (§9); banda de 100 GB/mês é insuficiente para ações educativas de grande alcance, como campanhas de vacinação (milhares de devices × packs de MB).
+
+   *Correção de 2026-11-02:* o texto original dizia "operação para prefeituras", premissa retirada pelo ADR-005 (Decisão 4).
 6. **LGPD:** reintroduziria operador estrangeiro e transferência internacional (arts. 33–36), revertendo a postura do [lgpd.md](lgpd.md) RF06 (datacenter no Brasil).
 
 **Exceção reconhecida:** hospedar um eventual site institucional estático — mesmo assim, o Caddy do VPS já cobre sem novo operador.
 
 **Revisão:** reavaliar somente se o projeto ganhar superfície web dinâmica voltada ao público (o que hoje contraria a arquitetura offline-first).
+
+**Revisão 2026-11-02 — exceção provisória: assinatura do pack fora da VPS.** Quem procura "quem assina o pack hoje" acha a resposta aqui. Enquanto a VPS do PRISM não está provisionada (item 27, [ADR-007](#10-registro-de-decisões-arquiteturais-adr)), o job `packer` do compose não existe em produção, e o pack é assinado na máquina de um mantenedor, sem perder o segundo par de olhos.
+
+- **O CMS não é necessário nesse período.** O app só lê arquivos estáticos, e o pack sai pelo **caminho `seed/`** (`npm run pack:build`, suíte golden por YAML e atestados de revisão clínica). Dual review clínico, portão golden e Ed25519 continuam valendo (INV-4).
+- **A chave continua fora de qualquer processo HTTP e fora de CI.** Pôr a chave privada num segredo do GitHub Actions a exporia a um terceiro e a qualquer workflow que alguém com escrita no repositório edite — seria reabrir, por outro caminho, a contradição corrigida no fundamento 4.
+- **Procedimento de dois mantenedores.** O dual review do compose garantia que ninguém assina sozinho; o packer reprodutível (`SOURCE_DATE_EPOCH`) permite manter isso com um comando.
+  1. Os dois mantenedores partem do **mesmo commit** (tag), com o mesmo `SOURCE_DATE_EPOCH` e o mesmo `PACK_VERSION`.
+  2. **Mantenedor B** (sem a chave) roda `npm run pack:check` (`--dry-run`: portões verdes, sem assinatura) e o `sha256sum` do `content.db` gerado, e publica o hash por um canal que fique registrado (comentário no PR da release de conteúdo).
+  3. **Mantenedor A** (custódia) traz a chave do cofre **sem tocar disco persistente**: arquivo em `tmpfs` (`/dev/shm`, `umask 077`, com swap desligado ou cifrado, porque página de tmpfs pode ir para o swap) ou um descritor (`PACK_SIGNING_KEY_PATH=/dev/fd/3 … 3< <(comando-do-cofre)`). Roda `npm run pack:build` e remove o arquivo do tmpfs no fim, em `trap`, mesmo se falhar.
+  4. **A** confere que o hash do `content.db` assinado (e o `packHash` do `manifest.json`) é **igual** ao publicado por **B**. Se diferir, nada é enviado.
+  5. **A** envia ao host estático. **B** baixa o manifest publicado e confere a assinatura com a chave pública embarcada e o hash (a mesma verificação do job `interop`).
+- **Antes do 1º pack por este caminho**, verifica-se que `pack:check` deixa o `content.db` no mesmo caminho e com o mesmo hash que `pack:build` (isto é, que a assinatura só toca o manifest) e que `resolveFromRepo` aceita um caminho absoluto como `/dev/fd/3`. Se qualquer um falhar, o procedimento é ajustado antes.
+- **Saída.** A exceção **sai** quando o item 27 entrar e o job `packer` do compose passar a assinar na VPS. Ela não volta a citar CI em lugar nenhum, inclusive em `infra/.env.example`.
+- **Custo aceito:** a chave passa, durante a exceção, pela máquina de uma pessoa, e não por um container sem porta. A mitigação é o procedimento acima, a segunda posição de chave que o binário já aceita (`app/lib/sync/pack_signing_keys.dart`, para rotação) e o runbook de revogação.
 
 ### ADR-002 — Fronteira com o llama.cpp: **shim C de 4 funções** (2026-08-13)
 
@@ -395,7 +430,7 @@ Textos lidos em **2026-10-29**, em duas cópias cada:
 
 As páginas de `ai.google.dev` exibem *"This documentation is deprecated. Please visit the new documentation at gemma.ai."*, e as duas versões dos termos pedem frases de Notice diferentes na §3.1(4) (ver D-A).
 
-**Enquadramento do projeto.** O Guia UBS é um projeto open source de pesquisa e extensão do grupo de pesquisa PRISM. O ambiente de produção é do próprio grupo, não há vínculo formal com a UFRR, e colaboradores do curso de Medicina apoiam a revisão clínica. Nesta fase **não há parecer jurídico formal**: a licença do modelo é cumprida por obrigação, e as perguntas que pediriam parecer viram regras de produto e implementação, com gatilhos para revisitar a parte formal.
+**Enquadramento do projeto** (revisto em 2026-11-02 pelo [ADR-005](#10-registro-de-decisões-arquiteturais-adr), que prevalece nesta parte). O Guia UBS é um projeto educativo open source de pesquisa e extensão do **Grupo de Pesquisa PRISM (UFRR)**, em cooperação com o **PET-Saúde: Inovação e Saúde Digital**, iniciativa do Núcleo de Telessaúde da UFRR; a cooperação está em andamento, com formalização pendente (ADR-005, Decisão 1). O ambiente de produção é do próprio grupo (VPS do PRISM, [ADR-007](#10-registro-de-decisões-arquiteturais-adr)), sem vínculo com unidades de saúde, e colaboradores do curso de Medicina apoiam a revisão clínica. *Texto original (2026-10-29):* "o ambiente de produção é do próprio grupo, não há vínculo formal com a UFRR" — a frase continua literalmente verdadeira enquanto a formalização estiver pendente, mas deixou de ser o enquadramento, porque calava a cooperação. Nesta fase **não há parecer jurídico formal**: a licença do modelo é cumprida por obrigação, e as perguntas que pediriam parecer viram regras de produto e implementação, com gatilhos para revisitar a parte formal.
 
 **O que o modelo pode mudar no resultado (leitura do código).** A saída do SLM é entrada não confiável. `decodeSuggestion` (`app/lib/triage/engine/engine_decoder.dart`) só aceita o identificador de um `routing_outcome` que já existe no pack e passou por revisão clínica, e a severidade vem da tabela, nunca do texto gerado. `mergeVerdict` (`app/lib/triage/domain/severity.dart`) aplica `max(gate, llm)`: o modelo nunca rebaixa. Mas, quando a severidade do modelo é maior, o resultado exibido — cartão e local — passa a ser **o desfecho que o modelo nomeou**. O modelo só sobe e só escolhe entre desfechos revisados, mas escolhe. Nenhum texto gerado chega à tela, e nada sai do aparelho (INV-2).
 
@@ -427,7 +462,7 @@ Três pontos dos termos, fora da Política: a **§3.2** reserva ao Google o dire
 - **Resolvidas por escolha conservadora:**
   - frase do Notice → D-A usa as duas;
   - se a §3.1(3) obriga quem redistribui arquivo modificado por terceiro → D-B põe o aviso de qualquer forma;
-  - aparelhos que baixaram do Hugging Face → são de desenvolvimento, e **todo aparelho do piloto é provisionado do zero a partir do storage próprio**;
+  - aparelhos que baixaram do Hugging Face → são de desenvolvimento, e **todo aparelho do estudo piloto do projeto ([ADR-005](#10-registro-de-decisões-arquiteturais-adr), Decisão 7) é provisionado do zero a partir do storage próprio**;
   - repasse do `.gguf` por pendrive → tratado como distribuição: o Notice aparece no fluxo de importação do app, e o Notice e as cópias dos termos acompanham o arquivo.
 
 **Responsável (decisão consciente).** Os termos de uso do app identificam o responsável como "Guia UBS, projeto de pesquisa e extensão desenvolvido pelo grupo de pesquisa PRISM", com o e-mail compartilhado do projeto (`prismufrr@gmail.com`). Um grupo de pesquisa não tem personalidade jurídica: a linha **identifica** quem mantém o app, mas não cria uma parte que assina contrato. Para uma iniciativa educacional open source nesta fase, é escolha razoável e comum. O projeto responde pelo app que ele distribui; quem compilar e distribuir a própria versão a partir do código responde por ela, inclusive pelos termos do modelo que embarcar (frase também no README).
@@ -464,6 +499,15 @@ Custos aceitos:
 **Gatilhos para revisitar a parte formal** (qualquer um reabre este ADR, com parecer jurídico e entidade com personalidade jurídica como responsável): publicar o app em loja; parceria formal com Secretaria de Saúde ou UBS; crescer além do piloto; coletar dados de participantes para publicação — este último é ética em pesquisa: avaliar o uso com pessoas passa antes por Comitê de Ética em Pesquisa.
 
 **Revisão.** Reabrir também se os termos ou a Política mudarem (a data de "Last modified" é conferida a cada troca de modelo), quando a #47 mudar o papel do modelo, ou se a alternativa Gemma 4 passar a caber no orçamento.
+
+**Revisão 2026-11-02 ([ADR-005](#10-registro-de-decisões-arquiteturais-adr)).** Os parágrafos acima ficam como foram aceitos em 2026-10-29; esta revisão diz o que mudou neles. D-A, D-B, D-C, R1–R3 e a exceção do Hugging Face **não** mudam de mérito.
+
+- **O gatilho "publicar o app em loja" disparou.** A distribuição pelo Google Play está decidida (ADR-005, Decisão 6; [ADR-006](#10-registro-de-decisões-arquiteturais-adr)). O gatilho reabre este ADR **agora**, e o que ele pede vira condição para a **promoção para produção** na Play e para o **estudo com participantes externos**: **parecer jurídico** sobre a parte formal (licença do modelo, Política de Uso Proibido, enquadramento RDC 657/2022) e um **responsável com personalidade jurídica**, que é o controlador ainda **pendente de consulta institucional** (F-11; ADR-005, Decisão 8). Este ADR não escolhe esse responsável. O dogfooding interno pela faixa de teste da Play ou pela *pre-release* do GitHub não espera por isso (ADR-005, Decisão 7).
+- **"Parceria formal com Secretaria de Saúde ou UBS" sai dos gatilhos.** Passa a **fora de escopo**: o projeto não tem vínculo com unidades de saúde, secretarias ou prefeituras (ADR-005, Decisão 4), e uma proposta assim exige **ADR novo**, não reabertura deste.
+- **"Crescer além do piloto" passa a ler-se** "iniciar o estudo com participantes externos ou publicar em produção no Google Play" (ADR-005, Decisão 7; ADR-006).
+- **"Domínio e servidor do projeto definidos"**, no "Fim da exceção", passa a apontar para a **VPS do PRISM** ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)) e para o domínio próprio do PRISM (F-7), cujo registro também fecha o prefixo do `applicationId` ([ADR-009](#10-registro-de-decisões-arquiteturais-adr)).
+- **Gatilhos vigentes**, em consequência: publicar em produção no Google Play (disparado; exige o parecer e o responsável acima); estudo com participantes externos; coletar dados de participantes para publicação (Comitê de Ética em Pesquisa, como antes). A lista original, no parágrafo "Gatilhos", fica como registro histórico.
+- **Enquadramento e logo.** O "Enquadramento do projeto" foi revisto acima. No "Logo do Telessaúde UFRR", a frase "a participação de um programa não é vínculo formal da universidade com o app" continua literalmente verdadeira enquanto a formalização estiver pendente, mas a cooperação com o PET-Saúde é declarada (ADR-005, Decisão 1, e suas condições para citar o PET-Saúde pelo nome).
 
 ### ADR-005 — Enquadramento institucional: projeto educativo aberto, sem vínculo com unidades de saúde: **ACEITO** (2026-11-02)
 
@@ -507,9 +551,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - Até a resposta, nenhum texto aponta a Secretaria como controladora. Os textos ao usuário **passam a usar** o marcador "[a definir]" no estágio E5; hoje a política de privacidade ainda diz "A ser preenchido pelo responsável pelo tratamento".
    - A identificação de quem mantém o app ("grupo de pesquisa PRISM", `prismufrr@gmail.com`; ADR-004, "Responsável") continua valendo como **identificação**, não como controlador.
 
-**Precedência durante a transição.** Este ADR prevalece sobre o PRD, a espec e o lgpd **no enquadramento institucional** até a propagação do estágio E2. Isso cobre: quem faz, a hierarquia educação × apoio, a ausência de vínculo com unidades de saúde, o nome, a infraestrutura própria, o estudo piloto e o controlador. Para decisões novas, vale este ADR. O PRD, que governa a hierarquia, declara essa exceção no próprio cabeçalho, para que ela não dependa de um documento subordinado afirmar que prevalece. No E2, o PRD, a espec e o lgpd passam a dizer o mesmo que este ADR, e a exceção é retirada dos dois lugares. Fora do enquadramento institucional (invariantes, FSMs, RF/RNF, bases legais), a precedência de sempre continua valendo.
-
-**Relação com o ADR-004.** Na parte institucional, este ADR prevalece sobre o "Enquadramento do projeto" e sobre o "Logo do Telessaúde UFRR" do ADR-004: a cooperação existe e é declarada. A frase "não há vínculo formal com a UFRR" deixa de ser o enquadramento do projeto, embora continue literalmente verdadeira enquanto a formalização estiver pendente. A revisão textual do ADR-004 vem no estágio E2, junto com o registro de que a publicação no Google Play **dispara** o gatilho "publicar o app em loja". Até lá, vale o que este ADR diz.
+**Relação com o ADR-004.** Na parte institucional, este ADR prevalece sobre o "Enquadramento do projeto" e sobre o "Logo do Telessaúde UFRR" do ADR-004: a cooperação existe e é declarada. A frase "não há vínculo formal com a UFRR" deixa de ser o enquadramento do projeto, embora continue literalmente verdadeira enquanto a formalização estiver pendente. A revisão textual do ADR-004 foi feita no estágio E2 (ver "Revisão 2026-11-02 (ADR-005)" no fim do ADR-004), com o registro de que a publicação no Google Play **dispara** o gatilho "publicar o app em loja".
 
 **Fundamentos.**
 
@@ -542,23 +584,169 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
   - surgir proposta de vínculo com unidade de saúde, secretaria ou prefeitura (aí exige ADR novo, não emenda).
 - **Emendar** quando a consulta institucional definir o controlador.
 
+### ADR-006 — Canais oficiais do APK: GitHub Releases e Google Play: **ACEITO** (2026-11-02)
+
+**Contexto.** A **origem** desta decisão é o [ADR-005](#10-registro-de-decisões-arquiteturais-adr), Decisão 6: o APK é distribuído por **GitHub Releases e Google Play**, por pedido do dono do projeto, não por pergunta aberta. Este ADR só detalha. A especificação anterior previa Play + F-Droid + repasse por Bluetooth/SD, sem GitHub Releases, e um canal "a prefeitura distribui" que deixou de existir com o fim da premissa municipal (ADR-005, Custo aceito 2).
+
+**Decisão.**
+
+1. **Dois canais oficiais:**
+   - **GitHub Releases**, no repositório público: um APK por ABI ([ADR-009](#10-registro-de-decisões-arquiteturais-adr)), `SHA256SUMS` e a impressão SHA-256 do certificado de assinatura. O AAB não é anexado.
+   - **Google Play**, com o AAB, que já entrega a ABI certa a cada aparelho.
+2. **Os dois canais publicam o mesmo build**: mesma tag `vX.Y.Z`, mesmo `versionCode` (modelo de promoção do ADR-009). O estudo piloto roda na faixa de teste da Play e na *pre-release* do GitHub. Sem conta Play (F-4), os dois portões do estudo rodam só pela *pre-release* do GitHub.
+3. **Procedência verificável (RF-17).** A release no GitHub traz o SHA-256 do APK e a impressão do certificado, e a versão aparece na tela "Sobre". O job de release falha sem `SHA256SUMS`.
+4. **F-Droid é canal futuro**, não previsto para o estudo piloto. Entrar nele exige ADR próprio: o F-Droid em regra assina com chave própria, o que cria um terceiro canal incompatível com os outros dois (ver ADR-009, Play App Signing).
+5. **Repasse entre pessoas não é canal oficial.** Quem recebe o APK por Bluetooth, SD ou mensagem confere o SHA-256 contra a release do GitHub. O **pack** repassado continua seguro sem isso, porque o aparelho verifica a assinatura Ed25519 (§4.2). O repasse do `.gguf` continua tratado como distribuição (ADR-004).
+6. **A ficha da Play e a nota de release** seguem as regras R1–R3 do ADR-004 e trazem o aviso de não afiliação e de caráter educativo (RF-16), a política de privacidade em URL pública (F-7) e o aviso de canal do ADR-009.
+
+**Fundamentos.**
+
+1. **O GitHub Releases é o canal que não depende de terceiro aprovar.** É gratuito, público, e a transparência do binário (hash + certificado) acompanha o código aberto (ADR-005, Decisão 3). Se a Play recusar a ficha — risco registrado no ADR-005 (nome "Guia UBS") —, o projeto continua distribuindo.
+2. **A Play é onde o público instala.** Quem lê pouco não instala APK de fora da loja; a Play também entrega atualização sem gesto do usuário.
+3. **Um build, dois canais.** O artefato testado no estudo é o artefato publicado; rebuild por canal criaria duas versões com o mesmo número.
+
+**Custos aceitos.**
+
+1. **Os dois canais não se atualizam um sobre o outro** (Play App Signing com chave da Google, ADR-009). Trocar de canal exige desinstalar; os ajustes do `user.db` se perdem. Nada de saúde é guardado (INV-2), então a perda é de preferências.
+2. **Taxa única da conta de desenvolvedor da Play** e as exigências da conta (teste fechado para conta pessoal nova, `targetSdk` mínimo, Data safety, declaração de app de saúde) — todas **(conferir no Play Console na data da publicação)**.
+3. **Sem F-Droid no estudo piloto**, perde-se o selo de build reprodutível de terceiro. O `SHA256SUMS` e o código aberto cobrem parte disso.
+
+**Revisão.**
+- Reabrir se a Play recusar ou suspender a ficha (aí o GitHub Releases segue sozinho, e o ADR-005 é reaberto pelo nome), se o projeto decidir entrar no F-Droid, ou se um canal novo for proposto.
+- A declaração de Data safety e a de app de saúde são **propostas**, sujeitas à revisão jurídica (T7-R), e conferidas no Play Console na data da publicação. Nada aqui decide base legal.
+
+### ADR-007 — Plano de controle numa VPS mantida pelo PRISM: **ACEITO** (2026-11-02)
+
+**Contexto.** A **origem** desta decisão é o [ADR-005](#10-registro-de-decisões-arquiteturais-adr), Decisão 6: o plano de controle roda numa **VPS mantida pelo PRISM**, sem depender de infraestrutura de unidades de saúde nem da UFRR. Este ADR só detalha. O [ADR-001](#10-registro-de-decisões-arquiteturais-adr) e a §9 já fixavam "Compose + Ansible num VPS, 100% OSS", mas sem dono: o VPS aparecia como "provedor contratado" sem quem contrate, e o compose não dizia como sobe em produção.
+
+**Decisão.**
+
+1. **Dono.** A VPS é contratada e administrada pelo PRISM; não é da UFRR nem de unidade de saúde. **Dois administradores nomeados por papel** (F-2) para a VPS e para o domínio. Provedor, região, snapshot e LUKS (F-1) e os nomes ficam no registro de decisões fora do repositório; o país do provedor só entra em texto público se a revisão jurídica exigir.
+2. **Requisitos mínimos:** datacenter no Brasil, que é a postura do ADR-001 (fundamento 6) e da LGPD-RF06. Outro país só com transferência internacional registrada no RIPD e revisão deste ADR; ≥ 2 vCPU, 4 GB de RAM, disco ≥ 80 GB, snapshot disponível.
+3. **Topologia = `infra/compose.yaml`, sem override.** Sobe com `docker compose -f compose.yaml up -d`, por unit systemd; o `compose.override.yaml` é só de dev (edge sem TLS) e não entra na VPS. Só 80/443 públicas; `sqld` e MinIO em `127.0.0.1`; `cms` e `packer` sem `ports:` (§7). A chave Ed25519 fica `:ro` **só** no `packer`.
+4. **Domínio e TLS.** Domínio próprio do PRISM, fora de `ufrr.br` (ADR-005, Decisão 5), com `CONTENT_DOMAIN` (só GET/HEAD) e `CMS_DOMAIN`; Caddy com ACME e `ACME_EMAIL` de caixa do grupo. O domínio ainda não está registrado: **[a definir — F-7]**. O mesmo registro fecha o prefixo do `applicationId` ([ADR-009](#10-registro-de-decisões-arquiteturais-adr)).
+5. **Provisionamento por Ansible** (item 27), fonte da verdade: usuário de deploy com SSH só por chave e `PermitRootLogin no`, firewall 22/80/443, `unattended-upgrades` de segurança, Docker pinado, LUKS se o provedor permitir. `infra/.env` só na VPS, com permissão 600, e cópia cifrada no cofre.
+6. **Atualização.** Imagens com tag exata ou digest; toda mudança por PR com CI verde; migração do banco master só depois de backup.
+7. **Backup fora do host** (item 28): diário e cifrado (restic/age) — `sqld` (dump consistente), o que no MinIO for fonte primária, `caddydata` e `.env` —, com teste de restauração trimestral numa VPS descartável. Prioridade: banco master e trilha de auditoria, que não são reconstruíveis; os packs são, pelo packer reprodutível.
+8. **Monitoramento:** monitor externo de `manifest.json` e do CMS, alertas de expiração do TLS e de disco acima de 80 %, `fail2ban` no SSH. Incidente: o runbook LGPD-RF12 nomeia o PRISM como comunicante, sob o controlador pendente (F-11).
+9. **Assinatura do pack enquanto a VPS não existe:** ver a **Revisão do [ADR-001](#10-registro-de-decisões-arquiteturais-adr)** — procedimento provisório de dois mantenedores, que sai quando o item 27 entrar.
+
+**Fundamentos.**
+
+1. **Infraestrutura sem dono não tem quem responda por incidente** nem por backup. Nomear o PRISM e dois administradores fecha essa lacuna sem criar vínculo com unidade de saúde.
+2. **O app não depende do CMS em runtime** (§2.3): a VPS cair atrasa a convergência da frota, nunca para o app. Por isso uma VPS única, com backup fora dela, é proporcional ao risco.
+3. **Sem override em produção** porque o override de dev tira o TLS do edge; carregá-lo na VPS por um `docker compose up` sem `-f` é o erro mais barato de cometer.
+
+**Custos aceitos.**
+
+1. **Chave Ed25519 numa VPS sem HSM.** Mitigação: a segunda posição de chave que o binário já aceita (rotação) e o runbook de revogação.
+2. **VPS única** como ponto de indisponibilidade da entrega de conteúdo (§6); mitigação por espelhos estáticos, que não precisam ser confiáveis.
+3. **Fatura recorrente** da VPS e do destino do backup, pagas pelo PRISM.
+
+**Revisão.**
+- Decisões provisórias, revistas **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**:
+  - **destino do backup fora da VPS** (F-8): um segundo provedor de armazenamento de objetos, com conta do PRISM; a retenção de 7 diárias, 4 semanais e 6 mensais também é provisória;
+  - **retenção do log do Caddy em 14 dias** (F-10), sujeita também à revisão jurídica (T7-R).
+- Reabrir se o PRISM deixar de manter a VPS, se a revisão jurídica exigir datacenter ou operador diferente, ou se o projeto ganhar superfície web dinâmica pública (ADR-001).
+
+### ADR-008 — Escopo de conteúdo: de "município" para "edição": **ACEITO** (2026-11-02)
+
+**Contexto.** O contrato do pack e o banco master usam `municipality` (`municipalityCode` no manifest e em `contract/src/content-schema.ts`, as tabelas municipais do CMS, o campo `municipality` da telemetria, `contract/src/telemetry.ts`), desenhados para que cada município publicasse e curasse o próprio pack. O [ADR-005](#10-registro-de-decisões-arquiteturais-adr) (Decisão 4) retirou a premissa: não há prefeitura, secretaria nem curador municipal.
+
+**Decisão.**
+
+1. **`municipality` fica no contrato e no schema, reinterpretado como "edição"** do conteúdo: um recorte publicado pela equipe do projeto, nacional ou regional. Não há curador municipal; quem autora e revisa é a equipe do projeto, sob o dual review de sempre.
+2. **Nenhum identificador é renomeado** por este ADR. Renomear `municipality` só com motivo de código (por exemplo, uma mudança de schema que já quebre a compatibilidade), num PR que siga a cadeia de type safety (§3.3) e a versão de `schemaVersion`.
+3. **O corte global × edição continua imposto pelas FKs.** Regras de red flag seguem globais: correção alcança toda edição por construção.
+4. **Texto novo** (spec, docs, CMS) diz "edição"; onde precisar citar o campo, diz "`municipality` (edição)".
+
+**Fundamentos.**
+
+1. **O mecanismo serve sem a premissa.** Separar conteúdo por recorte continua útil (ex.: uma edição de Roraima, com serviços e idiomas da região), e não exige parceiro.
+2. **Renomear custa mais do que explica.** O nome atravessa contrato, codegen Dart, migrações imutáveis do CMS e packs já assinados; trocar por semântica, sem ganho funcional, seria churn com risco de quebra de compatibilidade de pack.
+
+**Custos aceitos.**
+
+1. **O nome no código diverge do sentido.** Quem lê `municipality` precisa deste ADR para não supor curadoria municipal.
+2. **`municipality` na telemetria** continua sendo o nome da coorte de edição; o k-anonimato ≥ 20 não muda.
+
+**Revisão.**
+- **Pack único nacional** (F-16, provisório): uma edição nacional, com o mecanismo de edição preservado. Revisar **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**, ou antes se o estudo pedir uma edição regional.
+- Reabrir se surgir motivo de código para renomear, ou se alguém propuser edição curada por terceiro (aí vale também o ADR-005: parceria exige ADR novo).
+
+### ADR-009 — Identidade, versionamento, ABIs e assinatura do app: **ACEITO** (2026-11-02)
+
+**Contexto.** Hoje o app sai como `0.1.0+1`, sem tags, só em `arm64-v8a`, com `minSdk 26`, e com o `applicationId` de exemplo `br.gov.exemplo.guia_ubs`, que leva `gov` e codifica o nome. Os canais do [ADR-006](#10-registro-de-decisões-arquiteturais-adr) exigem fixar identidade, versão e assinatura **antes** da 1ª publicação na Play, porque o id não muda depois dela. O [ADR-005](#10-registro-de-decisões-arquiteturais-adr) (Decisão 5) traz só o **princípio** do id; o id inteiro é fixado aqui, e só aqui. A implementação é o item 25 do roadmap.
+
+**Decisão.**
+
+1. **`applicationId`:** `[a definir — F-3: domínio próprio do PRISM, fora de ufrr.br]`**`.guiasaude`**.
+   - O **sufixo `guiasaude` está decidido** (registro da T0, 2026-11-02): neutro quanto ao nome "Guia UBS", específico deste app — o PRISM tem outro app com o PET-Saúde.
+   - O **prefixo** é o domínio reverso de um domínio próprio do PRISM, fora de `ufrr.br` (o PRISM não controla `prism.ufrr.br`), sem `gov`. O domínio ainda não está registrado; o registro é o mesmo da F-7 ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)).
+   - **Esta é a única pendência que bloqueia o PR do estágio E2.** Fechado o domínio, o marcador acima é trocado pelo prefixo, e o id não muda nunca mais.
+   - Mudam junto, no item 25: os nomes de tarefa do WorkManager (`pack_sync_scheduler.dart`, `model_sync_scheduler.dart`) e `app/tool/release_permissions.dart`.
+2. **Versionamento SemVer** no `pubspec.yaml`, `MAJOR.MINOR.PATCH`:
+   - MAJOR: o app passa a rejeitar packs de um `schemaVersion` major antigo, ou muda o comportamento perceptível da orientação;
+   - MINOR: funcionalidade nova;
+   - PATCH: correção.
+   - Tag anotada `vX.Y.Z` em `main`; `CHANGELOG.md` na raiz, no formato Keep a Changelog. A versão do pack (INV-7) e o `schemaVersion` seguem independentes da versão do app.
+3. **`versionCode = MAJOR*10000 + MINOR*100 + PATCH`**, estritamente crescente e **único entre os canais**.
+   - **Limites:** MINOR e PATCH ≤ 99; MAJOR ≤ 210, porque a Play aceita `versionCode` até 2 100 000 000 (conferir no Play Console na data da publicação).
+   - Estourar MINOR ou PATCH exige um MAJOR novo ou a revisão desta fórmula.
+4. **Modelo de promoção, não de rebuild.** O artefato testado é o publicado: mesma tag, mesmo `versionCode`, mesmo binário.
+   - Na Play, o AAB sobe para a faixa de teste e é **promovido** para produção.
+   - No GitHub, a release nasce marcada como ***pre-release***, e a marca sai na promoção; o APK e o `SHA256SUMS` não mudam.
+   - Não há sufixo `-rc` nem PATCH reservado: defeito achado no estudo piloto vira um PATCH novo e uma nova rodada na faixa de teste.
+5. **ABIs e versão mínima:**
+   - `arm64-v8a` **e** `armeabi-v7a`; `minSdk` continua 26.
+   - **`armeabi-v7a` sai sem o shim nativo** ([ADR-002](#10-registro-de-decisões-arquiteturais-adr)): nesses aparelhos a triagem roda pelo `RuleOnlyEngine`, degradação que a INV-8 já prevê. Um aparelho 32-bit dificilmente tem memória para o modelo de ~806 MB ([ADR-003](#10-registro-de-decisões-arquiteturais-adr)), então compilar o llama.cpp para ele não compensa.
+   - **Onde o shim não existe, o app não oferece nem inicia o download do modelo.** Baixar 806 MB que nunca vão rodar desperdiça o plano de dados de quem menos pode pagar. O item 25 cobre isso com teste.
+   - **Um build por ABI, sem `--split-per-abi`:** cada APK sai de um `flutter build apk --release --target-platform=android-arm64` (e `android-arm`) separado, e o AAB usa o mesmo `versionCode`. O motivo é verificado no SDK: com `--split-per-abi`, o plugin gradle do Flutter **sobrescreve** o código, `versionCodeOverride = abiVersionCode * 1000 + versionCode` (`packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:669-674`), com `armeabi-v7a`=1, `arm64-v8a`=2 e `x86_64`=4 (`FlutterPluginConstants.kt:39-45`). Isso quebraria as duas premissas acima: os três artefatos sairiam com códigos diferentes, e o deslocamento de 1000 cai **dentro** da fórmula, que anda de 100 em 100 por MINOR — o APK `arm64` de `0.1.0` (100 + 2000 = 2100) colidiria com o `0.21.0`.
+6. **Guarda de `minAppBuild`.** Hoje o app lê `minAppBuild` do manifest (`app/lib/sync/pack_manifest.dart`), mas **nenhum código o compara com nada**, e o packer grava `1` por padrão. Passa a valer:
+   - `minAppBuild` compara com o `versionCode` **único** do item 5;
+   - a guarda é implementada no item 25, com teste;
+   - **até lá, publicar pack que dependa de app novo é proibido**, porque nenhum aparelho o recusaria.
+7. **Play App Signing com chave gerada pela Google** (F-6, respondida em 2026-11-02). Consequência entre canais: o APK do GitHub (assinado pela chave de release do projeto) e o da Play (assinado pela chave da Google) **não se atualizam um sobre o outro**. A nota de release e a página do projeto avisam: "troque de canal só desinstalando; seus ajustes se perdem; nada de saúde é guardado".
+8. **Custódia do keystore de release** (o que assina o APK do GitHub e o AAB enviado à Play): gerado uma vez, guardado em cofre offline com **duas custódias**, no mesmo regime da chave Ed25519. Nunca vai para o repositório (o `.gitignore` já cobre); no CI, entra como segredo do *environment* `release`, com aprovação manual de um segundo mantenedor. É uma chave **diferente** da Ed25519 do pack, que continua fora de CI ([ADR-001](#10-registro-de-decisões-arquiteturais-adr), Revisão).
+
+**Fundamentos.**
+
+1. **O id é a única coisa que não muda depois da 1ª publicação.** Por isso ele não codifica o nome (que pode mudar, ADR-005) e só usa domínio que o PRISM controla.
+2. **Um `versionCode` só, para todo artefato**, é o que permite o modelo de promoção, a comparação de `minAppBuild` e a rejeição de downgrade sem tabela por ABI.
+3. **32-bit sem shim** amplia o público que mais precisa dos módulos educativos, sem prometer o assistente onde ele não roda.
+4. **Chave gerada pela Google** tira do projeto o risco de perder a chave de assinatura da Play; a chave de upload perdida pode ser substituída pelo procedimento da Play (conferir no Play Console na data da publicação).
+
+**Custos aceitos.**
+
+1. **Canais incompatíveis** (item 7): trocar de canal custa desinstalar e perder preferências.
+2. **Um build a mais no CI do app** (não do shim), para `armeabi-v7a`, e um segundo APK no GitHub, com o seu SHA-256.
+3. **O PR do E2 espera o registro do domínio** (item 1).
+4. **Regras da Play** citadas aqui — limite de `versionCode`, `targetSdk` mínimo, tamanho do AAB — mudam por decisão de terceiro; cada uma é conferida no Play Console na data da publicação.
+
+**Revisão.**
+- Decisões provisórias, revistas **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**:
+  - **política de versionamento e modelo de promoção** (F-5; itens 2 a 4);
+  - **ABIs e `minSdk`** (F-17; item 5). Antes de virar definitiva, o item 25 verifica que cada APK contém só as `.so` da sua ABI e que o `versionCode` lido no aparelho (`aapt dump badging` e a tela "Sobre") é igual nos três artefatos. Se falhar, a alternativa é o `minAppBuild` comparar com um número derivado do SemVer injetado por `--dart-define`, e não com o `versionCode` do pacote. Ainda a medir: o tamanho do APK `armeabi-v7a` e o custo da configuração a mais no CI.
+- **Emendar** quando o domínio próprio do PRISM for registrado (F-3), trocando o marcador do item 1 pelo prefixo.
+- Reabrir se a Play mudar o limite de `versionCode` ou a política de assinatura, ou se o projeto passar a enviar chave própria à Play (o que tornaria os canais compatíveis, com a custódia inteira na equipe).
+
 ---
 
 ## 11. Para o Sponsor — Por que um app "100% offline" ainda precisa de serviços web?
 
-> Seção não técnica, para apresentação a patrocinadores e gestores. Explica em linguagem simples o papel da infraestrutura dos §§1.2–7.
+> Seção não técnica, para apresentação a patrocinadores, parceiros de pesquisa e à coordenação do projeto. Explica em linguagem simples o papel da infraestrutura dos §§1.2–7.
 
-O Guia UBS funciona inteiro no celular, sem internet — a triagem, a voz, as orientações. Então é justo perguntar: **para que pagar por qualquer coisa na internet?** A resposta curta: o celular não precisa dos serviços web para *funcionar*, mas o projeto precisa deles para o conteúdo **nascer, ser confiável e chegar até os celulares**. São três papéis:
+O Guia UBS é um projeto educativo de código aberto do Grupo de Pesquisa PRISM (UFRR), em cooperação com o PET-Saúde ([ADR-005](#10-registro-de-decisões-arquiteturais-adr)). Ele ensina, no próprio celular e sem internet, como funcionam o SUS e a Atenção Primária, quais são os direitos e documentos de quem procura atendimento e quais sinais de alerta pedem ajuda urgente — e, como apoio, diz que tipo de serviço procurar. O app não fala por nenhuma unidade de saúde, secretaria ou ministério. Então é justo perguntar: **para que pagar por qualquer coisa na internet?** A resposta curta: o celular não precisa dos serviços web para *funcionar*, mas o projeto precisa deles para o conteúdo **nascer, ser confiável e chegar até os celulares**. São três papéis:
 
-### 11.1 A "redação" — onde o conteúdo de saúde é escrito e aprovado
+### 11.1 A "redação" — onde o conteúdo educativo é escrito e revisado
 
-Horários da UBS mudam. Campanhas de vacinação começam e terminam. Remédios entram e saem da farmácia básica. Alguém da equipe de saúde precisa de um lugar para **editar essas informações, e um profissional de saúde precisa aprová-las antes de irem ao ar** — essa dupla checagem é uma trava de segurança do projeto: nenhuma orientação chega à população sem revisão clínica.
+O conteúdo é escrito pela equipe do projeto: o que é a Atenção Primária, quais documentos levar, como funciona o calendário vacinal, que sinais de alerta não podem esperar. Ele é melhorado aos poucos — uma explicação mais clara, uma tradução para o espanhol, um tema novo. Cada mudança precisa de um lugar para ser **editada e, antes de ir ao ar, aprovada por um profissional de saúde colaborador do projeto** — essa dupla checagem é uma trava de segurança: nenhuma orientação chega à população sem revisão clínica.
 
-Esse lugar é o painel web (o CMS, §1.2). Sem ele, o app nasceria com informação congelada e estaria desatualizado — e, em saúde, desatualizado é perigoso.
+Esse lugar é o painel web (o CMS, §1.2). Sem ele, cada correção dependeria de lançar uma versão nova do app inteiro.
 
-### 11.2 O "carimbo oficial" — a garantia de que ninguém falsifica orientação de saúde
+### 11.2 O "carimbo" — a garantia de que ninguém falsifica o conteúdo
 
-Antes de ser distribuído, todo pacote de conteúdo recebe uma **assinatura digital** (§4.2) — pense num carimbo impossível de falsificar. O celular confere o carimbo e **recusa qualquer conteúdo que não seja oficial**. Isso protege a população contra alguém mal-intencionado tentando espalhar orientação de saúde falsa pelo nosso canal.
+Antes de ser distribuído, todo pacote de conteúdo recebe uma **assinatura digital** (§4.2) — pense num carimbo impossível de falsificar. O celular confere o carimbo e **recusa qualquer conteúdo que não tenha saído da revisão do projeto**. Isso protege a população contra alguém mal-intencionado tentando espalhar orientação de saúde falsa em nome do app.
 
 ### 11.3 O "correio" — a estante de onde os celulares pegam as atualizações
 
@@ -566,12 +754,14 @@ Quando um celular da zona rural passa perto de um Wi-Fi (da escola, do centro co
 
 Detalhe importante: **se esse servidor cair, nenhum usuário percebe** — o app continua funcionando normalmente com o conteúdo que já tem; a atualização apenas chega um pouco depois. O servidor nunca é ponto de falha para quem está na ponta.
 
+O app em si chega às pessoas pelo **Google Play** e pelo **GitHub Releases**, onde qualquer um pode conferir que o arquivo é o que o projeto publicou ([ADR-006](#10-registro-de-decisões-arquiteturais-adr)).
+
 ### 11.4 O que isso custa
 
-Como o app não conversa com servidor durante o uso (a inteligência artificial roda no próprio celular), **o custo não cresce com o número de usuários**: atender 500 pessoas ou 50 mil custa praticamente o mesmo. Após a auditoria do §9, toda a infraestrutura roda em **um único servidor alugado (VPS), com software 100% gratuito e de código aberto** — essa é a única fatura recorrente do projeto. Sem mensalidade por usuário, sem licenças, sem serviços de nuvem caros.
+Como o app não conversa com servidor durante o uso (a inteligência artificial roda no próprio celular), **o custo não cresce com o número de usuários**: atender 500 pessoas ou 50 mil custa praticamente o mesmo. Após a auditoria do §9, toda a infraestrutura roda em **um único servidor alugado (VPS), mantido pelo PRISM, com software 100% gratuito e de código aberto** ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)) — essa é, com a cópia de segurança fora dele, a única fatura recorrente do projeto. Sem mensalidade por usuário, sem licenças, sem serviços de nuvem caros. Nada disso depende da infraestrutura de uma unidade de saúde ou da universidade.
 
 De quebra, hospedando esse servidor em datacenter no Brasil, os dados administrativos ficam em território nacional — o que simplifica a conformidade com a LGPD ([lgpd.md](lgpd.md) RF06).
 
 ### 11.5 Resumo em uma frase
 
-> O celular carrega o agente de saúde; os serviços web são a **redação que escreve, o carimbo que autentica e o correio que entrega** a cartilha atualizada — por um custo fixo pequeno, que não aumenta com o sucesso do projeto.
+> O celular carrega a cartilha de saúde; os serviços web são a **redação que escreve, o carimbo que autentica e o correio que entrega** cada versão revisada — por um custo fixo pequeno, que não aumenta com o sucesso do projeto.
