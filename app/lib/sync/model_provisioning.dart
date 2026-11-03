@@ -84,6 +84,15 @@ enum SetupBlockReason {
   /// Este build não tem de onde baixar o modelo (`MODEL_URL` ausente). Só o
   /// pendrive ou seguir sem o assistente resolvem.
   notConfigured,
+
+  /// Este aparelho não carrega o shim nativo (APK `armeabi-v7a`, ADR-009): o
+  /// modelo nunca rodaria aqui.
+  ///
+  /// Acompanha [SetupStage.readyDegraded], NÃO [SetupStage.blocked]: bloquear
+  /// oferecendo pendrive seria pedir um arquivo que nunca vai rodar. O motivo
+  /// existe para a UI e a telemetria explicarem a ausência do assistente; a
+  /// tela clínica abre pelas regras como em qualquer degradado.
+  deviceUnsupported,
 }
 
 @immutable
@@ -143,7 +152,15 @@ class ModelProvisioning {
     required this.networkClass,
     ResumableDownloader? downloader,
     this.requiredFreeBytes = 3 * 1024 * 1024 * 1024,
+    this.runtimeSupported = _alwaysSupported,
   }) : _downloader = downloader ?? ResumableDownloader();
+
+  static bool _alwaysSupported() => true;
+
+  /// `false` quando o aparelho não carrega o shim nativo (ADR-009). O `main`
+  /// passa `shimSupported`; o padrão `true` mantém os testes que não tratam
+  /// de ABI no fluxo de sempre.
+  final bool Function() runtimeSupported;
 
   final ModelArtifact artifact;
   /// Onde gravar o modelo. Injetado para manter esta classe livre de plugins.
@@ -253,6 +270,18 @@ class ModelProvisioning {
   Future<SetupState> checkPrerequisites() async {
     _emit(const SetupState(stage: SetupStage.checking));
 
+    // Antes de tudo — rede, disco e até o arquivo já baixado: sem shim, o
+    // modelo nunca roda aqui. Um `.gguf` que por acaso exista fica onde está,
+    // sem uso: conferir o hash dele poderia apagá-lo, e apagar 800 MB por
+    // causa da ABI não tem volta.
+    if (!runtimeSupported()) {
+      _emit(const SetupState(
+        stage: SetupStage.readyDegraded,
+        blockReason: SetupBlockReason.deviceUnsupported,
+      ));
+      return _state;
+    }
+
     final destination = await _destinationFile();
     if (destination.existsSync()) {
       // Caminho rápido: já verificamos este arquivo antes e ele não mudou.
@@ -312,6 +341,8 @@ class ModelProvisioning {
         _state.stage == SetupStage.ready) {
       return _state;
     }
+    // Sem shim, nenhum caminho baixa — nem um botão que escape da tela.
+    if (!runtimeSupported()) return _state;
 
     final destination = await _destinationFile();
     _emit(SetupState(
@@ -405,6 +436,8 @@ class ModelProvisioning {
   /// muda o que exigimos dele. Um pendrive que passou por dez mãos não é mais
   /// confiável que um espelho HTTP.
   Future<SetupState> importFromLocalFile(File source) async {
+    // Sem shim, importar copiaria 800 MB para nunca usar.
+    if (!runtimeSupported()) return _state;
     _emit(const SetupState(stage: SetupStage.verifying));
 
     if (!source.existsSync()) {

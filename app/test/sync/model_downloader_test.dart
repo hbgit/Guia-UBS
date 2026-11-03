@@ -379,6 +379,29 @@ void main() {
     expect(abriuDisco, isFalse, reason: 'parou antes de tocar o disco');
   });
 
+  test('sem shim: o worker sai sem baixar', () async {
+    // ADR-009: um job agendado antes de o APK trocar de ABI (ou por qualquer
+    // caminho que escape do primeiro plano) nao pode baixar 806 MB num
+    // aparelho que nao roda o modelo. `true` = nao reagendar: repetir nao
+    // muda a ABI do aparelho.
+    var leuTermos = false;
+    var abriuDisco = false;
+    final resultado = await runModelSyncTask(
+      runtimeSupported: () => false,
+      termsAccepted: () async {
+        leuTermos = true;
+        return true;
+      },
+      modelsDir: () async {
+        abriuDisco = true;
+        return tmp;
+      },
+    );
+    expect(resultado, isTrue);
+    expect(leuTermos, isFalse, reason: 'nem abre o user.db');
+    expect(abriuDisco, isFalse, reason: 'parou antes de tocar o disco');
+  });
+
   test('aceite so vale para a versao vigente dos termos', () {
     expect(acceptsCurrentTerms(version: termsVersion, accepted: true), isTrue);
     expect(acceptsCurrentTerms(version: termsVersion, accepted: false), isFalse);
