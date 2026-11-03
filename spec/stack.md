@@ -736,7 +736,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - **Por que este keystore vai para o CI e a chave do pack não.** A Revisão do ADR-001 tira a chave do pack de CI porque qualquer workflow editável por quem tem escrita a expõe. O keystore tem **a mesma exposição**, e para quem instala pelo GitHub ele é a chave de distribuição, não uma chave recuperável.
      - A diferença está em como cada artefato é conferido. O pack é **reprodutível** (`SOURCE_DATE_EPOCH`): um segundo mantenedor reconstrói o mesmo hash, e a assinatura pode ficar fora do pipeline sem perder a verificação.
      - O APK **não é reprodutível** (build nativo, NDK, Gradle). Assinar fora do pipeline obrigaria a confiar no binário de uma máquina pessoal, que ninguém consegue reproduzir para conferir. Por isso o APK é assinado **no** pipeline, e a exposição é compensada pelos controles abaixo.
-   - **Controles compensatórios** (configuração do repositório, feita pelo mantenedor; lista em `docs/operacao.md` §2.12):
+   - **Controles compensatórios** (configuração do repositório, feita pelo mantenedor; lista em `docs/operacao.md` §2.13):
      - (a) os segredos do keystore são do **environment `release`**, não do repositório. Só existem num job que referencia o environment, e só depois da aprovação;
      - (b) o environment exige **revisor** e ***Prevent self-review***: quem dispara não aprova;
      - (c) o environment só aceita **tags `v*`** (*deployment branches and tags*);

@@ -465,7 +465,34 @@ apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
 O certificado debug tem SHA-256 começando em `62c33cab`. Ver esse prefixo num
 APK que vai ser publicado é erro.
 
-### 2.12 Publicar uma versão do app
+### 2.12 Página pública da política e dos termos
+
+`.github/workflows/pages.yml` publica em
+`https://prismrr.com.br/guiasaude/privacidade/` e
+`https://prismrr.com.br/guiasaude/termos/` (mais `/es/` em cada uma) os
+**mesmos** arquivos que o app embarca em `app/assets/legal/`, pelo mesmo parser
+([`spec/implantacao.md`](../spec/implantacao.md) §2.9).
+
+```sh
+cd app && dart run tool/legal_pages.dart --out /tmp/site   # gera localmente
+```
+
+O gerador reprova documento sem `<!-- versao -->` e termos com versão diferente
+do `termsVersion`. O workflow também reprova qualquer `<script>`, `<link>`,
+`<img>` ou `src=` na saída. Publica em push para `main`; em PR, só gera.
+
+**O que é do mantenedor, uma vez:**
+
+- *Settings > Pages > Build and deployment*: **Source = GitHub Actions**;
+- *Settings > Pages > Custom domain*: `prismrr.com.br`, com **Enforce HTTPS**.
+  Com publicação por Actions, um arquivo `CNAME` não é usado; vale o que está
+  aqui;
+- no DNS do `prismrr.com.br`, os registros do domínio raiz para o GitHub Pages
+  (os endereços estão na documentação do GitHub; conferir na data).
+
+A página não usa cookies, scripts nem rastreamento, e assim deve continuar.
+
+### 2.13 Publicar uma versão do app
 
 O caminho é o workflow `.github/workflows/app-release.yml`, disparado por tag
 ([`spec/implantacao.md`](../spec/implantacao.md) §2.6). Ele faz, nesta ordem:

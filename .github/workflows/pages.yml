@@ -1,0 +1,90 @@
+# Pagina publica da politica de privacidade e dos termos de uso
+# (spec/implantacao.md §2.9).
+#
+# Publica em https://prismrr.com.br/guiasaude/{privacidade,termos}/ os MESMOS
+# arquivos que o app embarca (app/assets/legal/), pelo MESMO parser
+# (app/lib/legal/legal_text.dart). Nao ha copia para divergir.
+#
+# - push em main que toca os documentos ou o gerador: gera e publica;
+# - pull request que toca os mesmos caminhos: so gera, para o revisor ver que
+#   o site sai (o artefato fica no run), sem publicar nada.
+#
+# O dominio proprio e configuracao do repositorio (Settings > Pages > Custom
+# domain = prismrr.com.br, "Enforce HTTPS"), mais o DNS do dominio raiz. Com
+# publicacao por Actions, um arquivo CNAME no artefato nao e usado; quem manda
+# e a configuracao.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pages.yml
+      - app/assets/legal/**
+      - app/lib/legal/**
+      - app/tool/legal_pages.dart
+  pull_request:
+    paths:
+      - .github/workflows/pages.yml
+      - app/assets/legal/**
+      - app/lib/legal/**
+      - app/tool/legal_pages.dart
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Uma publicacao por vez; uma nova nao cancela a que ja esta no ar.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Reprova documento sem versao e termos com versao diferente do
+      # termsVersion do app: publicar politica sem data, ou com data que o app
+      # nao mostra, e pior que nao publicar.
+      - name: Gerar o site
+        run: dart run tool/legal_pages.dart --out "$RUNNER_TEMP/site"
+
+      # Nenhum script nem recurso de outro dominio: a politica de privacidade
+      # nao pode ser a unica pagina do projeto que rastreia.
+      - name: Conferir que nada carrega de fora
+        run: |
+          if grep -rEl '<script|<link|<img|<iframe|src=|@import' "$RUNNER_TEMP/site"; then
+            echo "pagina com recurso externo ou script"; exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
