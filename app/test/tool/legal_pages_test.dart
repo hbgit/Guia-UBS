@@ -79,14 +79,18 @@ continua aqui, com <tag> & "aspas".
   });
 
   group('buildLegalSite', () {
-    test('publica os quatro documentos do app, nos caminhos da §2.9', () {
+    // https://guiasaude.prismrr.com.br/ (§2.9): um subdominio por projeto, e
+    // o apex reservado ao grupo. As paginas ficam na RAIZ do site.
+    test('publica os quatro documentos e a pagina inicial, nos caminhos da §2.9',
+        () {
       buildLegalSite(legalDir: Directory('assets/legal'), out: out);
 
       for (final caminho in [
-        'guiasaude/privacidade/index.html',
-        'guiasaude/privacidade/es/index.html',
-        'guiasaude/termos/index.html',
-        'guiasaude/termos/es/index.html',
+        'index.html',
+        'privacidade/index.html',
+        'termos/index.html',
+        'es/privacidade/index.html',
+        'es/termos/index.html',
       ]) {
         expect(File('${out.path}/$caminho').existsSync(), isTrue,
             reason: caminho);
@@ -102,9 +106,8 @@ continua aqui, com <tag> & "aspas".
         final doc = parseLegalDocument('termos_$idioma.md', arquivo);
         expect(doc.versionDate, termsVersion);
 
-        final caminho = idioma == 'pt'
-            ? 'guiasaude/termos/index.html'
-            : 'guiasaude/termos/es/index.html';
+        final caminho =
+            idioma == 'pt' ? 'termos/index.html' : 'es/termos/index.html';
         final html = File('${out.path}/$caminho').readAsStringSync();
         expect(html, contains(termsVersion), reason: caminho);
         // O MESMO texto: cada bloco do arquivo do app esta na pagina.
@@ -112,6 +115,38 @@ continua aqui, com <tag> & "aspas".
           expect(html, contains(htmlEscape(bloco.text)), reason: bloco.text);
         }
       }
+    });
+
+    test('a pagina inicial diz o que o projeto e e aponta para as quatro, '
+        'com a mesma CSP e sem nada de fora', () {
+      buildLegalSite(legalDir: Directory('assets/legal'), out: out);
+      final html = File('${out.path}/index.html').readAsStringSync();
+
+      expect(html, contains('projeto educativo'));
+      expect(html, contains('não é serviço de saúde'));
+      for (final href in [
+        'privacidade/',
+        'termos/',
+        'es/privacidade/',
+        'es/termos/',
+      ]) {
+        expect(html, contains('href="$href"'), reason: href);
+      }
+      expect(
+          html,
+          contains('<meta http-equiv="Content-Security-Policy" '
+              "content=\"default-src 'none'; style-src 'unsafe-inline'\">"));
+      expect(html, isNot(contains('<script')));
+      expect(html, isNot(contains('src=')));
+    });
+
+    test('o link de idioma de cada documento leva ao outro idioma', () {
+      buildLegalSite(legalDir: Directory('assets/legal'), out: out);
+      // Relativos, para funcionarem em qualquer host e no preview do PR.
+      expect(File('${out.path}/privacidade/index.html').readAsStringSync(),
+          contains('href="../es/privacidade/"'));
+      expect(File('${out.path}/es/privacidade/index.html').readAsStringSync(),
+          contains('href="../../privacidade/"'));
     });
 
     test('documento sem versao reprova, em vez de publicar sem data', () {

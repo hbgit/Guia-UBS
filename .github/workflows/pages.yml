@@ -1,7 +1,8 @@
 # Pagina publica da politica de privacidade e dos termos de uso
 # (spec/implantacao.md §2.9).
 #
-# Publica em https://prismrr.com.br/guiasaude/{privacidade,termos}/ os MESMOS
+# Publica em https://guiasaude.prismrr.com.br/ (privacidade/, termos/,
+# es/privacidade/, es/termos/ e uma pagina inicial) os MESMOS
 # arquivos que o app embarca (app/assets/legal/), pelo MESMO parser
 # (app/lib/legal/legal_text.dart). Nao ha copia para divergir.
 #
@@ -10,9 +11,10 @@
 #   o site sai (o artefato fica no run), sem publicar nada.
 #
 # O dominio proprio e configuracao do repositorio (Settings > Pages > Custom
-# domain = prismrr.com.br, "Enforce HTTPS"), mais o DNS do dominio raiz. Com
-# publicacao por Actions, um arquivo CNAME no artefato nao e usado; quem manda
-# e a configuracao.
+# domain = guiasaude.prismrr.com.br, "Enforce HTTPS"), mais o CNAME
+# guiasaude -> hbgit.github.io no DNS e o dominio verificado na conta. Um
+# subdominio por projeto: o apex prismrr.com.br fica com o grupo. Com
+# publicacao por Actions, um arquivo CNAME no artefato nao e usado.
 
 name: pages
 

@@ -6,14 +6,16 @@
 /// dart run tool/legal_pages.dart --out _site
 /// ```
 ///
-/// Saídas, servidas pelo GitHub Pages em `https://prismrr.com.br/`:
+/// Saídas, servidas pelo GitHub Pages em `https://guiasaude.prismrr.com.br/`
+/// (um subdomínio por projeto; o apex `prismrr.com.br` fica com o grupo):
 ///
 /// | caminho | arquivo do app |
 /// |---|---|
-/// | `guiasaude/privacidade/` | `privacidade_pt.md` |
-/// | `guiasaude/privacidade/es/` | `privacidade_es.md` |
-/// | `guiasaude/termos/` | `termos_pt.md` |
-/// | `guiasaude/termos/es/` | `termos_es.md` |
+/// | `/` | página inicial: o que o projeto é, e os links |
+/// | `privacidade/` | `privacidade_pt.md` |
+/// | `termos/` | `termos_pt.md` |
+/// | `es/privacidade/` | `privacidade_es.md` |
+/// | `es/termos/` | `termos_es.md` |
 ///
 /// Três regras do dono do projeto (2026-11-03):
 ///
@@ -64,6 +66,55 @@ a{color:inherit}
 footer{color:var(--soft);font-size:.9rem;border-top:1px solid var(--line);margin-top:2.5rem;padding-top:1rem}
 ''';
 
+/// Cabeçalho comum: a MESMA CSP e o mesmo CSS em todas as páginas do site.
+String _head(String lang, String title) => '''<!doctype html>
+<html lang="${lang == 'pt' ? 'pt-BR' : 'es'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<meta name="referrer" content="no-referrer">
+<title>${htmlEscape(title)}</title>
+<style>$_css</style>
+</head>
+<body>
+<main>
+''';
+
+const String _tail = '''<footer>Esta página não usa cookies, scripts nem rastreamento. · Esta página no usa cookies, scripts ni rastreo.</footer>
+</main>
+</body>
+</html>
+''';
+
+/// A página inicial do subdomínio: o que o projeto é e os quatro links.
+/// Evita um 404 na porta de entrada, com as mesmas restrições de CSP.
+String renderIndexPage() {
+  final b = StringBuffer(_head('pt', 'Guia UBS'))
+    ..writeln('<h1>Guia UBS</h1>')
+    ..writeln('<p>Aplicativo Android de educação em saúde, que funciona sem '
+        'internet. É um projeto educativo aberto do Grupo de Pesquisa PRISM '
+        '(UFRR). Ele não é serviço de saúde e não fala por nenhuma UBS, nem '
+        'pelo SUS, nem por Secretaria ou Ministério da Saúde. Em emergência, '
+        'ligue 192.</p>')
+    ..writeln('<ul>')
+    ..writeln('<li><a href="privacidade/">Aviso de privacidade</a></li>')
+    ..writeln('<li><a href="termos/">Termos de uso</a></li>')
+    ..writeln('</ul>')
+    ..writeln('<h2 lang="es">En español</h2>')
+    ..writeln('<p lang="es">Aplicación Android de educación en salud, que '
+        'funciona sin internet. Es un proyecto educativo abierto del Grupo de '
+        'Investigación PRISM (UFRR). No es un servicio de salud y no habla por '
+        'ninguna UBS, ni por el SUS, ni por Secretarías o el Ministerio de '
+        'Salud. En una emergencia, llame al 192.</p>')
+    ..writeln('<ul lang="es">')
+    ..writeln('<li><a href="es/privacidade/">Aviso de privacidad</a></li>')
+    ..writeln('<li><a href="es/termos/">Términos de uso</a></li>')
+    ..writeln('</ul>')
+    ..write(_tail);
+  return b.toString();
+}
+
 /// Uma página de um documento legal. [lang] é `pt` ou `es`.
 String renderLegalPage(
   LegalDocument doc, {
@@ -77,21 +128,7 @@ String renderLegalPage(
           .firstOrNull ??
       'Guia UBS';
   final pt = lang == 'pt';
-  final b = StringBuffer()
-    ..writeln('<!doctype html>')
-    ..writeln('<html lang="${pt ? 'pt-BR' : 'es'}">')
-    ..writeln('<head>')
-    ..writeln('<meta charset="utf-8">')
-    ..writeln('<meta name="viewport" content="width=device-width, '
-        'initial-scale=1">')
-    ..writeln('<meta http-equiv="Content-Security-Policy" '
-        "content=\"default-src 'none'; style-src 'unsafe-inline'\">")
-    ..writeln('<meta name="referrer" content="no-referrer">')
-    ..writeln('<title>${htmlEscape(title)} · Guia UBS</title>')
-    ..writeln('<style>$_css</style>')
-    ..writeln('</head>')
-    ..writeln('<body>')
-    ..writeln('<main>')
+  final b = StringBuffer(_head(lang, '$title · Guia UBS'))
     ..writeln('<nav><a href="$otherLanguageHref" hreflang="${pt ? 'es' : 'pt-BR'}">'
         '${htmlEscape(otherLanguageLabel)}</a></nav>');
 
@@ -144,11 +181,12 @@ String renderLegalPage(
 /// termos não for o [termsVersion]: publicar uma política sem data, ou com
 /// data diferente da que o app mostra, é pior que não publicar.
 void buildLegalSite({required Directory legalDir, required Directory out}) {
+  // Links de idioma relativos: funcionam em qualquer host e no preview do PR.
   const paginas = [
-    ('privacidade', 'pt', 'guiasaude/privacidade', 'es/', 'Español'),
-    ('privacidade', 'es', 'guiasaude/privacidade/es', '../', 'Português'),
-    ('termos', 'pt', 'guiasaude/termos', 'es/', 'Español'),
-    ('termos', 'es', 'guiasaude/termos/es', '../', 'Português'),
+    ('privacidade', 'pt', 'privacidade', '../es/privacidade/', 'Español'),
+    ('privacidade', 'es', 'es/privacidade', '../../privacidade/', 'Português'),
+    ('termos', 'pt', 'termos', '../es/termos/', 'Español'),
+    ('termos', 'es', 'es/termos', '../../termos/', 'Português'),
   ];
   final renderizadas = <String, String>{};
   for (final (nome, lang, caminho, outro, rotulo) in paginas) {
@@ -169,9 +207,11 @@ void buildLegalSite({required Directory legalDir, required Directory out}) {
     renderizadas[caminho] = renderLegalPage(doc,
         lang: lang, otherLanguageHref: outro, otherLanguageLabel: rotulo);
   }
+  renderizadas[''] = renderIndexPage();
   // So escreve depois de tudo validado: nada de site pela metade.
   for (final MapEntry(key: caminho, value: html) in renderizadas.entries) {
-    final destino = File('${out.path}/$caminho/index.html');
+    final destino = File(
+        caminho.isEmpty ? '${out.path}/index.html' : '${out.path}/$caminho/index.html');
     destino.parent.createSync(recursive: true);
     destino.writeAsStringSync(html);
   }
@@ -190,5 +230,5 @@ void main(List<String> args) {
     stderr.writeln('FALHOU  $e');
     exit(1);
   }
-  stdout.writeln('ok: politica e termos em ${args[i + 1]}/guiasaude/');
+  stdout.writeln('ok: site da politica e dos termos em ${args[i + 1]}/');
 }
