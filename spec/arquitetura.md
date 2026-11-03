@@ -63,7 +63,7 @@ Guia-UBS/
     ├── contract.yml             # codegen + diff-check do contrato; testes, migração e compose de cms/packer
     ├── app.yml                  # analyze + test + build APK
     ├── control-plane.yml        # NÃO CRIADO: lint + test cms/packer já rodam no contract.yml
-    ├── pack-release.yml         # NÃO CRIADO: assinar pack em CI é vedado (ADR-001, Revisão); publica o job packer, na VPS do item 27
+    ├── pack-release.yml         # NÃO CRIADO: assinar pack em CI é vedado (ADR-001, Revisão); publica o job packer, na VPS do item 27. Um job SEM chave que só publica o hash do pack não assinado é permitido (implantacao.md §3.7)
     └── app-release.yml          # PLANEJADO (item 31): tag vX.Y.Z → APK(s) + AAB assinados, SHA256SUMS
 ```
 

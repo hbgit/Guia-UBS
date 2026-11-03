@@ -230,6 +230,10 @@ Legenda: **A** alterar · **C** criar · **N** nota de supersessão. Nenhum arqu
 
 **Numeração.** O item 26 já existe no roadmap (desfecho padrão derivado no packer, `arquitetura.md` §5.15). Por isso o workflow de release, que este plano chamava de 26 até a execução do E3, é o **item 31**, o primeiro número livre depois dos já reservados por este plano (25, 27, 28, 29, 30). Nenhum documento do E1 ou do E2 citava o "item 26" com o sentido novo.
 
+**Notas para o plano do item 31** (revisão do PR #65, 2026-11-02):
+- **Fonte do "maior `versionCode` já publicado": a maior tag `vX.Y.Z` do repositório.** O `versionCode` é função do SemVer, e a tag anotada é obrigatória. A guarda compara com a maior tag existente: é determinística, funciona offline, não depende de API nem de conta na Play, e as pre-releases contam automaticamente, porque também têm tag.
+- **"Aprovador diferente de quem criou a tag"** é a opção ***Prevent self-review*** do *environment* `release` no GitHub. Ela vale como configuração e não deve ser reimplementada à mão no workflow.
+
 | Item | Entrega | Depende de |
 |---|---|---|
 | 25 | `applicationId` definitivo; `signingConfig` de release a partir de `key.properties` fora do repo; ABIs e `minSdk` do ADR-009. Para `armeabi-v7a`: APK sem o shim, e o app **não oferece o download do modelo** onde o shim não existe. Um build por ABI, sem `--split-per-abi`. Guarda de `minAppBuild` (hoje inexistente) com teste | F-3, F-6; P: F-17 |
@@ -464,6 +468,7 @@ Só no **protótipo** (`design.html`): troca de ordem e de destaque, sem element
 | F-8 | P | Destino do backup fora da VPS. Provisório: um segundo provedor de objeto com conta do PRISM | ADR-007, Revisão |
 | F-10 | P | Retenção do log do Caddy: 14 dias | ADR-007, Revisão (e T7-R) |
 | F-14 | P | North Star e meta de alcance do estudo piloto: "módulos educativos concluídos sem mediação", com meta a fixar com o PET-Saúde | ADR-005, Revisão; PRD §1.5 |
+| F-19 | M | **Titularidade do `prismrr.com.br`**: CPF ou CNPJ do titular no Registro.br, quem recebe os avisos de renovação e o plano de transferência se o titular sair do grupo (resposta **fora do repositório**, junto com F-1, F-2, F-4, F-8). O alerta de expiração cobre o esquecimento, não a saída da pessoa | Itens 27 e 28; ADR-009 |
 | F-1 | M | Provedor da VPS, região, snapshot, LUKS (resposta fora do repo) | Itens 27–28 |
 | F-2 | M | Os dois administradores da VPS e do domínio, por papel (resposta fora do repo) | Item 27 |
 | F-4 | M | Conta do Google Play: existe? Pessoal ou de organização? Em nome de quem? (resposta fora do repo) | Item 31 |
@@ -484,6 +489,7 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
 | F-11 | aberta (consulta institucional) | — |
+| F-19 | **aberta** | Titularidade do domínio: registrar fora do repositório. No repositório fica só "respondida em <data>" |
 | F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
 
 **Liberado:** E1 e, desde 2026-11-02, o E2 (domínio `prismrr.com.br` registrado). Os administradores do domínio (F-2) ficam no registro fora do repositório.

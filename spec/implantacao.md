@@ -152,6 +152,7 @@ perdem; nada de saúde é guardado.
 - O trecho entre `< >` sobre o PET-Saúde só entra quando a citação ao usuário estiver liberada (F-13, ver [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão); até lá, sai sem ele.
 - A URL da política fica no GitHub Pages do repositório ou num caminho de `prismrr.com.br`: [a definir — F-7].
 - Na *pre-release*, acrescenta-se no topo que a versão está em teste no estudo piloto do projeto.
+- **Versão da Play, separada e curta.** O campo de notas de versão da Play tem limite de caracteres, de cerca de 500 por idioma (conferir no Play Console na data da publicação). Ali não cabe a nota acima. Na Play vão as novidades em uma ou duas linhas, mais a frase do aviso (não é serviço de saúde, não fala por UBS, SUS, Secretaria ou Ministério; emergência, 192). A conferência de SHA-256 e o aviso de canal ficam só no GitHub. O texto completo do aviso está na ficha da loja (§2.7, "Descrição da ficha").
 
 ---
 
@@ -211,6 +212,7 @@ O playbook Ansible é a **fonte da verdade** da VPS (substitui a promessa de `in
   - o volume `caddydata`;
   - `infra/.env`.
 - **Proteção:** tudo cifrado (restic ou age), com cópia **fora da VPS**. O destino é provisório (P, F-8): um segundo provedor de armazenamento de objetos, com conta do PRISM, a revisar na data do ADR-007.
+- **O destino também fica no Brasil**, pela mesma regra da VPS (§3.1; ADR-001, fundamento 6; LGPD-RF06). O backup carrega o banco master com a trilha de auditoria e os dados dos operadores do CMS (e-mail, IP com hash e sal), além do `infra/.env`. Cifrar não tira a natureza de dado pessoal nem afasta a transferência internacional. Destino fora do país só com transferência registrada no RIPD e revisão do ADR-007, como a VPS.
 - **Retenção (P, F-8):** 7 diárias, 4 semanais e 6 mensais. A retenção da trilha, dos logs e dos backups como tratamento de dado pessoal é tema da LGPD-RF07 em [lgpd.md](lgpd.md) e da T7-R; este documento não a decide.
 - **Teste de restauração trimestral**, numa VPS descartável.
 - **Prioridade:** banco master e trilha de auditoria, que não são reconstruíveis. Os packs são reconstruíveis pelo packer reprodutível (`SOURCE_DATE_EPOCH`).
@@ -234,6 +236,14 @@ A fonte é a **Revisão 2026-11-02 do [ADR-001](stack.md#10-registro-de-decisõe
 - a exceção **sai** quando o item 27 entrar e o job `packer` do compose passar a assinar na VPS.
 
 O procedimento completo, com os passos e as duas verificações prévias, **não é copiado aqui**: vale o texto do ADR-001.
+
+**O CI pode fazer o papel do mantenedor B, sem chave.** O ADR-001 proíbe **a chave** em CI, não workflow de pack. Opção registrada:
+- um job que roda `npm run pack:check` (`--dry-run`, que não toca chave alguma) com o `SOURCE_DATE_EPOCH` e o `PACK_VERSION` da release de conteúdo, e grava o SHA-256 do `content.db` não assinado no log público do job e como artefato;
+- o mantenedor A compara o hash do pack que assinou com esse, em vez de esperar um segundo mantenedor reproduzir o build à mão;
+- vantagens: automático, auditável por qualquer pessoa e independente de quem tem a chave;
+- **a assinatura continua local**, com a chave do cofre, como na Revisão do ADR-001;
+- **base:** o job `pack` do `contract.yml` já roda `pack:check` sem chave. Falta fixar `SOURCE_DATE_EPOCH`/`PACK_VERSION` e publicar o hash;
+- **condição:** antes de adotar, vale a mesma verificação prévia do ADR-001, de que o `content.db` do `--dry-run` tem o mesmo hash que o do `pack:build` assinado. Se não tiver, o hash do CI não prova nada.
 
 ---
 
@@ -281,7 +291,7 @@ Os critérios abaixo são copiados de [espec.md](espec.md) §1.2. A coluna "Como
 |---|---|
 | Backup diário | O repositório de backup tem um snapshot de cada um dos últimos 7 dias, cobrindo os itens da §3.5; um alerta dispara se o mais recente tiver mais de 26 h. |
 | Cifrado | O conteúdo no destino não é legível sem a chave do backup (restic/age); a chave não fica no destino. |
-| Fora do host | O destino é outro provedor que não o da VPS (§3.5); apagar a VPS não apaga o backup. |
+| Fora do host | O destino é outro provedor que não o da VPS (§3.5), **com datacenter no Brasil**; apagar a VPS não apaga o backup. |
 | Restauração trimestral | A cada trimestre, uma VPS descartável é restaurada a partir do backup e o CMS sobe com o banco master e a trilha íntegros; data e resultado ficam registrados em [docs/operacao.md](../docs/operacao.md) quando o item 28 existir. Trimestre sem registro reprova. |
 | Monitoramento externo | Derrubar o `edge` em ensaio gera alerta aos dois administradores para `manifest.json` e para o CMS, vindo de fora da VPS (§3.6). |
 | Imagens pinadas | Toda `image:` de `infra/compose.yaml` e todo `FROM` de Dockerfile do plano de controle usam tag exata ou digest; nenhuma tag flutuante (§3.4). |
