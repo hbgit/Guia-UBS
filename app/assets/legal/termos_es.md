@@ -1,13 +1,16 @@
-<!-- versao: 2026-10-29 -->
+<!-- versao: 2026-11-02 -->
 # Términos de uso
 
 BORRADOR. Este texto todavía no pasó por revisión jurídica.
 
 ## Qué es esta aplicación
 
-Guia UBS es una guía de orientación sobre los servicios de atención primaria del
-SUS. Ayuda a entender dónde buscar atención, qué llevar y cómo funciona el
-recorrido en el centro de salud.
+Guia UBS es un proyecto educativo de código abierto. Enseña cómo funcionan el
+SUS y la Atención Primaria, cuáles son los derechos y los documentos de quien
+busca atención y qué señales de alerta piden ayuda urgente.
+
+Como apoyo, indica qué tipo de servicio buscar, sin sustituir la evaluación de
+un profesional.
 
 ## Qué no es esta aplicación
 
@@ -18,6 +21,22 @@ que lo atiende.
 Si hay señal de gravedad, la aplicación indica buscar emergencia. En esa
 situación, busque atención o llame al 192 de inmediato — no espere y no use la
 aplicación para decidir si vale la pena ir.
+
+## Sin vínculo con servicios de salud
+
+Guia UBS no es un servicio de salud. Es un proyecto sin vínculo con unidades de
+salud públicas o privadas, el SUS, Secretarías o el Ministerio, y la aplicación
+no habla en nombre de ninguno de ellos. "UBS", "UPA" y "centro de salud"
+aparecen aquí como tipos de servicio del SUS, para explicar cómo funcionan.
+
+## Dónde descargar
+
+Los canales oficiales de la aplicación son el GitHub Releases del proyecto y
+Google Play. Cada versión publicada en GitHub trae el código de verificación
+(SHA-256) del archivo.
+
+Una copia recibida por otro origen, como mensaje, Bluetooth o tarjeta de
+memoria, llega sin garantía: verifique el código antes de instalarla.
 
 ## Contenido
 
@@ -61,4 +80,5 @@ Gemma is provided under and subject to the Gemma Terms of Use found at gemma.ai/
 ## Responsable
 
 Guia UBS, proyecto de investigación y extensión desarrollado por el grupo de
-investigación PRISM. Contacto: prismufrr@gmail.com.
+investigación PRISM, de la UFRR. El apoyo institucional al proyecto no hace a la
+universidad responsable por la aplicación. Contacto: prismufrr@gmail.com.

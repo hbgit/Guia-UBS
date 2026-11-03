@@ -105,7 +105,7 @@ void main() {
         'O idioma que você escolheu',
         'Se você aceita ajudar com números de uso',
         'Se o aplicativo já foi preparado',
-        'Se o posto liberou baixar por dados móveis',
+        'Se você liberou baixar por dados móveis',
         'As cores que você escolheu',
         'O tamanho de letra que você escolheu',
         'Qual versão dos termos de uso você respondeu',

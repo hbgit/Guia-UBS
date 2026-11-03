@@ -101,6 +101,36 @@ void main() {
     expect(find.text('Os termos de uso mudaram'), findsOneWidget);
   });
 
+  testWidgets('quem aceitou a versao anterior (2026-10-29) ve o gate de novo',
+      (tester) async {
+    // 1o bump do realinhamento institucional (T8a): termos e privacidade
+    // mudaram de enquadramento, entao o "li e concordo" reabre.
+    await pump(tester,
+        inicial: const TermsAnswer(version: '2026-10-29', accepted: true));
+    expect(find.text('Os termos de uso mudaram'), findsOneWidget);
+  });
+
+  for (final (locale, naoServico, naoFala) in [
+    (AppLocale.pt, 'não é serviço de saúde', 'não fala por nenhuma UBS'),
+    (AppLocale.es, 'no es un servicio de salud', 'no habla por ninguna UBS'),
+  ]) {
+    testWidgets('o gate mostra e FALA o aviso de nao afiliacao '
+        '(RF-16, ${locale.code})', (tester) async {
+      // RF-16 pede o aviso no 1o uso, com audio. O que o Ouvir fala e o
+      // termsGateBody, entao a frase mora nele, e nao numa chave a parte que
+      // ficaria muda.
+      final (_, fala) = await pump(tester, locale: locale);
+      expect(find.textContaining(naoServico), findsOneWidget);
+      expect(find.textContaining(naoFala), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const ValueKey('terms-listen')));
+      await tester.tap(find.byKey(const ValueKey('terms-listen')));
+      await tester.pump();
+      expect(fala.falas.single, contains(naoServico));
+      expect(fala.falas.single, contains(naoFala));
+    });
+  }
+
   testWidgets('li e concordo grava a versao vigente e aceita', (tester) async {
     final (respostas, _) = await pump(tester);
     await tester.ensureVisible(find.byKey(const ValueKey('terms-accept')));
@@ -193,6 +223,8 @@ void main() {
           isFalse);
       expect(permitido(const TermsAnswer(version: '2026-08-22', accepted: true)),
           isFalse, reason: 'aceite de versao antiga nao vale para a nova');
+      expect(permitido(const TermsAnswer(version: '2026-10-29', accepted: true)),
+          isFalse, reason: 'o aceite anterior ao realinhamento nao vale');
       expect(permitido(null), isFalse,
           reason: 'antes de ler as preferencias, o modelo nao sobe');
     });

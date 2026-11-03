@@ -1,4 +1,4 @@
-<!-- versao: 2026-10-29 -->
+<!-- versao: 2026-11-02 -->
 # Aviso de privacidad
 
 BORRADOR. Este texto describe lo que hace la aplicación hoy, pero todavía no
@@ -23,7 +23,7 @@ Solo opciones de funcionamiento de la aplicación:
 - los colores de la pantalla que eligió;
 - el tamaño de letra que eligió;
 - si acepta ayudar con números de uso;
-- si el puesto permitió descargar contenido con datos móviles;
+- si usted permitió descargar contenido con datos móviles;
 - si la aplicación ya fue preparada en el primer acceso;
 - qué versión de los términos de uso respondió;
 - si aceptó los términos de uso.
@@ -49,11 +49,16 @@ borra también lo que ya se había contado.
 La aplicación funciona con el teléfono sin conexión. Accede a internet solo en
 dos situaciones, ninguna durante el uso:
 
-- para buscar contenido nuevo revisado, en segundo plano;
+- para buscar contenido nuevo revisado, en segundo plano, en el servidor de contenido del proyecto, mantenido por el grupo PRISM. Recibe la dirección IP del teléfono en el momento de la descarga, como cualquier sitio. No va junto ningún síntoma ni dato de uso;
 - para descargar el modelo de lenguaje en el primer acceso. Mientras el proyecto no tenga servidor propio, viene de Hugging Face, un servicio fuera de Brasil, que recibe la dirección IP del teléfono en el momento de la descarga, como cualquier sitio. No va junto ningún síntoma ni dato de uso.
 
 Las dos verifican la integridad de lo que descargaron antes de aceptarlo. Un
 fallo en cualquiera de ellas no impide que la aplicación funcione.
+
+## Instalación por Google Play
+
+Quien instala la aplicación por Google Play tiene los datos de la instalación
+tratados por Google, según su política de privacidad.
 
 ## Sus derechos
 
@@ -64,4 +69,6 @@ está guardado y lo borra todo en dos toques, sin depender de nadie.
 
 ## Contacto
 
-Para completar por el responsable del tratamiento antes de la publicación.
+Guia UBS es mantenido por el grupo de investigación PRISM, de la UFRR.
+
+Responsable del tratamiento de los datos y canal para ejercer sus derechos: [a definir — F-11].

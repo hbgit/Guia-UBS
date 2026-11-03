@@ -1,4 +1,4 @@
-<!-- versao: 2026-10-29 -->
+<!-- versao: 2026-11-02 -->
 # Aviso de privacidade
 
 MINUTA. Este texto descreve o que o aplicativo faz hoje, mas ainda não passou
@@ -23,7 +23,7 @@ Apenas escolhas de operação do aplicativo:
 - as cores da tela que você escolheu;
 - o tamanho de letra que você escolheu;
 - se você aceita ajudar com números de uso;
-- se o posto liberou baixar conteúdo por dados móveis;
+- se você liberou baixar conteúdo por dados móveis;
 - se o aplicativo já foi preparado no primeiro acesso;
 - qual versão dos termos de uso você respondeu;
 - se você aceitou os termos de uso.
@@ -49,11 +49,16 @@ também o que já havia sido contado.
 O aplicativo funciona com o aparelho desligado da rede. Ele acessa a internet
 em apenas duas situações, nenhuma delas durante o uso:
 
-- para buscar conteúdo novo revisado, em segundo plano;
+- para buscar conteúdo novo revisado, em segundo plano, no servidor de conteúdo do projeto, mantido pelo grupo PRISM. Ele recebe o endereço IP do aparelho no momento do download, como qualquer site. Nenhum sintoma nem dado de uso vai junto;
 - para baixar o modelo de linguagem no primeiro acesso. Enquanto o projeto não tem servidor próprio, ele vem do Hugging Face, um serviço fora do Brasil, que recebe o endereço IP do aparelho no momento do download, como qualquer site. Nenhum sintoma nem dado de uso vai junto.
 
 As duas conferem a integridade do que baixaram antes de aceitar. Falha em
 qualquer uma delas não impede o aplicativo de funcionar.
+
+## Instalação pelo Google Play
+
+Quem instala o aplicativo pelo Google Play tem os dados da instalação tratados
+pela Google, conforme a política de privacidade dela.
 
 ## Seus direitos
 
@@ -64,4 +69,6 @@ guardado e apaga tudo em dois toques, sem depender de ninguém.
 
 ## Contato
 
-A ser preenchido pelo responsável pelo tratamento antes da publicação.
+O Guia UBS é mantido pelo grupo de pesquisa PRISM, da UFRR.
+
+Controlador dos dados e canal para exercer os seus direitos: [a definir — F-11].

@@ -1,13 +1,16 @@
-<!-- versao: 2026-10-29 -->
+<!-- versao: 2026-11-02 -->
 # Termos de uso
 
 MINUTA. Este texto ainda não passou por revisão jurídica.
 
 ## O que este aplicativo é
 
-O Guia UBS é um guia de orientação sobre os serviços da Atenção Básica do SUS.
-Ele ajuda a entender onde procurar atendimento, o que levar e como funciona o
-fluxo na UBS.
+O Guia UBS é um projeto educativo de código aberto. Ele ensina como funcionam
+o SUS e a Atenção Primária, quais são os direitos e os documentos de quem
+procura atendimento e quais sinais de alerta pedem ajuda urgente.
+
+Como apoio, ele indica que tipo de serviço procurar, sem substituir a avaliação
+de um profissional.
 
 ## O que este aplicativo não é
 
@@ -18,6 +21,22 @@ equipe que atende você.
 Se houver sinal de gravidade, o aplicativo manda procurar emergência. Nessa
 situação, procure atendimento ou ligue 192 imediatamente — não espere e não use
 o aplicativo para decidir se vale a pena ir.
+
+## Sem vínculo com serviços de saúde
+
+O Guia UBS não é serviço de saúde. É um projeto sem vínculo com unidades de
+saúde públicas ou privadas, SUS, Secretarias ou Ministério, e o aplicativo não
+fala em nome de nenhum deles. "UBS", "UPA" e "posto de saúde" aparecem aqui
+como tipos de serviço do SUS, para explicar como eles funcionam.
+
+## Onde baixar
+
+Os canais oficiais do aplicativo são o GitHub Releases do projeto e o Google
+Play. Cada versão publicada no GitHub traz o código de conferência (SHA-256) do
+arquivo.
+
+Uma cópia recebida por outra origem, como mensagem, Bluetooth ou cartão de
+memória, chega sem garantia: confira o código de conferência antes de instalar.
 
 ## Conteúdo
 
@@ -59,4 +78,5 @@ Gemma is provided under and subject to the Gemma Terms of Use found at gemma.ai/
 ## Responsável
 
 Guia UBS, projeto de pesquisa e extensão desenvolvido pelo grupo de pesquisa
-PRISM. Contato: prismufrr@gmail.com.
+PRISM, da UFRR. O apoio institucional ao projeto não torna a universidade
+responsável pelo aplicativo. Contato: prismufrr@gmail.com.

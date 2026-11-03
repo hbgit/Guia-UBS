@@ -85,7 +85,7 @@
   "privacyWipeConfirm": "Apagar mesmo assim",
   "privacyWipeCancel": "Não apagar",
   "privacyWipeDone": "Tudo apagado",
-  "privacyStoredMetered": "Se o posto liberou baixar por dados móveis",
+  "privacyStoredMetered": "Se você liberou baixar por dados móveis",
   "navMore": "Mais",
   "@navMore": {
     "description": "Aba do menu utilitario."
@@ -115,7 +115,7 @@
     "description": "Aviso quando o teto de 2x corta o pedido."
   },
   "settingsMetered": "Baixar usando dados móveis",
-  "settingsMeteredBody": "O aplicativo baixa conteúdo novo só no Wi-Fi. Ligue se o posto não tem Wi-Fi.",
+  "settingsMeteredBody": "O aplicativo baixa conteúdo novo só no Wi-Fi. Ative para baixar também pelos dados móveis do seu plano.",
   "howToTitle": "Como usar",
   "howToStepOf": "Passo {n} de {total}",
   "@howToStepOf": {
@@ -175,6 +175,10 @@
     }
   },
   "aboutCredits": "Realização",
+  "aboutNoAffiliation": "O Guia UBS é um projeto educativo do Grupo de Pesquisa PRISM (UFRR). Ele não é serviço de saúde e não fala por nenhuma UBS, nem pelo SUS, nem por Secretaria ou Ministério da Saúde. Apoio institucional não é responsabilidade institucional pelo app: a UFRR, como instituição, não responde por ele.",
+  "@aboutNoAffiliation": {
+    "description": "RF-16: aviso de nao afiliacao e carater educativo na tela Sobre, ao lado dos logos (o logo do Telessaude UFRR e credito, nao responsabilidade institucional; ADR-005, Decisao 1). Unica chave ARB que pode citar a UFRR (no_endorsement_test). Sem PET-Saude enquanto a F-13 nao autorizar."
+  },
   "aboutModelTitle": "Modelo de linguagem",
   "@aboutModelDocuments": {
     "description": "Nomes dos documentos, em ingles por serem titulos deles. Mencao neutra: sem \"Google\" (no_endorsement_test)."
@@ -188,9 +192,9 @@
   "gemmaDocumentsUnavailable": "Não foi possível abrir os documentos do modelo.",
   "termsGateTitle": "Termos de uso",
   "termsGateChangedTitle": "Os termos de uso mudaram",
-  "termsGateBody": "O Guia UBS orienta sobre os serviços da UBS e não faz diagnóstico. O assistente usa o modelo Gemma, do Google, e as restrições de uso do Gemma fazem parte destes termos. O Google não desenvolveu, não revisou e não endossa este aplicativo. Se você não concordar, o aplicativo funciona sem o assistente.",
+  "termsGateBody": "O Guia UBS é um projeto educativo do Grupo de Pesquisa PRISM, da UFRR. Ele ensina como funcionam o SUS e a Atenção Primária e, como apoio, diz onde procurar atendimento. Ele não é serviço de saúde, não faz diagnóstico e não fala por nenhuma UBS, nem pelo SUS, nem por Secretaria ou Ministério da Saúde. Em emergência, ligue 192. O assistente usa o modelo Gemma, do Google, e as restrições de uso do Gemma fazem parte destes termos. O Google não desenvolveu, não revisou e não endossa este aplicativo. Se você não concordar, o aplicativo funciona sem o assistente.",
   "@termsGateBody": {
-    "description": "Texto descritivo do modelo: precisa negar o endosso do Google (no_endorsement_test). E o que o botao Ouvir fala."
+    "description": "Educacao primeiro, depois a nao afiliacao (RF-16) e o modelo. Texto descritivo do modelo: precisa negar o endosso do Google (no_endorsement_test). E o que o botao Ouvir fala, por isso o aviso de nao afiliacao do gate mora aqui. Sem UFRR: so aboutNoAffiliation pode cita-la."
   },
   "termsGateListen": "Ouvir",
   "termsGateOpenTerms": "Ler os termos",
@@ -208,7 +212,7 @@
   "@aboutClinicalNotice": {
     "description": "Mesmo aviso que o packer emite. Sai com a dupla aprovacao."
   },
-  "provenanceRules": "Orientação das regras do posto",
+  "provenanceRules": "Orientação das regras de segurança do app",
   "@provenanceRules": {
     "description": "Selo: o veredito determinístico prevaleceu, com o assistente disponível."
   },
@@ -216,7 +220,7 @@
   "@provenanceAssistant": {
     "description": "Selo: o assistente local escalou a severidade. NAO usar 'IA', 'modelo' nem 'inferencia'."
   },
-  "provenanceRulesOnly": "Regras do posto, sem o assistente",
+  "provenanceRulesOnly": "Regras de segurança do app, sem o assistente",
   "@provenanceRulesOnly": {
     "description": "Selo: assistente indisponivel (RF-12). Substitui a antiga resultDegradedNote."
   },

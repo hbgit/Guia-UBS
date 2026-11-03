@@ -25,6 +25,12 @@ import 'package:guia_ubs/ui/theme/gubs_theme.dart';
 /// uma pessoa: o repositorio e publico.
 const String projectContactEmail = 'prismufrr@gmail.com';
 
+/// Versao esperada do aviso de privacidade. Bumpada pelo PR junto com o
+/// documento: o teste nao enxerga o git, entao quem pega documento editado sem
+/// bump e a revisao. A dos termos e [termsVersion], que decide o "li e
+/// concordo" (`terms_gate_test` confere os dois arquivos contra ela).
+const String versaoEsperadaPrivacidade = '2026-11-02';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -65,32 +71,90 @@ void main() {
       expect(legalAssetsFor('es').first, contains('_es'));
     });
 
-    for (final (idioma, grupo) in [
-      ('pt', 'grupo de pesquisa PRISM'),
-      ('es', 'grupo de investigación PRISM'),
+    for (final (idioma, grupo, responsavel) in [
+      ('pt', 'grupo de pesquisa PRISM', '## Responsável'),
+      ('es', 'grupo de investigación PRISM', '## Responsable'),
     ]) {
-      test('termos_$idioma identificam o projeto, sem e-mail pessoal nem '
-          'vinculo institucional', () async {
+      test('termos_$idioma identificam o projeto, sem e-mail pessoal, e so '
+          'citam a UFRR na secao do responsavel', () async {
         // ADR-004: o responsavel e o PROJETO, identificado pelo grupo. A linha
         // identifica quem mantem o app; nao cria parte que assina contrato.
         // Espacos normalizados: os arquivos quebram em 80 colunas e o parser
         // junta as linhas do paragrafo, entao "grupo de pesquisa\nPRISM" e o
         // que o leitor ve como uma frase so.
-        final termos =
-            (await rootBundle.loadString('assets/legal/termos_$idioma.md'))
-                .replaceAll(RegExp(r'\s+'), ' ');
+        final bruto =
+            await rootBundle.loadString('assets/legal/termos_$idioma.md');
+        final termos = bruto.replaceAll(RegExp(r'\s+'), ' ');
 
         expect(termos, contains(grupo));
         expect(termos, contains(projectContactEmail));
         expect(termos, isNot(contains('A ser preenchido')));
         expect(termos, isNot(contains('Para completar')));
 
-        // Unica excecao nomeada: o endereco do projeto carrega "ufrr". Fora
-        // dele, citar a universidade sugeriria um vinculo formal que nao
-        // existe (ADR-004).
-        final semEndereco = termos.replaceAll(projectContactEmail, '');
-        expect(semEndereco.toUpperCase(), isNot(contains('UFRR')));
-        expect(semEndereco, isNot(contains('Universidad')));
+        // ADR-005, Decisao 1: o grupo PRISM e da UFRR e a cooperacao e
+        // declarada, mas a UFRR nao responde pelo app. A universidade aparece
+        // so na secao que identifica o responsavel (e no e-mail do projeto);
+        // em qualquer outro trecho, sugeriria vinculo institucional.
+        expect(bruto, contains(responsavel));
+        final foraDoResponsavel = bruto
+            .substring(0, bruto.indexOf(responsavel))
+            .replaceAll(projectContactEmail, '');
+        expect(foraDoResponsavel.toUpperCase(), isNot(contains('UFRR')));
+        expect(foraDoResponsavel, isNot(contains('Universidad')));
+      });
+    }
+
+    for (final (idioma, naoServico, semVinculo, canais, outraOrigem) in [
+      (
+        'pt',
+        'não é serviço de saúde',
+        'sem vínculo com unidades de saúde públicas ou privadas',
+        'GitHub Releases',
+        'sem garantia',
+      ),
+      (
+        'es',
+        'no es un servicio de salud',
+        'sin vínculo con unidades de salud públicas o privadas',
+        'GitHub Releases',
+        'sin garantía',
+      ),
+    ]) {
+      test('termos_$idioma: educacao primeiro, nao afiliacao e canais oficiais '
+          '(RF-16, ADR-005)', () async {
+        final t = (await rootBundle.loadString('assets/legal/termos_$idioma.md'))
+            .replaceAll(RegExp(r'\s+'), ' ');
+        expect(t, contains(naoServico));
+        expect(t, contains(semVinculo));
+        expect(t, contains('SUS'));
+        expect(t, contains(canais));
+        expect(t, contains('Google Play'));
+        expect(t, contains(outraOrigem));
+        // F-13 sem resposta: o PET-Saude nao e citado pelo nome ao usuario.
+        expect(t, isNot(contains('PET')));
+      });
+    }
+
+    for (final (idioma, contato, antigo, servidor) in [
+      ('pt', '## Contato', 'A ser preenchido', 'servidor de conteúdo do projeto'),
+      ('es', '## Contacto', 'Para completar', 'servidor de contenido del proyecto'),
+    ]) {
+      test('privacidade_$idioma: controlador com o marcador F-11 e o servidor '
+          'de conteudo como destino de rede', () async {
+        final bruto =
+            await rootBundle.loadString('assets/legal/privacidade_$idioma.md');
+        final t = bruto.replaceAll(RegExp(r'\s+'), ' ');
+        // F-11 sem resposta (ADR-005, Decisao 8): o marcador explicito, nunca
+        // o texto antigo, nunca um nome inventado, nunca a Secretaria.
+        expect(bruto, contains(contato));
+        expect(bruto.substring(bruto.indexOf(contato)),
+            contains('[a definir — F-11]'));
+        expect(t, isNot(contains(antigo)));
+        expect(t, isNot(contains('Secretaria')));
+        expect(t, contains(servidor));
+        expect(t, contains('Google Play'));
+        // A escolha de baixar por dados moveis e da pessoa, nao de um posto.
+        expect(t, isNot(contains(RegExp(r'\b(posto|puesto)\b'))));
       });
     }
 
@@ -221,6 +285,17 @@ void main() {
         expect(t, contains(faz));
       });
     }
+
+    test('os quatro documentos declaram a versao vigente', () async {
+      for (final idioma in ['pt', 'es']) {
+        for (final d in await loadLegalDocuments(idioma)) {
+          final esperada = d.asset.contains('termos_')
+              ? termsVersion
+              : versaoEsperadaPrivacidade;
+          expect(d.versionDate, esperada, reason: d.asset);
+        }
+      }
+    });
 
     test('a versao dos termos avancou com a clausula', () async {
       for (final idioma in ['pt', 'es']) {

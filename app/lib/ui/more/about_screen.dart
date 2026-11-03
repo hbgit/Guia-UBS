@@ -148,7 +148,12 @@ class AboutScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          const SizedBox(height: spacing * 2),
+          // RF-16 ao lado dos logos, e não no fim da tela: para quem lê pouco,
+          // o logo do Telessaúde UFRR diria o contrário de "a UFRR não responde
+          // pelo app" (ADR-005, Decisão 1). `about_screen_test` confere que o
+          // aviso vem logo abaixo do último logo.
+          _NoAffiliationNotice(text: l.aboutNoAffiliation),
+          const SizedBox(height: spacing * 3),
           _ModelSection(
             title: l.aboutModelTitle,
             credit: l.aboutModelCredit,
@@ -236,6 +241,48 @@ class _ClinicalNotice extends StatelessWidget {
                   .textTheme
                   .bodyMedium
                   ?.copyWith(color: colors.ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Aviso de não afiliação e caráter educativo (RF-16).
+///
+/// Azul, como o diagnóstico do build: é informação, não alarme clínico. Nem
+/// âmbar (reservado ao aviso de revisão clínica, que é alerta) nem lilás (só o
+/// selo de procedência). Texto em `ink` sobre `blueSoft`, o mesmo par do
+/// diagnóstico, que já passa no contraste dos dois temas.
+class _NoAffiliationNotice extends StatelessWidget {
+  const _NoAffiliationNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.gubs;
+    return Container(
+      key: const ValueKey('about-no-affiliation'),
+      padding: const EdgeInsets.all(spacing * 2),
+      decoration: BoxDecoration(
+        color: colors.blueSoft,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: colors.blue, width: 2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 28, color: colors.blue),
+          const SizedBox(width: spacing * 1.5),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: colors.ink, height: 1.4),
             ),
           ),
         ],
@@ -374,7 +421,7 @@ class _AssistantToggle extends StatelessWidget {
 
 /// Diagnóstico do APK (#45): só aparece quando falta origem.
 ///
-/// Para quem prepara os aparelhos do piloto perceber um build errado ANTES de
+/// Para quem prepara os aparelhos do estudo perceber um build errado ANTES de
 /// entregar. Descreve o APK, não a rede — o sync continua invisível no uso
 /// (INV-8). Azul: é informação, não alarme clínico.
 class _BuildDiagnostics extends StatelessWidget {
