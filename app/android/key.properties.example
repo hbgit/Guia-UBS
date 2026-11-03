@@ -1,0 +1,13 @@
+# Modelo de android/key.properties (ADR-009, item 8). NUNCA versione o real:
+# o .gitignore de android/ ja ignora key.properties, *.jks e *.keystore.
+#
+# O keystore de release fica em cofre offline, com duas custodias. No CI ele
+# entra por segredo do environment `release`; localmente, so quem custodia.
+# Sem este arquivo, o release cai na chave debug (uso local); com
+# GUBS_REQUIRE_RELEASE_SIGNING=1, a falta dele reprova o build.
+#
+# storeFile e relativo a app/android/ (ou absoluto).
+storeFile=/caminho/para/release.jks
+storePassword=
+keyAlias=
+keyPassword=

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 // ABIs empacotadas, derivadas do `--target-platform` que o `flutter build`
 // passa ao Gradle como a propriedade `target-platform` (ADR-009, item 5).
 //
@@ -30,6 +32,30 @@ val packagedAbis: List<String> =
 val shimAbis: List<String> =
     packagedAbis.filter { it == "arm64-v8a" || it == "x86_64" }
         .ifEmpty { listOf("arm64-v8a") }
+
+// Assinatura de release (ADR-009, item 8). `android/key.properties` (fora do
+// git; modelo em `key.properties.example`) aponta para o keystore de release,
+// que fica em cofre offline com duas custodias e NUNCA no repositorio.
+//
+// Sem o arquivo, o release cai na chave debug, para a conferencia local em
+// aparelho (CLAUDE.md) continuar funcionando. Com GUBS_REQUIRE_RELEASE_SIGNING=1
+// (o workflow de release sempre liga), a falta do arquivo REPROVA o build: um
+// APK assinado com a chave debug nunca pode ser publicado, e cair nela em
+// silencio passaria verde.
+val keyPropertiesFile = rootProject.file("key.properties")
+val releaseKey: Properties? =
+    if (keyPropertiesFile.exists()) {
+        Properties().apply { keyPropertiesFile.inputStream().use { load(it) } }
+    } else {
+        null
+    }
+val requireReleaseSigning = System.getenv("GUBS_REQUIRE_RELEASE_SIGNING") == "1"
+if (requireReleaseSigning && releaseKey == null) {
+    throw GradleException(
+        "release sem key.properties: o CI nunca publica APK assinado com a " +
+            "chave debug (GUBS_REQUIRE_RELEASE_SIGNING=1; ADR-009, item 8)",
+    )
+}
 
 plugins {
     id("com.android.application")
@@ -99,11 +125,27 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseKey != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseKey.getProperty("storeFile"))
+                storePassword = releaseKey.getProperty("storePassword")
+                keyAlias = releaseKey.getProperty("keyAlias")
+                keyPassword = releaseKey.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Chave de release quando `key.properties` existe; senao, a debug,
+            // so para uso local (ver o topo do arquivo).
+            signingConfig =
+                if (releaseKey != null) {
+                    signingConfigs.getByName("release")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
         }
 
         // x86_64 so no debug, para rodar em emulador. Medido: deixar esta ABI

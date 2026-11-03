@@ -440,6 +440,31 @@ novo, e o script avisa).
 > `model:publish` a preserva, mas não a cria: num MinIO novo, o aparelho recebe
 > `403` no manifest até alguém configurá-la.
 
+### 2.11 Assinatura do APK
+
+O APK de release é assinado pelo keystore de release, que é **outra chave**,
+diferente da Ed25519 do pack ([ADR-009](../spec/stack.md), item 8). O keystore
+fica em cofre offline, com duas custódias, e nunca no repositório.
+
+- `app/android/key.properties` (o `.gitignore` de `android/` já o ignora, junto
+  com `*.jks` e `*.keystore`) aponta para o keystore. O modelo, sem segredo,
+  está em `app/android/key.properties.example`.
+- **Com o arquivo**, o release sai assinado por ele.
+- **Sem o arquivo**, o release sai com a chave **debug**. Isso existe só para a
+  conferência local em aparelho, e um APK assim nunca é publicado.
+- **Com `GUBS_REQUIRE_RELEASE_SIGNING=1`**, a falta do arquivo **reprova** o
+  build com "release sem key.properties". O workflow de release sempre liga
+  essa variável.
+
+Para conferir quem assinou:
+
+```sh
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
+```
+
+O certificado debug tem SHA-256 começando em `62c33cab`. Ver esse prefixo num
+APK que vai ser publicado é erro.
+
 
 ## 3. Os três papéis
 
