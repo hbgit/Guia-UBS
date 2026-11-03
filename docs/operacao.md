@@ -504,21 +504,38 @@ nenhum, assinado com a chave debug e sem release. O artefato
 `ensaio-NAO-PUBLICAR` dura 3 dias e não deve ser distribuído.
 
 **O que precisa existir antes da primeira tag.** Tudo é configuração do
-repositório, feita pelo mantenedor:
+repositório, feita pelo mantenedor. Os cinco controles abaixo compensam o
+keystore estar no CI ([ADR-009](../spec/stack.md), item 8) e são todos
+obrigatórios:
 
-- *environment* `release`, com revisores obrigatórios e *Prevent self-review*;
-- segredos do *environment*:
-  - `ANDROID_KEYSTORE_B64` (o `.jks` em base64);
-  - `ANDROID_KEYSTORE_PASSWORD`;
-  - `ANDROID_KEY_ALIAS`;
-  - `ANDROID_KEY_PASSWORD`;
-  - `DEFINES_RELEASE_JSON` (o `config/defines.release.json` real);
-- variável `RELEASE_CERT_SHA256`, o SHA-256 do certificado de release, sem `:`
-  e em minúsculas, como o `apksigner` imprime.
+1. **Environment `release`** com revisores obrigatórios e ***Prevent
+   self-review***, e *deployment branches and tags* restrito a tags `v*`.
+2. **Segredos do environment, não do repositório.** Assim eles só existem no
+   job aprovado:
+   - `ANDROID_KEYSTORE_B64` (o `.jks` em base64);
+   - `ANDROID_KEYSTORE_PASSWORD`;
+   - `ANDROID_KEY_ALIAS`;
+   - `ANDROID_KEY_PASSWORD`.
+3. **Ruleset de tags:** criar, mover ou apagar tag `v*` fica restrito aos
+   mantenedores. Sem ele, qualquer colaborador com escrita dispara o pipeline de
+   assinatura com um `git push --tags`.
+4. **Variável `RELEASE_CERT_SHA256`**, o SHA-256 do certificado de release, sem
+   `:` e em minúsculas, como o `apksigner` imprime.
+5. **`app/config/defines.release.json` com o `PACK_MANIFEST_URL` real.** O
+   arquivo é **versionado, não segredo**: vai embarcado num APK público, a
+   mudança dele passa por PR, e o job imprime no log o que o release embarcou.
+   Hoje ele traz um marcador `.invalid`, que a guarda do `build_apk.sh` recusa de
+   propósito até o plano B definir o domínio de conteúdo.
 
-O `DEFINES_RELEASE_JSON` precisa de um `PACK_MANIFEST_URL` real, que é o
-domínio de conteúdo do plano B. Antes disso, a guarda do `build_apk.sh` recusa
-o release, e é de propósito.
+**Ensaiar a tag num fork privado antes da primeira tag de verdade.** O ensaio
+por PR não exercita os segredos do environment, a aprovação, a conferência do
+certificado nem o job `publish`. Num fork privado, crie o mesmo environment com
+um keystore **descartável** e empurre `v0.1.0`. Assim o erro de segredo aparece
+lá, sem pre-release pública e sem gastar `versionCode` aqui.
+
+**Se o keystore vazar:** pela Play, a chave de upload é trocada sem afetar quem
+instalou. Pelo GitHub não há troca: todo aparelho instalado por lá precisa
+desinstalar e instalar de novo (ADR-009, Custo aceito 5).
 
 
 ## 3. Os três papéis

@@ -158,7 +158,6 @@ test('toda variavel de ambiente citada existe em infra/.env.example', () => {
     ANDROID_KEYSTORE_PASSWORD: 'idem',
     ANDROID_KEY_ALIAS: 'idem',
     ANDROID_KEY_PASSWORD: 'idem',
-    DEFINES_RELEASE_JSON: 'idem: o config/defines.release.json do app, como segredo',
     RELEASE_CERT_SHA256: 'variavel do repositorio no GitHub (vars.*), conferida pelo workflow de release',
   };
 

@@ -83,14 +83,18 @@ jobs:
             dart run tool/release_version.dart --tag "v$v"
           fi
 
-      # Na tag, do segredo. No ensaio, um defines que passa nas guardas sem
-      # apontar para nada publicado: o APK do ensaio nao e distribuido.
+      # Na tag: o config/defines.release.json VERSIONADO, impresso no log, para
+      # que se saiba o que este release embarcou. Ele vai num APK publico e nao
+      # e segredo; a mudanca dele passa por PR. Enquanto o PACK_MANIFEST_URL
+      # for o marcador .invalid, a guarda do build_apk.sh recusa o release (de
+      # proposito, ate o plano B).
+      # No ensaio: um defines que passa nas guardas sem apontar para nada
+      # publicado, porque o APK do ensaio nao e distribuido.
       - name: Defines do build
-        env:
-          DEFINES_RELEASE_JSON: ${{ secrets.DEFINES_RELEASE_JSON }}
         run: |
           if [ "$RELEASE" = "true" ]; then
-            printf '%s' "$DEFINES_RELEASE_JSON" > config/defines.release.json
+            echo "defines embarcados neste release:"
+            cat config/defines.release.json
           else
             cat > config/defines.release.json <<'EOF'
           {

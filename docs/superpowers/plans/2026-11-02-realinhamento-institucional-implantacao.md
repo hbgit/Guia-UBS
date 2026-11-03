@@ -973,6 +973,7 @@ Registrado aqui só para não se perder. Terá plano próprio, sem dependência 
 - Titular da `LICENSE` e DCO (F-12, classe I).
 - Texto "telemetria é enviada" (PRD §1.5, brainstorm M7, `privacyTelemetryBody`). Se a T8a já tiver mexido no ARB, a correção entra num PR próprio depois do E5.
 - M3 < 3 s → 3–5 s (ADR-003).
+- **Onboarding em pt e es** (`app/lib/ui/onboarding/onboarding_screen.dart`). Hoje a tela é só em português, inclusive o motivo `deviceUnsupported`. Esse motivo aparece justamente nos aparelhos 32-bit, os mais baratos, onde está parte do público hispanofalante de Roraima.
 - Item 29: aceite do Termo de Uso do CMS no 1º login (`consent_record`, LGPD-RF02(b)/RF04). Depende do controlador definido na T7b.
 - Status "PROPOSTA" em `arquitetura.md:4`; `app/README.md` de template.
 
