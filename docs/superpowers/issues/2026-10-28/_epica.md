@@ -1,3 +1,5 @@
+> **Superado em parte pelo [ADR-005](../../../../spec/stack.md) (2026-11-02).** O projeto não tem vínculo com unidades de saúde, secretarias ou prefeituras. Onde este texto aponta a Secretaria como controladora, alguém indicado por ela ou uma "UBS piloto", vale o ADR-005: o controlador está pendente de consulta institucional (F-11), os revisores clínicos são colaboradores do projeto, e "piloto" é o **estudo piloto do projeto**. O corpo abaixo fica como foi escrito, como registro. O plano que propaga a mudança é o [`2026-11-02-realinhamento-institucional-implantacao.md`](../../plans/2026-11-02-realinhamento-institucional-implantacao.md).
+
 ## Contexto
 Índice ordenado do levantamento do estado do projeto feito em 2026-10-28 (plano: `docs/superpowers/plans/2026-10-28-levantamento-estado-projeto.md`, no branch `develop`). O plano contém a tabela feature → estado → evidência para RF-01…15, RNF-01…09, LGPD e dívidas transversais, mais as sete decisões do dono que moldaram esta lista.
 
