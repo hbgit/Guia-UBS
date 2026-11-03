@@ -5,6 +5,7 @@
 /// confiar em estado de memória do outro. Cada um pergunta à plataforma.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Devolve o build do binário, ou `null` quando ele não pode ser lido.
@@ -15,11 +16,27 @@ typedef AppBuildProbe = Future<int?> Function();
 /// **Nunca lança.** Falha de plataforma ou `buildNumber` não inteiro viram
 /// `null`, e quem decide o que fazer com isso é o `SyncService` (ver
 /// [appBuildSatisfies]).
-Future<int?> readAppBuild() async {
+///
+/// Quando vira `null`, deixa **uma linha explícita** no log ([log]; por
+/// padrão o `debugPrint`, que também sai no logcat do release). O efeito é recusar todo
+/// pack com `minAppBuild > 0`, e "não recebe pack e não diz por quê" é o pior
+/// sintoma para diagnosticar à distância. A linha não leva dado da pessoa.
+///
+/// [info] existe para o teste; em produção é a plataforma.
+Future<int?> readAppBuild({
+  Future<PackageInfo> Function() info = PackageInfo.fromPlatform,
+  void Function(String)? log,
+}) async {
+  final escreve = log ?? debugPrint;
+  const prefixo = 'gubs-sync ERRO: build do app ilegivel; pack com '
+      'minAppBuild > 0 sera recusado ate o app atualizar (B5b, ADR-009)';
   try {
-    final info = await PackageInfo.fromPlatform();
-    return int.tryParse(info.buildNumber.trim());
-  } on Object {
+    final buildNumber = (await info()).buildNumber.trim();
+    final build = int.tryParse(buildNumber);
+    if (build == null) escreve('$prefixo: buildNumber "$buildNumber"');
+    return build;
+  } on Object catch (e) {
+    escreve('$prefixo: $e');
     return null;
   }
 }
