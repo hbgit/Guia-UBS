@@ -25,11 +25,18 @@ void main() {
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  ProcessResult build(String config) => Process.runSync(
+  ProcessResult build(String config, [String? abi]) => Process.runSync(
         'bash',
-        ['tool/build_apk.sh', 'release', config],
+        ['tool/build_apk.sh', 'release', config, ?abi],
         environment: {'FLUTTER': flutterFalso.path},
       );
+
+  File configValido() => File('${tmp.path}/defines.release.json')
+    ..writeAsStringSync(jsonEncode({
+      'MODEL_URL': huggingFaceExceptionUrl,
+      'PACK_MANIFEST_URL': 'https://edge.dominio-do-projeto-a-definir.org/'
+          'content-packs/0000000/manifest.json',
+    }));
 
   test('release com o defines de exemplo sai com erro antes do flutter build',
       () {
@@ -56,5 +63,33 @@ void main() {
     final args = marcador.readAsStringSync();
     expect(args, contains('build apk --release'));
     expect(args, contains('--dart-define-from-file='));
+  });
+
+  // ADR-009, item 5: um build por ABI, com o MESMO versionCode. Por isso
+  // nunca --split-per-abi, que o plugin do Flutter sobrescreve com
+  // abi*1000 + codigo.
+  test('sem abi: arm64, e nunca --split-per-abi', () {
+    final r = build(configValido().path);
+
+    expect(r.exitCode, 0, reason: '${r.stdout}${r.stderr}');
+    final args = marcador.readAsStringSync();
+    expect(args, contains('--target-platform=android-arm64'));
+    expect(args, isNot(contains('--split-per-abi')));
+  });
+
+  test('abi arm passa --target-platform=android-arm ao flutter', () {
+    final r = build(configValido().path, 'arm');
+
+    expect(r.exitCode, 0, reason: '${r.stdout}${r.stderr}');
+    final args = marcador.readAsStringSync();
+    expect(args, contains('--target-platform=android-arm '));
+    expect(args, isNot(contains('--split-per-abi')));
+  });
+
+  test('abi invalida sai com 64 antes do build', () {
+    final r = build(configValido().path, 'x86');
+
+    expect(r.exitCode, 64, reason: '${r.stdout}${r.stderr}');
+    expect(marcador.existsSync(), isFalse, reason: 'o build comecou');
   });
 }

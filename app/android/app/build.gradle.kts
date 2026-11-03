@@ -1,3 +1,36 @@
+// ABIs empacotadas, derivadas do `--target-platform` que o `flutter build`
+// passa ao Gradle como a propriedade `target-platform` (ADR-009, item 5).
+//
+// Um build por ABI, nunca `--split-per-abi`: com o split, o FlutterPlugin
+// sobrescreve o versionCode com `abi*1000 + codigo` (FlutterPlugin.kt), e os
+// artefatos da mesma tag sairiam com numeros diferentes.
+//
+// `ndk.abiFilters` decide o que e EMPACOTADO. Um filtro fixo em arm64-v8a
+// cortaria a libflutter.so/libapp.so do build `android-arm`, e o APK 32-bit
+// abriria e fecharia na hora. Sem a propriedade (o `appbundle` sem flag, ou o
+// Android Studio), entram as duas ABIs de campo.
+val flutterToAbi = mapOf(
+    "android-arm64" to "arm64-v8a",
+    "android-arm" to "armeabi-v7a",
+    "android-x64" to "x86_64",
+)
+val packagedAbis: List<String> =
+    (project.findProperty("target-platform") as String?)
+        ?.split(",")
+        ?.mapNotNull { flutterToAbi[it.trim()] }
+        ?.takeIf { it.isNotEmpty() }
+        ?: listOf("arm64-v8a", "armeabi-v7a")
+
+// O shim nativo (llama.cpp) so e COMPILADO para arm64-v8a e x86_64 (emulador). armeabi-v7a sai SEM o shim: o llama.cpp 32-bit nao e
+// suportado, e um aparelho 32-bit nao tem memoria para o modelo de ~806 MB. Ali
+// a triagem roda pelo RuleOnlyEngine (INV-8), e o app nao oferece o download do
+// modelo. A lista nunca fica vazia: com o filtro vazio, o CMake compilaria as
+// quatro ABIs. Num build so armeabi-v7a, o shim arm64 e compilado e descartado,
+// porque o `ndk.abiFilters` nao o empacota.
+val shimAbis: List<String> =
+    packagedAbis.filter { it == "arm64-v8a" || it == "x86_64" }
+        .ifEmpty { listOf("arm64-v8a") }
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -29,25 +62,25 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Somente arm64-v8a (RNF-09). O AGP faz UNIAO entre defaultConfig e
-        // buildType, entao o que entrar aqui nao sai depois: x86_64 e
-        // adicionado apenas no buildType `debug`, para emulador.
+        // `packagedAbis` (topo do arquivo). O AGP faz UNIAO entre
+        // defaultConfig e buildType, entao o que entrar aqui nao sai depois:
+        // x86_64 e adicionado apenas no buildType `debug`, para emulador.
         //
         // `clear()` antes de adicionar e deliberado: sem isso a lista herda os
-        // padroes e o build tenta armeabi-v7a, alvo 32 bits que a espec nao
-        // suporta e cuja compilacao do llama.cpp quebra.
+        // padroes do AGP.
         ndk {
             abiFilters.clear()
-            abiFilters.add("arm64-v8a")
+            abiFilters.addAll(packagedAbis)
         }
 
         externalNativeBuild {
             cmake {
                 // Sem esta lista o CMake compila as QUATRO ABIs, ignorando o
                 // filtro acima: `ndk.abiFilters` decide o que e EMPACOTADO,
-                // este decide o que e COMPILADO.
+                // este decide o que e COMPILADO. Nunca armeabi-v7a
+                // (`shimAbis`, topo do arquivo).
                 abiFilters.clear()
-                abiFilters.add("arm64-v8a")
+                abiFilters.addAll(shimAbis)
 
                 // libgubs_llama e libllama sao duas bibliotecas compartilhadas
                 // que usam a mesma libc++. Com o `c++_static` padrao, cada uma
