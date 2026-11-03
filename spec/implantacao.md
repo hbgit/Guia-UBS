@@ -121,7 +121,7 @@ Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão
 - [ ] **`targetSdk`** dentro do mínimo vigente (conferir no Play Console em ____-__-__).
 - [ ] **Tamanho do AAB** dentro do limite; o modelo SLM fica fora do pacote (conferir no Play Console em ____-__-__).
 - [ ] **`versionCode`** abaixo do teto aceito pela Play, que sustenta o limite MAJOR ≤ 210 da §2.2 (conferir no Play Console em ____-__-__).
-- [ ] **Política de privacidade** em URL pública (GitHub Pages ou o domínio do projeto, [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr): [a definir — F-7]), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
+- [ ] **Política de privacidade** em `https://prismrr.com.br/guiasaude/privacidade` (§2.9), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
 - [ ] **Data safety:** proposta de declarar "nenhum dado coletado nem compartilhado pelo app", **sujeita** à revisão jurídica do tratamento de IP (T7-R; [lgpd.md](lgpd.md)). Não é decisão deste documento (conferir no Play Console em ____-__-__).
 - [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R (conferir no Play Console em ____-__-__).
 - [ ] **Classificação e contato:** questionário IARC, público adulto, e-mail de contato de caixa do grupo (conferir no Play Console em ____-__-__).
@@ -166,11 +166,22 @@ perdem; nada de saúde é guardado.
 ```
 
 - O trecho entre `< >` sobre o PET-Saúde só entra quando a citação ao usuário estiver liberada (F-13, ver [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão); até lá, sai sem ele.
-- A URL da política fica no GitHub Pages do repositório ou num caminho do domínio do projeto ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 4): [a definir — F-7].
+- A URL da política é **`https://prismrr.com.br/guiasaude/privacidade`** (§2.9).
 - Na *pre-release*, acrescenta-se no topo que a versão está em teste no estudo piloto do projeto.
 - **Versão da Play, separada e curta.** O campo de notas de versão da Play tem limite de caracteres, de cerca de 500 por idioma (conferir no Play Console na data da publicação). Ali não cabe a nota acima. Na Play vão as novidades em uma ou duas linhas, mais a frase do aviso (não é serviço de saúde, não fala por UBS, SUS, Secretaria ou Ministério; emergência, 192). A conferência de SHA-256 e o aviso de canal ficam só no GitHub. O texto completo do aviso está na ficha da loja (§2.7, "Descrição da ficha").
 
 ---
+
+### 2.9 Política de privacidade e termos em URL pública (F-7, decidida em 2026-11-03)
+
+A ficha da Play exige a política em URL pública. Os termos vão para o mesmo lugar.
+
+- **URL no domínio do projeto, não em `github.io`:** `https://prismrr.com.br/guiasaude/privacidade` e `https://prismrr.com.br/guiasaude/termos`. O GitHub Pages fica **atrás de um CNAME**. A ficha da Play e os termos embarcados citam essa URL, então trocar de host não pode exigir release.
+- **O texto servido é o mesmo arquivo que o app embarca, não uma cópia.** Um passo de build do Pages publica direto `app/assets/legal/{privacidade,termos}_{pt,es}.md`, e não existem duas versões que possam divergir. A página mostra a **versão e a data**, as mesmas do `<!-- versao -->` e do `termsVersion`.
+- **Nenhum analytics, nem script de terceiro.** O Pages não coleta por padrão e assim deve continuar: seria estranho a política de privacidade ser a única página do projeto que rastreia.
+- **Implementação:** um workflow de Pages no repositório, mais o registro DNS do domínio raiz e o CNAME, que são do mantenedor.
+
+*Aceite:* a página publicada e o arquivo do app têm o mesmo `<!-- versao -->`; a página não carrega nenhum recurso de outro domínio; trocar o host (por exemplo, sair do Pages) muda só o DNS.
 
 ## 3. VPS do plano de controle
 
@@ -184,14 +195,20 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
   - datacenter **no Brasil** ([ADR-001](stack.md#10-registro-de-decisões-arquiteturais-adr), fundamento 6; LGPD-RF06). Outro país só com transferência internacional registrada no RIPD e revisão do ADR-007;
   - ≥ 2 vCPU, 4 GB de RAM, disco ≥ 80 GB;
   - snapshot disponível.
-- **Dois administradores**, designados por papel, para a VPS e para o domínio: [a definir — F-2].
+- **Duas pessoas** (ADR-007, Decisão 1): o administrador da VPS e um **segundo mantenedor** que não opera a VPS, mas aprova releases, guarda a segunda custódia das chaves, tem a leitura do backup e **executa o teste trimestral de restauração seguindo o runbook escrito** (item 28). Quem precisa saber restaurar é o runbook, não a pessoa. O motivo é o fator ônibus. Os nomes ficam no registro operacional.
 
 *Aceite:* a VPS contratada atende a cada requisito acima, conferido no painel do provedor antes do item 27 ser dado como entregue.
 
 ### 3.2 Domínio e TLS (ADR-007, Decisão 4)
 
-- Domínio próprio do PRISM, fora de `ufrr.br`, com os dois administradores da §3.1: o nome, o registro e a consequência de perdê-lo estão no [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) (Decisão 4 e Revisão). É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os nomes dos subdomínios de conteúdo e do CMS ficam para o item 27: [a definir — F-7].
+- Domínio próprio do PRISM, fora de `ufrr.br`, com os dois administradores da §3.1: o nome, o registro e a consequência de perdê-lo estão no [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) (Decisão 4 e Revisão). É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os subdomínios são dois, **separados de propósito** (ADR-007, Decisão 4):
+  - **`guiasaude.conteudo.prismrr.com.br`**: só `manifest.json` e packs, como arquivos estáticos. É o nome embarcado no APK, e não muda;
+  - **`guiasaude.cms.prismrr.com.br`**: o CMS, atrás de VPN ou de autenticação. Pode mudar de endereço sem que o de conteúdo mude.
 - **Renovação do domínio é obrigação permanente** (ADR-009, Custos aceitos): renovação automática ligada e alerta de expiração no mesmo monitoramento da §3.6.
+- **Titularidade e cobrança do domínio (F-19).** O titular e os contatos ficam no registro operacional, fora do repositório; as regras abaixo são públicas, para que o próximo mantenedor saiba que existem:
+  - **dois contatos de cobrança** no registrador, de pessoas diferentes, para que o aviso de renovação não dependa de uma caixa só;
+  - **pagamento adiantado de mais de um ano**, para que uma renovação esquecida não derrube o domínio no mesmo mês;
+  - **transferência de titularidade ao próximo responsável pelo PRISM** em caso de afastamento do titular. O domínio dá o `applicationId` e o host de conteúdo, e não pode ficar preso a quem saiu (ADR-007, Revisão).
 - Dois nomes: `CONTENT_DOMAIN` (só GET/HEAD; `manifest.json` e packs) e `CMS_DOMAIN`.
 - Caddy com ACME (TLS automático) e `ACME_EMAIL` de caixa do grupo, não pessoal. HSTS e CSP como hoje em `infra/Caddyfile`. `BETTER_AUTH_URL` em `https://`.
 - **Só 80 e 443 públicas.** `sqld` e MinIO em `127.0.0.1`; `cms` e `packer` sem `ports:` ([stack.md](stack.md) §7).
@@ -228,9 +245,12 @@ O playbook Ansible é a **fonte da verdade** da VPS (substitui a promessa de `in
   - o volume `caddydata`;
   - `infra/.env`.
 - **Proteção:** tudo cifrado (restic ou age), com cópia **fora da VPS**. O destino é provisório (P, F-8): um segundo provedor de armazenamento de objetos, com conta do PRISM, a revisar na data do ADR-007.
+- **O destino é de outro provedor que não o da VPS**, com região no Brasil (o nome fica no registro operacional, fora do repositório). Uma suspensão de conta não pode levar a VPS e o backup juntos.
+- **A VPS não consegue apagar o backup:** credencial de escrita sem permissão de apagar, ou bucket com imutabilidade por período. Uma VPS comprometida não leva o backup junto.
+- **A credencial de leitura fica com uma pessoa diferente do administrador da VPS.**
 - **O destino também fica no Brasil**, pela mesma regra da VPS (§3.1; ADR-001, fundamento 6; LGPD-RF06). O backup carrega o banco master com a trilha de auditoria e os dados dos operadores do CMS (e-mail, IP com hash e sal), além do `infra/.env`. Cifrar não tira a natureza de dado pessoal nem afasta a transferência internacional. Destino fora do país só com transferência registrada no RIPD e revisão do ADR-007, como a VPS.
 - **Retenção (P, F-8):** 7 diárias, 4 semanais e 6 mensais. A retenção da trilha, dos logs e dos backups como tratamento de dado pessoal é tema da LGPD-RF07 em [lgpd.md](lgpd.md) e da T7-R; este documento não a decide.
-- **Teste de restauração trimestral**, numa VPS descartável.
+- **Teste de restauração trimestral**, numa VPS descartável, **registrado com data** no registro operacional. O alerta de backup com mais de 26 h está na §5.2.
 - **Prioridade:** banco master e trilha de auditoria, que não são reconstruíveis. Os packs são reconstruíveis pelo packer reprodutível (`SOURCE_DATE_EPOCH`).
 
 ### 3.6 Segurança e monitoramento (ADR-007, Decisão 8)
@@ -277,7 +297,8 @@ Papéis, nunca nomes. A atribuição de pessoas a papéis fica no registro de de
 | Assinar o pack durante a exceção da §3.7 | Mantenedor A (custódia) | Diferente do mantenedor B | [ADR-001](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão |
 | Gerar o pack sem chave e conferir a assinatura publicada | Mantenedor B | Diferente do mantenedor A | [ADR-001](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão |
 | Aprovar conteúdo clínico | Revisores clínicos, por dual review | Autor ≠ revisor (gatilho `approval_no_self_approval`) | [espec.md](espec.md) INV-4 |
-| Operar a VPS e o domínio (provisionamento, atualização, backup, restauração, resposta a alerta) | Dois administradores da VPS ([a definir — F-2]) | Dois, para que a ausência de um não pare a operação | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 1 |
+| Operar a VPS e o domínio (provisionamento, atualização, backup, resposta a alerta) | Administrador da VPS | — | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 1 |
+| Restaurar o backup numa VPS nova, sem depender do administrador, **seguindo o runbook** (e executar o teste trimestral) | Segundo mantenedor, com a credencial de leitura do backup | Diferente do administrador da VPS (fator ônibus). Passo que só o administrador saberia fazer é defeito do runbook | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisões 1 e 7 |
 | Comunicar incidente | PRISM, sob o controlador pendente | — | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 8; [lgpd.md](lgpd.md) LGPD-RF12 |
 
 ---

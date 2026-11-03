@@ -489,8 +489,14 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
 | F-11 | aberta (consulta institucional) | — |
-| F-19 | **aberta** | Titularidade do domínio: registrar fora do repositório. No repositório fica só "respondida em <data>" |
-| F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
+| F-19 | respondida em 2026-11-03 | Fora do repositório (dado pessoal do titular). Público por natureza, no `implantacao.md` §3.2: dois contatos de cobrança, pagamento adiantado de mais de um ano, transferência ao próximo responsável pelo PRISM em caso de afastamento |
+| F-1 | respondida em 2026-11-03 | Fora do repositório. Público por natureza: datacenter no Brasil, como exige o ADR-007; instância **ARM**, o que pede imagens `linux/arm64` de `sqld`, MinIO, Caddy e Node no item 27 (conferir cada uma). Se alguma imagem não tiver `linux/arm64`: compilar a própria ou trocar de instância, **nunca emulação em produção** |
+| F-4 | respondida em 2026-11-03 | Fora do repositório. Público por natureza: **conta pessoal** da Play. Conferir no Play Console as exigências de conta pessoal nova (teste fechado, verificação de identidade) e se apps de saúde pedem conta de organização (Play@data) |
+| F-8 | respondida em 2026-11-03 | Fora do repositório. Público por natureza: **outro provedor que não o da VPS**, região no Brasil, escrita sem permissão de apagar ou bucket imutável por período, leitura com pessoa diferente do administrador da VPS, restauração trimestral registrada com data (ADR-007, Decisão 7) |
+| F-7 | respondida em 2026-11-03 | Subdomínios: **`guiasaude.conteudo.prismrr.com.br`** (só manifest e packs, estático; é o embarcado no APK) e **`guiasaude.cms.prismrr.com.br`** (CMS atrás de VPN ou autenticação). Política e termos em **`https://prismrr.com.br/guiasaude/{privacidade,termos}`**, no GitHub Pages atrás de CNAME, publicando o mesmo arquivo que o app embarca, com versão e data, sem analytics (`implantacao.md` §2.9) |
+| F-2 | respondida em 2026-11-03 (opção **a**) | Fora do repositório. Público por natureza: **duas pessoas**. O administrador da VPS e um segundo mantenedor que não opera a VPS, mas é revisor do release, segunda custódia das chaves, mantenedor B do pack, tem a leitura do backup e sabe restaurá-lo numa VPS nova. Motivo: **fator ônibus** (ADR-007, Decisão 1). Nenhum controle dos ADR-001 e 009 mudou |
+| Modelo no HF | decidido em 2026-11-03 | A exceção do ADR-004 **continua por decisão**, com quatro condições na Revisão do ADR-004: URL do modelo no manifest (plano B); aviso "servidor fora do Brasil" antes do "Baixar agora" (E7, T7-R); o espelho `ggml-org` e o limite de download anônimo do HF (controle: SHA-256 no app, que reprova); revisão de custo pelo volume real de downloads do estudo piloto |
+| F-9, F-18 | abertas (classe M) | — |
 
 **Liberado:** E1 e, desde 2026-11-02, o E2 (domínio `prismrr.com.br` registrado). Os administradores do domínio (F-2) ficam no registro fora do repositório.
 
@@ -819,6 +825,8 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 
 ### Tarefa 8b: controlador e bases legais na política de privacidade (E7, exceção de código)
 
+> **Para o E7, tela de download do modelo (revisão do #74):** a frase "servidor fora do Brasil" entra acompanhada do **tamanho em MB** e da palavra **"opcional"**. "Módulo de idiomas" não diz à pessoa que são 800 MB, nem que o app funciona sem eles, e a frase sobre o país sozinha não resolve isso.
+>
 > **Decidido no #66 (2026-11-02), não reabrir no E7:** o gate (`termsGateBody`) diz "Grupo de Pesquisa PRISM, da UFRR". Está em `origensQueCitamUfrr` e, via `ufrrSoNaFrase`, a UFRR só pode aparecer nessa frase. O ajuste de dados móveis diz "Ative", e "ligue" fica reservado ao 192. Um guarda reprova o contrário.
 
 **Leia:** §E.2 (parte "T8b"), o `lgpd.md` aprovado na T7b.
@@ -937,6 +945,8 @@ Assim a revisão jurídica volta ao caminho crítico **do estudo com participant
 | 5 | `MODEL_URL` de release | existente (ADR-004) | triagem com SLM (opcional) | 4, se o modelo sair do Hugging Face. Sem modelo, roda o `RuleOnlyEngine` (F-18) |
 | 6 | RIPD | T7b + documento | estudo externo | F-11, T7-R |
 | 7 | TCLE e protocolo no CEP | fora do repositório | estudo externo, se F-9 = sim | F-11 |
+
+**Plano B: o TLS do host de conteúdo, antes de embarcar o nome.** `guiasaude.conteudo.prismrr.com.br` vai embarcado no APK, e servi-lo de um provedor de objeto exige **TLS nesse nome**. Nem todo bucket aceita domínio customizado com certificado, e às vezes é preciso um CDN ou um Caddy na frente. O plano B responde isso **antes** de o nome entrar no `defines.release.json`.
 
 **Plano B: onde o pack é assinado enquanto a VPS não existe.**
 - O CMS não é necessário: o app só lê arquivos estáticos, e o pack sai pelo **caminho `seed/`** (`npm run pack:build`, golden por YAML e atestados).
