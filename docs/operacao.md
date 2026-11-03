@@ -465,7 +465,47 @@ apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
 O certificado debug tem SHA-256 começando em `62c33cab`. Ver esse prefixo num
 APK que vai ser publicado é erro.
 
-### 2.12 Publicar uma versão do app
+### 2.12 Página pública da política e dos termos
+
+`.github/workflows/pages.yml` publica em
+`https://guiasaude.prismrr.com.br/privacidade/` e
+`https://guiasaude.prismrr.com.br/termos/` (mais `/es/privacidade/` e
+`/es/termos/`, e uma página inicial na raiz) os
+**mesmos** arquivos que o app embarca em `app/assets/legal/`, pelo mesmo parser
+([`spec/implantacao.md`](../spec/implantacao.md) §2.9).
+
+```sh
+cd app && dart run tool/legal_pages.dart --out /tmp/site   # gera localmente
+```
+
+O gerador reprova documento sem `<!-- versao -->` e termos com versão diferente
+do `termsVersion`. O workflow também reprova qualquer `<script>`, `<link>`,
+`<img>` ou `src=` na saída. Publica em push para `main`; em PR, só gera.
+
+**O que é do mantenedor, uma vez:**
+
+- *Settings > Pages > Build and deployment*: **Source = GitHub Actions**;
+- **domínio verificado na conta**: nas *Settings* da conta do GitHub, *Pages >
+  Verified domains*, `prismrr.com.br`, com o registro TXT que o GitHub pede. Sem
+  isso, se o site deste repositório for desativado com o CNAME ainda apontando
+  para `hbgit.github.io`, outra conta pode reivindicar o subdomínio e servir o
+  que quiser na URL da política. A verificação é uma só e cobre os subdomínios;
+- no DNS do `prismrr.com.br`: **`CNAME guiasaude → hbgit.github.io`**. O apex
+  não recebe registro: ele fica reservado ao grupo, e cada app tem o seu
+  subdomínio;
+- *Settings > Pages > Custom domain*: `guiasaude.prismrr.com.br`, com
+  **Enforce HTTPS**. Com publicação por Actions, um arquivo `CNAME` não é usado;
+  vale o que está aqui;
+- por último, a **variável do repositório `PAGES_CONFIGURED=true`**. Sem ela, o
+  push em `main` gera e confere o site, mas o job `deploy-pendente` só deixa um
+  aviso, em vez de um `deploy` vermelho que todo mundo aprende a ignorar.
+
+Faça os passos acima **com o PR aberto**: o run do PR mostra as cinco páginas
+geradas, e o primeiro push em `main` já publica.
+
+A página não usa cookies, scripts nem rastreamento, e assim deve continuar.
+
+### 2.13 Publicar uma versão do app
 
 O caminho é o workflow `.github/workflows/app-release.yml`, disparado por tag
 ([`spec/implantacao.md`](../spec/implantacao.md) §2.6). Ele faz, nesta ordem:

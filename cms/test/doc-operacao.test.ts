@@ -159,6 +159,7 @@ test('toda variavel de ambiente citada existe em infra/.env.example', () => {
     ANDROID_KEY_ALIAS: 'idem',
     ANDROID_KEY_PASSWORD: 'idem',
     RELEASE_CERT_SHA256: 'variavel do repositorio no GitHub (vars.*), conferida pelo workflow de release',
+    PAGES_CONFIGURED: 'variavel do repositorio no GitHub (vars.*): liga o deploy do Pages depois da configuracao do dominio',
   };
 
   // Exige `_` no nome: e o que separa `BETTER_AUTH_SECRET` de `PATCH`. Todas as
