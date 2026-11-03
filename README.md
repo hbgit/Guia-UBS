@@ -294,11 +294,11 @@ Ordem de precedência — em conflito, vale o documento mais acima:
 4. [`spec/lgpd.md`](spec/lgpd.md) — conformidade LGPD
 5. [`spec/brainstorm.md`](spec/brainstorm.md) — visão de produto e milestones
 6. [`spec/arquitetura.md`](spec/arquitetura.md) — roadmap e o resultado medido de cada item entregue
+7. [`spec/design.html`](spec/design.html) — protótipo interativo (abrir no navegador)
 
 [`spec/implantacao.md`](spec/implantacao.md) traz as diretrizes normativas de
 release do APK e de operação da VPS do PRISM. Fica abaixo do `stack.md`; em
 conflito com um ADR, vale o ADR.
-7. [`spec/design.html`](spec/design.html) — protótipo interativo (abrir no navegador)
 
 ### Operação — não normativo
 
