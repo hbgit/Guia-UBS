@@ -11,7 +11,8 @@ flags. A interface é **100% iconográfica**, sem texto obrigatório.
 
 Projeto **educativo e de código aberto** do Grupo de Pesquisa **PRISM** (UFRR),
 em cooperação com o **PET-Saúde: Inovação e Saúde Digital**, iniciativa do Núcleo
-de Telessaúde da UFRR ([ADR-005](spec/stack.md)).
+de Telessaúde da UFRR. A cooperação está em andamento, com a formalização
+pendente ([ADR-005](spec/stack.md), Decisão 1).
 
 > **Sem vínculo com unidades de saúde.** O Guia UBS não é serviço de saúde e não
 > fala por nenhuma UBS, nem pelo SUS, nem por Secretaria ou Ministério da Saúde.

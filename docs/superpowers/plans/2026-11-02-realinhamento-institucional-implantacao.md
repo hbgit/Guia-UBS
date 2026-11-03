@@ -819,6 +819,8 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 
 ### Tarefa 8b: controlador e bases legais na política de privacidade (E7, exceção de código)
 
+> **Decidido no #66 (2026-11-02), não reabrir no E7:** o gate (`termsGateBody`) diz "Grupo de Pesquisa PRISM, da UFRR". Está em `origensQueCitamUfrr` e, via `ufrrSoNaFrase`, a UFRR só pode aparecer nessa frase. O ajuste de dados móveis diz "Ative", e "ligue" fica reservado ao 192. Um guarda reprova o contrário.
+
 **Leia:** §E.2 (parte "T8b"), o `lgpd.md` aprovado na T7b.
 
 **Arquivos:**

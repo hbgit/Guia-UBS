@@ -110,7 +110,7 @@ Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão
 - [ ] **`targetSdk`** dentro do mínimo vigente (conferir no Play Console em ____-__-__).
 - [ ] **Tamanho do AAB** dentro do limite; o modelo SLM fica fora do pacote (conferir no Play Console em ____-__-__).
 - [ ] **`versionCode`** abaixo do teto aceito pela Play, que sustenta o limite MAJOR ≤ 210 da §2.2 (conferir no Play Console em ____-__-__).
-- [ ] **Política de privacidade** em URL pública (GitHub Pages ou `prismrr.com.br`: [a definir — F-7]), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
+- [ ] **Política de privacidade** em URL pública (GitHub Pages ou o domínio do projeto, [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr): [a definir — F-7]), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
 - [ ] **Data safety:** proposta de declarar "nenhum dado coletado nem compartilhado pelo app", **sujeita** à revisão jurídica do tratamento de IP (T7-R; [lgpd.md](lgpd.md)). Não é decisão deste documento (conferir no Play Console em ____-__-__).
 - [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R (conferir no Play Console em ____-__-__).
 - [ ] **Classificação e contato:** questionário IARC, público adulto, e-mail de contato de caixa do grupo (conferir no Play Console em ____-__-__).
@@ -154,7 +154,7 @@ perdem; nada de saúde é guardado.
 ```
 
 - O trecho entre `< >` sobre o PET-Saúde só entra quando a citação ao usuário estiver liberada (F-13, ver [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão); até lá, sai sem ele.
-- A URL da política fica no GitHub Pages do repositório ou num caminho de `prismrr.com.br`: [a definir — F-7].
+- A URL da política fica no GitHub Pages do repositório ou num caminho do domínio do projeto ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 4): [a definir — F-7].
 - Na *pre-release*, acrescenta-se no topo que a versão está em teste no estudo piloto do projeto.
 - **Versão da Play, separada e curta.** O campo de notas de versão da Play tem limite de caracteres, de cerca de 500 por idioma (conferir no Play Console na data da publicação). Ali não cabe a nota acima. Na Play vão as novidades em uma ou duas linhas, mais a frase do aviso (não é serviço de saúde, não fala por UBS, SUS, Secretaria ou Ministério; emergência, 192). A conferência de SHA-256 e o aviso de canal ficam só no GitHub. O texto completo do aviso está na ficha da loja (§2.7, "Descrição da ficha").
 
@@ -178,7 +178,7 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
 
 ### 3.2 Domínio e TLS (ADR-007, Decisão 4)
 
-- Domínio próprio do PRISM: **`prismrr.com.br`**, registrado no Registro.br em 2026-11-02, fora de `ufrr.br`, com os dois administradores da §3.1. É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os nomes dos subdomínios de conteúdo e do CMS ficam para o item 27: [a definir — F-7].
+- Domínio próprio do PRISM, fora de `ufrr.br`, com os dois administradores da §3.1: o nome, o registro e a consequência de perdê-lo estão no [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) (Decisão 4 e Revisão). É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os nomes dos subdomínios de conteúdo e do CMS ficam para o item 27: [a definir — F-7].
 - **Renovação do domínio é obrigação permanente** (ADR-009, Custos aceitos): renovação automática ligada e alerta de expiração no mesmo monitoramento da §3.6.
 - Dois nomes: `CONTENT_DOMAIN` (só GET/HEAD; `manifest.json` e packs) e `CMS_DOMAIN`.
 - Caddy com ACME (TLS automático) e `ACME_EMAIL` de caixa do grupo, não pessoal. HSTS e CSP como hoje em `infra/Caddyfile`. `BETTER_AUTH_URL` em `https://`.

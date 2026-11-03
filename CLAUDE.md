@@ -11,7 +11,7 @@ Projeto **em implementação**. A documentação está dividida em dois lugares 
 
 O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), `native/llama_shim/` (C) e `infra/`. O andamento por item está em `spec/arquitetura.md` §Roadmap; as medições e decisões de cada item entregue ficam nas subseções §5.x do mesmo arquivo. O produto especificado: **Guia UBS**, app Android offline-only (Flutter + SLM local via llama.cpp) com interface 100% iconográfica, mais um plano de controle de conteúdo (TypeScript/Hono) que compila e assina pacotes SQLite distribuídos via arquivos estáticos.
 
-**Enquadramento institucional** ([ADR-005](spec/stack.md)): projeto **educativo e de código aberto** do Grupo de Pesquisa PRISM (UFRR), em cooperação com o PET-Saúde: Inovação e Saúde Digital (Núcleo de Telessaúde UFRR).
+**Enquadramento institucional** ([ADR-005](spec/stack.md)): projeto **educativo e de código aberto** do Grupo de Pesquisa PRISM (UFRR), em cooperação com o PET-Saúde: Inovação e Saúde Digital (Núcleo de Telessaúde UFRR), **em andamento, com a formalização pendente** (Decisão 1). Por isso README, ADR e textos ao usuário nunca dão a parceria como estabelecida.
 - **Prioridade:** o foco primário é **educação social em saúde** de populações rurais, imigrantes e pessoas de baixo letramento. Dizer onde procurar atendimento é apoio **secundário**.
 - **Sem vínculo com unidades de saúde, secretarias ou prefeituras.** Nenhum requisito pode pressupor integração, dados ou aprovação delas.
   - "UBS", "UPA" e "posto" são **categorias de serviço do SUS**, não parceiros.
@@ -186,10 +186,17 @@ docker compose -f infra/compose.yaml config --quiet
 **Release e implantação** ([`spec/implantacao.md`](spec/implantacao.md); ADR-006 a 009 e a Revisão do ADR-001 em [`spec/stack.md`](spec/stack.md)).
 - **Canais.** APK por **GitHub Releases e Google Play**. O CMS roda numa **VPS mantida pelo PRISM**.
 - **Armadilhas que ainda não custaram nada, e não devem custar:**
-  - **O `applicationId` é permanente depois da 1ª publicação na Play.** O id de hoje, `br.gov.exemplo.guia_ubs`, é de exemplo e nunca sobe. O definitivo é `br.com.prismrr.guiasaude` e mora só no ADR-009. Ele vem do domínio `prismrr.com.br`, que precisa ser renovado sempre: domínio expirado deixa o id apontando para um nome que outra pessoa pode registrar.
+  - **O `applicationId` é permanente depois da 1ª publicação na Play.** O id de hoje, `br.gov.exemplo.guia_ubs`, é de exemplo e nunca sobe. O definitivo é `br.com.prismrr.guiasaude` e mora só no ADR-009. Ele vem do domínio do projeto. O nome, a renovação e o que acontece se o domínio for perdido estão no ADR-007 (Decisão 4 e Revisão): cite por referência, não repita.
   - **`--split-per-abi` sobrescreve o `versionCode`** (`abi*1000 + código`, no plugin gradle do Flutter), e o deslocamento cai dentro da fórmula `MAJOR*10000 + MINOR*100 + PATCH`. Por isso sai um build por ABI, e MINOR e PATCH ficam ≤ 99.
   - **`docker compose up` sem `-f compose.yaml` carrega o override de dev** (edge sem TLS). Na VPS, o `-f` é obrigatório.
   - **A chave Ed25519 do pack nunca vai para CI.** Enquanto a VPS não existe, assina-se na máquina de um mantenedor, com um segundo mantenedor reconstruindo o pack e conferindo o hash (Revisão do ADR-001).
+  - **Editar um documento legal sem bump é invisível para quem já aceitou.** Qualquer edição em `app/assets/legal/{termos,privacidade}_*.md`, até de acento, exige no mesmo commit:
+    - o `<!-- versao -->` dos quatro documentos;
+    - `termsVersion` (`app/lib/legal/terms.dart`);
+    - a constante `versaoEsperadaPrivacidade` do `legal_documents_test`.
+
+    Isso reabre o "li e concordo". O teste confere documento × constante, **não** documento × histórico: um texto mudado com a versão antiga passa verde, e só a revisão pega.
+  - **Citar a UFRR em texto novo** exige pôr a origem em `origensQueCitamUfrr` do `no_endorsement_test`, e, se ela só puder aparecer numa frase fixa, também em `ufrrSoNaFrase`. O gate (`termsGateBody`) já está lá, decidido no #66: diz "Grupo de Pesquisa PRISM, da UFRR", e a UFRR só aparece nessa frase.
 
 **Coluna nova no `user.db` custa quatro coisas, no mesmo commit** — `theme_mode` e `font_scale` são o precedente: (1) `schemaVersion` + `onUpgrade` com teste de migração v1→v2, porque **sem ele todo aparelho já instalado quebra no boot** e instalação limpa não mostra isso; (2) a lista permitida de `test/prefs/lgpd_surface_test.dart`, com a justificativa escrita; (3) uma entrada na tela de privacidade em pt e es, que o teste conta contra as colunas; (4) a linha correspondente em `spec/lgpd.md`.
 
