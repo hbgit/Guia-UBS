@@ -98,6 +98,10 @@ Deriva do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr) e do [A
 8. **Promoção manual**, condicionada ao checklist da §2.7 conferido e datado: o AAB passa da faixa de teste para produção na Play, e a marca *pre-release* sai no GitHub. **Sem rebuild.**
 9. [docs/operacao.md](../docs/operacao.md) registra a versão publicada em cada canal.
 
+**Regra provisória até o item 31 existir.** Os termos de uso (versão `2026-11-02`) já dizem ao usuário que "cada versão publicada no GitHub traz o código de conferência (SHA-256) do arquivo" (RF-17). Até o `app-release.yml` existir:
+- **todo APK publicado à mão no GitHub, inclusive *pre-release* de dogfooding, leva o `SHA256SUMS`** gerado por `sha256sum *.apk > SHA256SUMS` e anexado à release, mais a impressão SHA-256 do certificado na nota da §2.8;
+- sem isso, a release não é publicada. Custa um comando e mantém os termos verdadeiros desde o primeiro dogfooding, sem exigir outro reaceite para mudar o texto depois.
+
 ### 2.7 Checklist da ficha no Google Play
 
 Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 6 e Custo aceito 2; [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr), Custo aceito 4. Toda linha é regra de terceiro ou proposta, e a promoção para produção só ocorre com **todas** as datas preenchidas na mesma rodada de publicação.
