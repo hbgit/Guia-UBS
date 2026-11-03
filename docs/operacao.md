@@ -127,10 +127,17 @@ $EDITOR infra/.env
 ### 2.2 Subir a topologia
 
 ```sh
-cd infra && docker compose up -d db storage && cd ..
+cd infra && docker compose -f compose.yaml up -d db storage && cd ..
 ```
 
-Espere `docker compose ps` mostrar `healthy` antes de migrar.
+Espere `docker compose -f compose.yaml ps` (de dentro de `infra/`) mostrar
+`healthy` antes de migrar.
+
+**Na VPS, o `-f compose.yaml` é obrigatório.** Sem `-f`, o `docker compose`
+carrega o `compose.yaml` **e**, por cima dele, o `compose.override.yaml`, que é
+de desenvolvimento: troca o `Caddyfile` pelo `Caddyfile.dev` e
+publica o `edge` em HTTP sem TLS, em `127.0.0.1:8081` e `127.0.0.1:8082`. Na
+máquina de desenvolvimento, `docker compose` sem `-f` é o certo.
 
 ### 2.3 Aplicar o schema
 
@@ -328,7 +335,7 @@ do Vite**: é ela que o navegador informa como origem.
 **Modo 2 — a topologia de produção, pelo `edge`:**
 
 ```sh
-cd infra && docker compose up -d --build db cms edge
+cd infra && docker compose up -d --build db cms edge   # sem -f: carrega o override de dev
 # navegador em http://127.0.0.1:8082  — a porta do EDGE, não a do cms
 ```
 
@@ -337,7 +344,9 @@ servir estáticos do Hono, e o proxy — cabeçalhos, `Origin`, `X-Forwarded-*`.
 **Confira neste modo antes de dar merge.**
 
 Em produção este caminho é o mesmo, com `https://` e o hostname de `CMS_DOMAIN`
-no lugar de `127.0.0.1:8082`. O `cms` não publica porta nenhuma nos dois casos.
+no lugar de `127.0.0.1:8082`, e o compose sobe **sem** o override:
+`cd infra && docker compose -f compose.yaml up -d --build db cms edge`. O `cms`
+não publica porta nenhuma nos dois casos.
 
 > ⚠️ **`localhost` e `127.0.0.1` são origens diferentes,** e é o
 > `BETTER_AUTH_URL` que define qual delas é confiável. Abrir o Modo 2 em
@@ -395,7 +404,8 @@ O que `model:publish` faz, em ordem:
    `docker compose -f infra/compose.yaml run --rm --no-deps -T -v <backup>:/in/p.json:ro --entrypoint sh storage -c 'mc alias set local http://storage:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc anonymous set-json /in/p.json local/content-packs'`;
 4. roda `model:check` pelo edge e imprime a `MODEL_URL` para o
    `app/config/defines.release.json`. O mesmo arquivo leva a
-   `PACK_MANIFEST_URL` (o `manifest.json` do município), e no release o
+   `PACK_MANIFEST_URL` (o `manifest.json` da edição, publicado em
+   `content-packs/<código IBGE>/manifest.json`), e no release o
    `tool/build_apk.sh` exige as duas em `https`, fora de host local ou
    reservado e, terminada a exceção, no **mesmo host** (#45). Fora do debug, o
    próprio app trata `http` como "não configurado": o `dart:io` não respeita a
@@ -932,12 +942,12 @@ publique uma versão nova e corrigida.
 | **Sem upload de asset pela interface** | O formulário de `assets` grava metadado, mas o binário continua vindo de `seed/assets/`: `storageKey` aponta para um objeto que alguém precisa ter enviado por fora. **É a única parte do §4 que ainda não se faz pela tela** |
 | **Sem aceite de Termo de Uso no primeiro login** | `legal_document` e `consent_record` existem no banco e são append-only, e **não há rota nem tela**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com registro da versão e do hash do documento. A interface torna a lacuna **visível**, não a fecha |
 | **Tradução não tem travamento otimista** | `PUT /api/content/<entidade>/<chave>/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`. Dois editores traduzindo o mesmo item se sobrescrevem em silêncio — vence a última gravação, e nada acusa |
-| **Regra escrita no CMS nunca chega ao pack** | Toda regra nasce `draft`, e **não existe rota que a mova para `approved`** — nem o `POST /api/rules`, nem o `PUT`, nem `/revisao`, que também clona como rascunho. Como `extract.ts` filtra `status='approved'`, o §4 inteiro roda até o fim e o portão golden reprova a release: a regra simplesmente não entrou. As regras que hoje chegam ao aparelho vêm do caminho `seed/`, não da autoria. **É o buraco que separa o CMS de ser usável em piloto** |
+| **Regra escrita no CMS nunca chega ao pack** | Toda regra nasce `draft`, e **não existe rota que a mova para `approved`** — nem o `POST /api/rules`, nem o `PUT`, nem `/revisao`, que também clona como rascunho. Como `extract.ts` filtra `status='approved'`, o §4 inteiro roda até o fim e o portão golden reprova a release: a regra simplesmente não entrou. As regras que hoje chegam ao aparelho vêm do caminho `seed/`, não da autoria. **É o buraco que separa o CMS de ser usável no estudo piloto do projeto** |
 | **Telemetria sem produtor** | `POST /api/telemetry` existe e valida, mas nada envia: o app não faz a chamada, e o lote de um aparelho não alcança k≥20. Falta um agregador que nenhum documento especifica |
 | **Sem importador de conteúdo** | `cms:import-golden` traz os casos clínicos, mas não há equivalente para o conteúdo de `seed/`. Um CMS recém-implantado começa vazio, e a primeira release é montada pela API, item a item |
 | **Sem upload de asset** | `asset` guarda metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível |
 | **Sem expurgo por retenção** | A LGPD-RF07 exige prazo de retenção com expurgo; o procedimento está desenhado mas não implementado — depende da tabela de retenção aprovada pelo encarregado |
-| **Termos de uso mudaram para o piloto** | A versão de 2026-10-29 dos termos do app incorpora as restrições de uso do Gemma ([ADR-004](../spec/stack.md)). O app pede "li e concordo" a cada versão nova, mas o termo de consentimento do piloto UAT (LGPD-RF02) não está no repositório: a mudança precisa ser lida em voz alta aos participantes já inscritos, no idioma de cada um |
+| **Termos de uso mudaram para o estudo piloto** | A versão de 2026-10-29 dos termos do app incorpora as restrições de uso do Gemma ([ADR-004](../spec/stack.md)). O app pede "li e concordo" a cada versão nova, mas o termo de consentimento do estudo piloto do projeto (LGPD-RF02) não está no repositório: a mudança precisa ser lida em voz alta aos participantes já inscritos, no idioma de cada um |
 | **Casos golden sem revisão clínica** | Os 24 casos semeados não têm revisor. Desde a P0-2 o packer (`build` sem `--dry-run`, `publish`) e o worker **bloqueiam** e nada é assinado; `pack:check` apenas avisa. Roteiro da revisão: [`revisao-golden.md`](revisao-golden.md) |
 
 ---

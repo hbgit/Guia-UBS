@@ -1,14 +1,14 @@
 # Roteiro de revisão clínica da suíte golden
 
-Para quem organiza a revisão (mantenedor, Secretaria) e para quem revisa. Este roteiro descreve o processo da issue #2 (P0-2); as decisões estão em `spec/arquitetura.md` §5.17. Enquanto nenhum caso estiver revisado, **nenhum caminho do repositório produz pack assinado**: `npm run pack:build` termina com `BLOQUEADO: 24 problema(s). Nada foi assinado.` e saída 1. `pack:check` (o CI de PR) apenas avisa e sai com 0.
+Para quem organiza a revisão (mantenedor, coordenação do projeto PRISM/PET-Saúde) e para quem revisa. Este roteiro descreve o processo da issue #2 (P0-2); as decisões estão em `spec/arquitetura.md` §5.17. Enquanto nenhum caso estiver revisado, **nenhum caminho do repositório produz pack assinado**: `npm run pack:build` termina com `BLOQUEADO: 24 problema(s). Nada foi assinado.` e saída 1. `pack:check` (o CI de PR) apenas avisa e sai com 0.
 
 ## 1. Quem pode revisar
 
-Médico (CRM) ou enfermeiro (COREN, categoria **ENF**) da atenção primária, com registro profissional **ativo**, ligado à UBS piloto e **indicado pela Secretaria Municipal de Saúde**. Técnico de enfermagem (`-TE`) não é aceito: o contrato recusa. Mínimo de **1** revisor por caso (`MIN_REVISORES`); subir para 2 é mudar uma constante, e o CI passa a reprovar todo caso com um só.
+Médico (CRM) ou enfermeiro (COREN, categoria **ENF**) da atenção primária, com registro profissional **ativo**, **colaborador do projeto** e convidado pela coordenação do projeto (PRISM/PET-Saúde). O revisor atua em nome próprio, como profissional habilitado, e **não representa** unidade de saúde, secretaria ou prefeitura. Técnico de enfermagem (`-TE`) não é aceito: o contrato recusa. Mínimo de **1** revisor por caso (`MIN_REVISORES`); subir para 2 é mudar uma constante, e o CI passa a reprovar todo caso com um só.
 
 ## 2. O termo de ciência
 
-Cada revisor assina um termo de ciência (D3) antes de qualquer revisão. O termo é **arquivado pela Secretaria Municipal de Saúde (controladora)**, no sistema de protocolo dela, **fora do repositório e do CMS**. O repositório guarda só o `termo_sha256` do PDF assinado, que não revela conteúdo. Retenção: a da LGPD-RF04, contada da desativação do último caso que cita o atestado (prazo em anos pendente da LGPD-RF07).
+Cada revisor assina um termo de ciência (D3) antes de qualquer revisão. O termo é **arquivado pelo [responsável — F-11]**, **fora do repositório e do CMS**. O repositório guarda só o `termo_sha256` do PDF assinado, que não revela conteúdo. Retenção: a da LGPD-RF04, contada da desativação do último caso que cita o atestado (prazo em anos pendente da LGPD-RF07).
 
 ## 3. Como ler um caso
 
@@ -32,7 +32,7 @@ Respostas possíveis e o que acontece com cada uma (D10, literal):
 | **discordo: inseguro, o esperado seria MAIS grave** | caso fica no YAML, sem revisão; **pack bloqueado** | issue **P0** de conteúdo clínico; revisado de novo depois. **Retirar é proibido** (possível falso negativo) | — (regra fixa) |
 | **discordo, num caso de severidade máxima** (red flag), em qualquer direção | idem: fica e bloqueia | issue P0 de conteúdo clínico | — (regra fixa) |
 | **caso mal construído** (tokens incoerentes, combinação impossível) | caso fica e bloqueia até decisão | retirada em PR próprio `chore(golden): retira <id> mal construido (#2)` com a justificativa do revisor, e linha em §5.17 "casos retirados"; **nunca** para caso de red flag, que segue a linha anterior. Se o revisor sugerir um caso substituto, ele entra como caso novo, revisado pelo fluxo normal | dono, com o revisor |
-| **não sei avaliar** | pendente, bloqueia | outro profissional indicado pela Secretaria | Secretaria |
+| **não sei avaliar** | pendente, bloqueia | outro profissional convidado pela coordenação do projeto | coordenação do projeto (PRISM/PET-Saúde) |
 | **dois revisores divergem** | vale a resposta **mais conservadora** (ordem: discordo/inseguro > mal construído > não sei > cauteloso > concordo). **Proibido** transcrever só quem concordou | o da linha correspondente | conforme a linha |
 
 A #2 fecha quando todos os 24 casos estiverem revisados (concordo, com ou sem cautela) ou retirados como mal construídos. Discordância por insegurança deixa a #2 aberta, com o critério "`pack:check` sem aviso" pendente e referência à P0. O YAML não guarda votos: o formulário os guarda, e é por isso que as regras acima são obrigatórias.
@@ -61,7 +61,7 @@ Nenhum dado pessoal de revisor entra no repositório, nem em exemplo, nem em men
 
 ## 7. Formulário por caso e checklist do PR
 
-O formulário tem **um campo para cada revisor**, por caso: resposta (uma da seção 4), justificativa, desfecho que o revisor considera seguro (se discorda) e data. O formulário fica com a Secretaria, junto do termo.
+O formulário tem **um campo para cada revisor**, por caso: resposta (uma da seção 4), justificativa, desfecho que o revisor considera seguro (se discorda) e data. O formulário fica com quem guarda o termo ([responsável — F-11]), junto dele.
 
 Checklist do PR de transcrição:
 
