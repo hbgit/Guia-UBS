@@ -186,7 +186,7 @@ docker compose -f infra/compose.yaml config --quiet
 **Release e implantação** ([`spec/implantacao.md`](spec/implantacao.md); ADR-006 a 009 e a Revisão do ADR-001 em [`spec/stack.md`](spec/stack.md)).
 - **Canais.** APK por **GitHub Releases e Google Play**. O CMS roda numa **VPS mantida pelo PRISM**.
 - **Armadilhas que ainda não custaram nada, e não devem custar:**
-  - **O `applicationId` é permanente depois da 1ª publicação na Play.** O id de hoje, `br.gov.exemplo.guia_ubs`, é de exemplo e nunca sobe. O definitivo mora só no ADR-009 e depende do domínio próprio do PRISM.
+  - **O `applicationId` é permanente depois da 1ª publicação na Play.** O id de hoje, `br.gov.exemplo.guia_ubs`, é de exemplo e nunca sobe. O definitivo é `br.com.prismrr.guiasaude` e mora só no ADR-009. Ele vem do domínio `prismrr.com.br`, que precisa ser renovado sempre: domínio expirado deixa o id apontando para um nome que outra pessoa pode registrar.
   - **`--split-per-abi` sobrescreve o `versionCode`** (`abi*1000 + código`, no plugin gradle do Flutter), e o deslocamento cai dentro da fórmula `MAJOR*10000 + MINOR*100 + PATCH`. Por isso sai um build por ABI, e MINOR e PATCH ficam ≤ 99.
   - **`docker compose up` sem `-f compose.yaml` carrega o override de dev** (edge sem TLS). Na VPS, o `-f` é obrigatório.
   - **A chave Ed25519 do pack nunca vai para CI.** Enquanto a VPS não existe, assina-se na máquina de um mantenedor, com um segundo mantenedor reconstruindo o pack e conferindo o hash (Revisão do ADR-001).
