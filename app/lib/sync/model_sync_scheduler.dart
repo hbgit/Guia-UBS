@@ -16,7 +16,7 @@ import 'model_provisioning.dart';
 
 /// Identificador único do trabalho periódico. Fixo: reagendar não pode
 /// multiplicar downloads de 800 MB.
-const String modelSyncTaskName = 'br.gov.exemplo.guia_ubs.model_sync';
+const String modelSyncTaskName = 'br.com.prismrr.guiasaude.model_sync';
 
 @immutable
 class ModelSyncPolicy {

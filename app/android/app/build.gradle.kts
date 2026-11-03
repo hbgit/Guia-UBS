@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "br.gov.exemplo.guia_ubs"
+    namespace = "br.com.prismrr.guiasaude"
     // Fixado em 36: os plugins do onboarding (file_picker, workmanager)
     // exigem compilacao contra API 36+. Herdar `flutter.compileSdkVersion`
     // deixaria o build refem da versao que o SDK do Flutter escolher.
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "br.gov.exemplo.guia_ubs"
+        applicationId = "br.com.prismrr.guiasaude"
         // RNF-09 fixa Android 8.0 como piso, e o shim nativo e compilado para
         // android-26. Nao herdamos `flutter.minSdkVersion` (hoje 24): as duas
         // bases precisam bater, ou o `.so` nao carrega no aparelho mais antigo

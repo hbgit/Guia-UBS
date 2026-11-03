@@ -9,7 +9,7 @@
 /// Preparação (o modelo e o pacote não cabem no APK):
 ///
 /// ```
-/// PKG=br.gov.exemplo.guia_ubs
+/// PKG=br.com.prismrr.guiasaude
 /// DIR=/sdcard/Android/data/$PKG/files
 /// adb shell mkdir -p $DIR
 /// adb push modelo.gguf $DIR/model.gguf
@@ -33,7 +33,7 @@ import 'package:integration_test/integration_test.dart';
 /// Diretório externo do app: gravável por `adb push` sem permissão de runtime.
 const String _filesDir = String.fromEnvironment(
   'GUBS_FILES_DIR',
-  defaultValue: '/sdcard/Android/data/br.gov.exemplo.guia_ubs/files',
+  defaultValue: '/sdcard/Android/data/br.com.prismrr.guiasaude/files',
 );
 
 const String _modelPath =

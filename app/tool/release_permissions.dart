@@ -31,7 +31,7 @@ const Set<String> releasePermissionAllowlist = {
   'android.permission.WAKE_LOCK',
   'android.permission.RECEIVE_BOOT_COMPLETED',
   // androidx.core, para receivers dinâmicos não exportados (API 33+).
-  'br.gov.exemplo.guia_ubs.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+  'br.com.prismrr.guiasaude.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
 };
 
 /// Manifest mesclado de release no AGP 9.0.1, relativo a `app/`.
