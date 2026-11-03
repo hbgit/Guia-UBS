@@ -114,7 +114,7 @@
   "gemmaDocumentsUnavailable": "No fue posible abrir los documentos del modelo.",
   "termsGateTitle": "Términos de uso",
   "termsGateChangedTitle": "Los términos de uso cambiaron",
-  "termsGateBody": "Guia UBS es un proyecto educativo del Grupo de Investigación PRISM. Enseña cómo funcionan el SUS y la Atención Primaria y, como apoyo, indica dónde buscar atención. Guia UBS no es un servicio de salud, no hace diagnóstico y no habla por ninguna UBS, ni por el SUS, ni por Secretarías o el Ministerio de Salud. En una emergencia, llame al 192. El asistente usa el modelo Gemma, de Google, y las restricciones de uso de Gemma forman parte de estos términos. Google no desarrolló, no revisó y no respalda esta aplicación. Si no está de acuerdo, la aplicación funciona sin el asistente.",
+  "termsGateBody": "Guia UBS es un proyecto educativo del Grupo de Investigación PRISM, de la UFRR. Enseña cómo funcionan el SUS y la Atención Primaria y, como apoyo, indica dónde buscar atención. Guia UBS no es un servicio de salud, no hace diagnóstico y no habla por ninguna UBS, ni por el SUS, ni por Secretarías o el Ministerio de Salud. En una emergencia, llame al 192. El asistente usa el modelo Gemma, de Google, y las restricciones de uso de Gemma forman parte de estos términos. Google no desarrolló, no revisó y no respalda esta aplicación. Si no está de acuerdo, la aplicación funciona sin el asistente.",
   "termsGateListen": "Escuchar",
   "termsGateOpenTerms": "Leer los términos",
   "termsGateAccept": "Leí y acepto",

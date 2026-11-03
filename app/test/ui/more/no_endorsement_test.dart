@@ -72,7 +72,24 @@ const Map<String, String> origensQueCitamUfrr = {
   'termos_es.md': 'idem, em espanhol',
   'privacidade_pt.md': 'identifica quem mantem o app e o servidor de conteudo',
   'privacidade_es.md': 'idem, em espanhol',
+  'termsGateBody': 'resumo falado do "li e concordo": so na frase de quem faz',
 };
+
+/// Origens em que a UFRR so pode aparecer DENTRO destas frases (quem faz o
+/// app). Fora delas, na mesma origem, reprova: o gate e falado, e "UFRR" solto
+/// no meio do resumo soaria como aval.
+const Map<String, List<String>> ufrrSoNaFrase = {
+  'termsGateBody': [
+    'Grupo de Pesquisa PRISM, da UFRR',
+    'Grupo de Investigación PRISM, de la UFRR',
+  ],
+};
+
+/// "Ligue" e TELEFONAR (192). Ativar um ajuste usa "Ative", para quem ouve o
+/// app pelo TTS nao ouvir o mesmo verbo com dois sentidos a segundos de
+/// distancia. Vale para pt; em es, "llame" so com 192 e o ajuste usa "Active".
+final RegExp _ligueSemTelefone =
+    RegExp(r'\b(ligue|llame)\b(?![^.]{0,20}\b192\b)', caseSensitive: false);
 
 const Map<String, String> negaEndosso = {
   'pt': 'não desenvolveu, não revisou e não endossa',
@@ -203,6 +220,18 @@ List<String> problemas(String origem, String idioma, String texto) {
     }
   }
   final semEmail = plano.replaceAll(projectContactEmail, '');
+  var semEmailNemFrase = semEmail;
+  for (final frase in ufrrSoNaFrase[origem] ?? const <String>[]) {
+    semEmailNemFrase = semEmailNemFrase.replaceAll(frase, '');
+  }
+  if (ufrrSoNaFrase.containsKey(origem) &&
+      RegExp(r'UFRR', caseSensitive: false).hasMatch(semEmailNemFrase)) {
+    erros.add('$origem cita a UFRR fora da frase de quem faz');
+  }
+  if (_ligueSemTelefone.hasMatch(plano)) {
+    erros.add('$origem usa "ligue"/"llame" sem ser para telefonar ao 192: '
+        'para ativar um ajuste, "Ative"/"Active"');
+  }
   if (!origensQueCitamUfrr.containsKey(origem) &&
       RegExp(r'UFRR|Universidade Federal|Universidad Federal',
               caseSensitive: false)
@@ -267,11 +296,29 @@ void main() {
     });
     test('UFRR fora do e-mail e das origens permitidas: reprova', () {
       expect(problemas('x', 'pt', 'grupo da UFRR'), isNotEmpty);
-      expect(problemas('termsGateBody', 'pt', 'grupo da UFRR'), isNotEmpty);
+      expect(problemas('aboutModelCredit', 'pt', 'grupo da UFRR'), isNotEmpty);
+    });
+    test('no gate, UFRR so na frase de quem faz', () {
+      expect(problemas('termsGateBody', 'pt',
+              'Projeto do Grupo de Pesquisa PRISM, da UFRR. Não endossa.'),
+          isNot(contains(contains('fora da frase'))));
+      expect(problemas('termsGateBody', 'pt', 'A UFRR recomenda este app.'),
+          contains(contains('fora da frase')));
+    });
+    test('"ligue" so para telefonar ao 192', () {
+      expect(problemas('x', 'pt', 'Em emergência, ligue 192.'), isEmpty);
+      expect(problemas('x', 'pt', 'Se piorar, ligue 192.'), isEmpty);
+      expect(problemas('x', 'pt', 'Ligue para baixar pelos dados móveis.'),
+          isNotEmpty);
+      expect(problemas('x', 'pt', 'Ative para baixar pelos dados móveis.'),
+          isEmpty);
+      expect(problemas('x', 'es', 'En emergencia, llame al 192.'), isEmpty);
       expect(problemas('x', 'pt', 'Contato: $projectContactEmail'), isEmpty);
     });
     test('UFRR nas origens permitidas: passa', () {
       for (final origem in origensQueCitamUfrr.keys) {
+        // Quem so pode citar a UFRR numa frase fixa e testado a parte.
+        if (ufrrSoNaFrase.containsKey(origem)) continue;
         expect(problemas(origem, 'pt', 'Grupo de Pesquisa PRISM (UFRR)'),
             isEmpty,
             reason: origem);
@@ -280,6 +327,20 @@ void main() {
     test('Medicina fora da chave propria: reprova', () {
       expect(problemas('x', 'pt', 'revisado pelo curso de Medicina'), isNotEmpty);
     });
+  });
+
+  test('o gate diz de onde e o grupo: PRISM, da UFRR (RF-16)', () {
+    // "Grupo de Pesquisa PRISM" sozinho nao diz nada a quem le pouco; "da
+    // UFRR" e o que a pessoa reconhece. A mesma fala ja diz que o app nao e
+    // servico de saude, e a tela Sobre diz que a UFRR nao responde por ele.
+    for (final (idioma, frase) in [
+      ('pt', 'Grupo de Pesquisa PRISM, da UFRR'),
+      ('es', 'Grupo de Investigación PRISM, de la UFRR'),
+    ]) {
+      final arb = jsonDecode(File('lib/l10n/app_$idioma.arb').readAsStringSync())
+          as Map<String, dynamic>;
+      expect(arb['termsGateBody'] as String, contains(frase), reason: idioma);
+    }
   });
 
   test('nenhum texto atribui regra, decisao ou configuracao a posto ou '

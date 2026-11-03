@@ -115,7 +115,7 @@
     "description": "Aviso quando o teto de 2x corta o pedido."
   },
   "settingsMetered": "Baixar usando dados móveis",
-  "settingsMeteredBody": "O aplicativo baixa conteúdo novo só no Wi-Fi. Ligue para baixar também pelos dados móveis do seu plano.",
+  "settingsMeteredBody": "O aplicativo baixa conteúdo novo só no Wi-Fi. Ative para baixar também pelos dados móveis do seu plano.",
   "howToTitle": "Como usar",
   "howToStepOf": "Passo {n} de {total}",
   "@howToStepOf": {
@@ -192,7 +192,7 @@
   "gemmaDocumentsUnavailable": "Não foi possível abrir os documentos do modelo.",
   "termsGateTitle": "Termos de uso",
   "termsGateChangedTitle": "Os termos de uso mudaram",
-  "termsGateBody": "O Guia UBS é um projeto educativo do Grupo de Pesquisa PRISM. Ele ensina como funcionam o SUS e a Atenção Primária e, como apoio, diz onde procurar atendimento. Ele não é serviço de saúde, não faz diagnóstico e não fala por nenhuma UBS, nem pelo SUS, nem por Secretaria ou Ministério da Saúde. Em emergência, ligue 192. O assistente usa o modelo Gemma, do Google, e as restrições de uso do Gemma fazem parte destes termos. O Google não desenvolveu, não revisou e não endossa este aplicativo. Se você não concordar, o aplicativo funciona sem o assistente.",
+  "termsGateBody": "O Guia UBS é um projeto educativo do Grupo de Pesquisa PRISM, da UFRR. Ele ensina como funcionam o SUS e a Atenção Primária e, como apoio, diz onde procurar atendimento. Ele não é serviço de saúde, não faz diagnóstico e não fala por nenhuma UBS, nem pelo SUS, nem por Secretaria ou Ministério da Saúde. Em emergência, ligue 192. O assistente usa o modelo Gemma, do Google, e as restrições de uso do Gemma fazem parte destes termos. O Google não desenvolveu, não revisou e não endossa este aplicativo. Se você não concordar, o aplicativo funciona sem o assistente.",
   "@termsGateBody": {
     "description": "Educacao primeiro, depois a nao afiliacao (RF-16) e o modelo. Texto descritivo do modelo: precisa negar o endosso do Google (no_endorsement_test). E o que o botao Ouvir fala, por isso o aviso de nao afiliacao do gate mora aqui. Sem UFRR: so aboutNoAffiliation pode cita-la."
   },
