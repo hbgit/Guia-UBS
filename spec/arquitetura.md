@@ -51,7 +51,7 @@ Guia-UBS/
 │   ├── compose.override.yaml    # dev
 │   ├── Caddyfile
 │   ├── .env.example
-│   └── ansible/                 # provisionamento do VPS (LUKS, firewall, systemd)
+│   └── ansible/                 # PLANEJADO (item 27): provisionamento da VPS (LUKS, firewall, systemd)
 ├── seed/                        # conteúdo semente versionado (SQL + assets)
 │   ├── 001_ontology.sql         # tokens de sintoma
 │   ├── 002_routing_rules.sql    # regras + outcomes
@@ -60,11 +60,14 @@ Guia-UBS/
 │   ├── golden/atestados.yaml        # registro PÚBLICO de atestados (só IDs; sem dado pessoal)
 │   └── assets/                  # ícones SVG, imagens, áudios Opus
 └── .github/workflows/           # CI (ou .woodpecker/ se self-host)
-    ├── contract.yml             # codegen + diff-check do contrato
+    ├── contract.yml             # codegen + diff-check do contrato; testes, migração e compose de cms/packer
     ├── app.yml                  # analyze + test + build APK
-    ├── control-plane.yml        # lint + test cms/packer
-    └── pack-release.yml         # valida → assina → publica (aprovação manual)
+    ├── control-plane.yml        # NÃO CRIADO: lint + test cms/packer já rodam no contract.yml
+    ├── pack-release.yml         # NÃO CRIADO: assinar pack em CI é vedado (ADR-001, Revisão); publica o job packer, na VPS do item 27. Um job SEM chave que só publica o hash do pack não assinado é permitido (implantacao.md §3.7)
+    └── app-release.yml          # PLANEJADO (item 31): tag vX.Y.Z → APK(s) + AAB assinados, SHA256SUMS
 ```
+
+> **Nota (2026-11-02):** hoje existem só `contract.yml` e `app.yml`, e os testes de `cms/` e `packer/` rodam dentro do `contract.yml`. Os itens marcados acima são **planejados** (`infra/ansible/`, item 27; `app-release.yml`, item 31) ou ficaram **sem arquivo próprio** (`control-plane.yml`, coberto pelo `contract.yml`; `pack-release.yml`, porque a chave Ed25519 fica fora de CI pela Revisão do [ADR-001](stack.md#10-registro-de-decisões-arquiteturais-adr) e quem constrói, assina e publica é o job `packer` do compose, §5.12). O provisionamento da VPS segue o [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) e a [implantacao.md](implantacao.md); os itens estão na §5, Fase 4.
 
 ### 3.1 `app/` — Flutter
 
@@ -248,6 +251,8 @@ Quatro domínios de schema. `version INTEGER` nas entidades editáveis implement
 - toda entidade editável ganha `version INTEGER NOT NULL DEFAULT 1`, `updated_by→admin_user`, `updated_at` — **inclusive `municipality`**, que não existe no pack mas é editada; isentá-la faria a fábrica de CRUD do item 18 ter um caso especial, e caso especial em fábrica genérica é onde o próximo defeito se esconde;
 - `asset` guarda `storage_key` (objeto no MinIO) além de `sha256` e `bytes`;
 - `routing_rule` ganha `status CHECK(status IN ('draft','approved'))` — regra aprovada **nunca é editada in-place**: gera nova linha (append por versão de pack).
+
+> **Nota (2026-11-02, [ADR-008](stack.md#10-registro-de-decisões-arquiteturais-adr)):** `municipality` e `municipality_id`, aqui e no resto deste documento, leem-se como **edição** do conteúdo: um recorte publicado pela equipe do projeto, nacional ou regional. Não há curador municipal; quem autora e revisa é a equipe do projeto, sob o dual review de sempre. **O schema não é renomeado** (ADR-008, Decisão 2), então DDL, exemplos e comandos abaixo mantêm `municipality`. O corte global × edição continua imposto pelas FKs, e as regras de red flag continuam globais.
 
 **Escopo por município (decidido no item 16).** O pack é por município; este banco é único. O corte não é preferência — é a **direção das chaves estrangeiras** que o decide:
 
@@ -733,7 +738,7 @@ o mesmo desenho são, para esse usuário, o mesmo botão.
 (6), mas `symptom` tem **12** e a grade rola. Resolver de verdade exige um dos
 dois, e ambos são decisão de conteúdo com dupla revisão clínica: subconjunto de
 sintomas por parte do corpo (exige tabela de associação no pack, que hoje não
-existe) ou redução da ontologia. Fica anotado para a revisão clínica do piloto.
+existe) ou redução da ontologia. Fica anotado para a revisão clínica do estudo piloto do projeto.
 
 #### 5.6 Resultado do item 13 — telas estáticas (2026-08-19)
 
@@ -760,7 +765,7 @@ A segunda correção atravessou a stack, e esse é o ponto: **qual local aparece
 primeiro é curadoria de conteúdo, não `ORDER BY` do binário.** Foi acrescentada
 uma coluna `sort_order` em `venue` no contrato Drizzle, migração
 `0001_content.sql` gerada por drizzle-kit, valores no `seed/` com o porquê
-escrito ali, e o repositório passou a ordenar por ela. Agora um município pode
+escrito ali, e o repositório passou a ordenar por ela. Agora a equipe de conteúdo pode
 republicar a ordem sem tocar no app.
 
 **Tradução de cor sem chute perigoso.** O pack diz `green`/`red`/`blue` — nomes
@@ -1006,7 +1011,7 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 
 ##### Lacunas declaradas ao fim do item
 
-1. [DONE] **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de piloto.**
+1. [DONE] **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia** — 16 a 19 são todos backend. Sem interface, o revisor clínico não consegue exercer o papel, e o risco "modelagem DNF expressiva demais/de menos" (§7, probabilidade Média) continua sem a validação com casos reais que a própria tabela de riscos prescreve. **É pré-requisito de release pública.**
 2. [DONE] **Upload de asset não existe.** `asset` tem CRUD de metadado; o binário continua vindo de `seed/assets/`. Publicar um ícone novo só pelo CMS não é possível até isso fechar. O `putObject` (SigV4) já existe em `packer/src/release.ts` e é o ponto de partida.
 3. [DONE] **O packer fixa `defaultOutcomeId: 'ROUTINE_UBS'` no código** (fechada no item 26 — ver §5.15) ([packer/src/index.ts](../packer/src/index.ts)). O CMS deriva o padrão da menor severidade; os dois concordam hoje por coincidência de nomenclatura. Um município que nomeie o desfecho de rotina de outro jeito quebra o packer, não o CMS.
 
@@ -1045,12 +1050,12 @@ restrições distintas — `NET BATNOTLOW STORENOTLOW` (modelo) e `NET BATNOTLOW
 
 ##### Lacunas ao fim da Fase 3
 
-1. **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia**. Sem interface, o revisor clínico não exerce o papel. **Pré-requisito de piloto.**
+1. **Não há `cms/web/`.** A [stack.md](stack.md) decide "Vite + React SPA servida pelo próprio Hono" e **nenhum item do roadmap a nomeia**. Sem interface, o revisor clínico não exerce o papel. **Pré-requisito de release pública.**
 2. **A telemetria não tem produtor**, por duas causas independentes: o app não envia (terceira chamada de rede exige ADR) e, mesmo que enviasse, seu lote seria recusado por falta de agregação. **Quem agrega é uma decisão de arquitetura ainda não tomada.**
 3. **Não há importador de CONTEÚDO** de `seed/` para o CMS — só de casos golden. Um CMS recém-implantado começa vazio, e a primeira release precisa ser montada pela API. A verificação deste item usou um conjunto mínimo por isso.
 4. **Upload de asset não existe.** O binário ainda vem de `seed/assets/`; `asset.storage_key` aponta para objetos que ninguém enviou.
 5. ~~**`defaultOutcomeId` fixo no CLI do packer**~~ **Fechada no item 26** — ver §5.15.
-6. **24 casos golden sem revisão clínica.** Desde a P0-2 o packer, o worker e o importador **bloqueiam** (não só avisam): nenhum pack é assinado até a revisão. Ver §5.17 e [`docs/revisao-golden.md`](../docs/revisao-golden.md). Pré-requisito de piloto.
+6. **24 casos golden sem revisão clínica.** Desde a P0-2 o packer, o worker e o importador **bloqueiam** (não só avisam): nenhum pack é assinado até a revisão. Ver §5.17 e [`docs/revisao-golden.md`](../docs/revisao-golden.md). Pré-requisito de release pública.
 7. **Expurgo por retenção (LGPD-RF07) não implementado** — depende da tabela de retenção aprovada pelo encarregado.
 
 
@@ -1304,7 +1309,7 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 **Achados.** O `endpoint_config.dart` importava `package:flutter/foundation` só pelo `kDebugMode`, e o guarda de build, que roda por `dart run`, não compilava; o `build_apk_test` pegou. A constante agora vem de `dart.vm.product`/`dart.vm.profile`, a mesma definição do Flutter. Consequência da regra de `https`: verificação em profile contra o edge de dev em `http` deixa de funcionar — usar debug.
 
-### Fase 3.5 — Interface de operação (pré-requisito de piloto) ✅
+### Fase 3.5 — Interface de operação (pré-requisito de release pública) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅
 23c. Releases: lista, detalhe com botões vindos de `transicoes`, aprovar/rejeitar. ✅
@@ -1316,7 +1321,18 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 ### Fase 4 — Endurecimento e GA
 20. Testes de perf/estabilidade (72 h), auditoria de tráfego (zero PII), varredura de dependências.
 21. Ansible + runbooks (incidente, rotação de chave, revogação de pack).
+    *Nota (2026-11-02): absorvido pelos itens 27 e 31.* O Ansible e o backup vão para os itens 27 e 28; os runbooks de rotação de chave e de revogação acompanham a operação da VPS ([implantacao.md](implantacao.md)).
 22. Delta packs (bsdiff), espelhos rsync, F-Droid/Play Store.
+    *Nota (2026-11-02): absorvido pelos itens 27 e 31.* Os canais do app passam a ser **GitHub Releases + Google Play** ([ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr)), publicados pelo item 31; **F-Droid é canal futuro**, que exige ADR próprio. Delta packs e espelhos rsync continuam sem item.
+
+Itens novos do realinhamento institucional (2026-11-02), cada um com plano próprio. As diretrizes de cada um estão em [implantacao.md](implantacao.md); as perguntas F-n são as do plano de realinhamento (`docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md`, §F). O item 26 já existe (§5.15), por isso o workflow de release é o 31.
+
+25. **Identidade, assinatura e ABIs do app** ([ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)). `applicationId` definitivo (sufixo `guiasaude`, prefixo do domínio do PRISM), com os nomes de tarefa do WorkManager e `app/tool/release_permissions.dart` mudando junto; `signingConfig` de release a partir de `key.properties` fora do repositório (keystore em cofre com duas custódias); `arm64-v8a` e `armeabi-v7a`, `minSdk 26`, **um build por ABI, sem `--split-per-abi`**. Em `armeabi-v7a` o APK sai **sem o shim** e o app **não oferece nem inicia o download do modelo** (triagem pelo `RuleOnlyEngine`, INV-8), com teste. Guarda de `minAppBuild` contra o `versionCode` único, com teste (hoje nenhum código a compara). **Depende de:** F-3, F-6; provisória F-17. [implantacao.md](implantacao.md).
+27. **Playbook Ansible da VPS** ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr)), que cumpre a promessa de `infra/ansible/` (§3): usuário de deploy com SSH só por chave, firewall 22/80/443, `unattended-upgrades`, Docker pinado, LUKS se o provedor permitir, `compose.yaml` sem override sob systemd, `infra/.env` com permissão 600. Ao entrar, encerra o procedimento provisório de assinatura por dois mantenedores (Revisão do ADR-001). **Depende de:** F-1, F-2, F-7. [implantacao.md](implantacao.md).
+28. **Backup, restauração e monitoramento externo** (RNF-11, ADR-007 itens 7 e 8): backup diário cifrado fora do host (`sqld`, fontes primárias do MinIO, `caddydata`, `.env`), restauração testada a cada trimestre; monitor de `manifest.json` e do CMS, alertas de TLS e disco. **Depende de:** item 27, F-8 (provisória), F-1. [implantacao.md](implantacao.md).
+29. *Reservado: aceite do Termo de Uso do CMS, plano à parte.*
+30. **Modelo SLM como download opcional/sob demanda.** Avaliar se o modelo de ~806 MB deixa de ser baixado automaticamente no 1º acesso, com os módulos educativos funcionando sem ele. **Depende de:** F-18; reabre o [ADR-003](stack.md#10-registro-de-decisões-arquiteturais-adr) se adotado. [implantacao.md](implantacao.md).
+31. **`app-release.yml`** (RNF-10, RF-17, [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)): tag `vX.Y.Z` em `main` → APK por ABI + AAB assinados, `SHA256SUMS` (o job falha sem ele), impressão do certificado e nota de release; release no GitHub nasce *pre-release*, AAB vai para a faixa de teste da Play; guardas `build_apk.sh`/`model_url_check` e `check_release_permissions` no job; `versionCode` ≤ o publicado reprova. **Depende de:** item 25, F-4, F-7. [implantacao.md](implantacao.md).
 
 ---
 
@@ -1334,7 +1350,8 @@ flutter test integration_test/ --dart-define=OFFLINE=true
 npm --prefix cms test && npm --prefix packer test
 docker compose -f infra/compose.yaml config --quiet
 
-# pack ponta a ponta (falha se golden ou integridade referencial falhar)
+# pack ponta a ponta (falha se golden ou integridade referencial falhar);
+# --municipality é o código da edição (ADR-008), nome mantido no CLI
 docker compose run --rm packer build --municipality 0000000 --dry-run
 ```
 
@@ -1346,7 +1363,7 @@ docker compose run --rm packer build --municipality 0000000 --dry-run
 | Modelagem DNF das regras ser expressiva demais/de menos para o clínico | Média | Validar na Fase 1 com o revisor clínico usando casos reais antes de construir o editor da Fase 3 |
 | Codegen TS→Dart frágil (quicktype com tipos complexos) | Média | Manter o `pack-schema.json` deliberadamente plano; sem `oneOf`/polimorfismo |
 | Fase 1 escorregar por scaffolding excessivo | Média | Fase 0 é intencionalmente magra; `seed/` substitui o CMS até a Fase 3 |
-| `pack_version` global vs. por município | Baixa | Já decidido: monotônico **por município** (UNIQUE composta), habilitando o sharding do PRD §7.1 |
+| `pack_version` global vs. por edição | Baixa | Já decidido: monotônico **por edição** ([ADR-008](stack.md#10-registro-de-decisões-arquiteturais-adr); coluna `municipality_id`, UNIQUE composta), habilitando o sharding do PRD §7.1 |
 
 ## 8. Aceitação
 

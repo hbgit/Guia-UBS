@@ -163,7 +163,7 @@ Legenda: **A** alterar · **C** criar · **N** nota de supersessão. Nenhum arqu
 | `spec/design.html`, `spec/design_selo_procedencia.html` | A | T3 | Rodapé institucional, aviso de não afiliação, ordem dos ladrilhos (≤ 8); rótulo do selo | C5, C8 |
 | `spec/stack.md` (fora do §10) | A | T4 | §1.1, §4.1, §4.2, §5, §6, §7 (compose real), §9, §11; fundamentos 4 e 5 do ADR-001 | C9, C12, C14, C15, C19 |
 | `spec/implantacao.md` | **C** | T5 | §D deste plano em texto normativo | C7, C17, C18, C19, C20 |
-| `spec/arquitetura.md` | A + N | T6 | L54 e L62-66 (planejado); §4.3 (nota do ADR-008); rótulos "pré-requisito de piloto"; L736, L763; itens 21/22; itens 25–28 e 30 | C11, C14, C16 |
+| `spec/arquitetura.md` | A + N | T6 | L54 e L62-66 (planejado); §4.3 (nota do ADR-008); rótulos "pré-requisito de piloto"; L736, L763; itens 21/22; itens 25, 27, 28, 30 e 31 | C11, C14, C16 |
 | `spec/lgpd.md` | A | T7a, T7b | T7a neutraliza: Secretaria, municípios, VPS sem dono. T7b reescreve, depois da revisão jurídica: bases legais, controlador, RIPD, operadores | C1, C9, C15 |
 | `docs/revisao-golden.md` | A | T7a | Secretaria → coordenação do projeto | C1 |
 | `docs/operacao.md` | A | T7a | `-f compose.yaml`; "manifest da edição"; "estudo piloto" | C11, C18 |
@@ -228,10 +228,16 @@ Legenda: **A** alterar · **C** criar · **N** nota de supersessão. Nenhum arqu
 
 **Itens novos de roadmap (`arquitetura.md`, Fase 4), cada um com plano próprio:**
 
+**Numeração.** O item 26 já existe no roadmap (desfecho padrão derivado no packer, `arquitetura.md` §5.15). Por isso o workflow de release, que este plano chamava de 26 até a execução do E3, é o **item 31**, o primeiro número livre depois dos já reservados por este plano (25, 27, 28, 29, 30). Nenhum documento do E1 ou do E2 citava o "item 26" com o sentido novo.
+
+**Notas para o plano do item 31** (revisão do PR #65, 2026-11-02):
+- **Fonte do "maior `versionCode` já publicado": a maior tag `vX.Y.Z` do repositório.** O `versionCode` é função do SemVer, e a tag anotada é obrigatória. A guarda compara com a maior tag existente: é determinística, funciona offline, não depende de API nem de conta na Play, e as pre-releases contam automaticamente, porque também têm tag.
+- **"Aprovador diferente de quem criou a tag"** é a opção ***Prevent self-review*** do *environment* `release` no GitHub. Ela vale como configuração e não deve ser reimplementada à mão no workflow.
+
 | Item | Entrega | Depende de |
 |---|---|---|
 | 25 | `applicationId` definitivo; `signingConfig` de release a partir de `key.properties` fora do repo; ABIs e `minSdk` do ADR-009. Para `armeabi-v7a`: APK sem o shim, e o app **não oferece o download do modelo** onde o shim não existe. Um build por ABI, sem `--split-per-abi`. Guarda de `minAppBuild` (hoje inexistente) com teste | F-3, F-6; P: F-17 |
-| 26 | `app-release.yml`: tag → APK(s) + AAB assinados, checksums, nota de release; AAB para a faixa de teste da Play | 25, F-4 |
+| 31 | `app-release.yml`: tag → APK(s) + AAB assinados, checksums, nota de release; AAB para a faixa de teste da Play | 25, F-4 |
 | 27 | Playbook Ansible da VPS (substitui a promessa de `infra/ansible/`) | F-1, F-2 |
 | 28 | Backup/restauração e monitoramento externo | 27, F-8 |
 | 30 | Avaliar o modelo SLM como download **opcional/sob demanda** (módulos educativos sem ele) | F-18; reabre ADR-003 se adotado |
@@ -300,7 +306,7 @@ Os itens 21 e 22 existentes são absorvidos por 26 e 27, com nota no roadmap. O 
   - A nota de release e a página do projeto avisam: "troque de canal só desinstalando; seus ajustes se perdem; nada de saúde é guardado".
   - A alternativa é enviar a chave própria. Mantém a compatibilidade entre canais, mas a equipe passa a responder sozinha pela custódia.
 
-**Fluxo de release (item 26)**
+**Fluxo de release (item 31)**
 
 1. PR `develop` → `main` com CHANGELOG e CI verde (`app`, `interop`, `shim`, `contract`, `cms`).
 2. Tag `vX.Y.Z`. O `app-release.yml` roda no *environment* `release` e exige aprovação de um segundo mantenedor.
@@ -462,10 +468,11 @@ Só no **protótipo** (`design.html`): troca de ordem e de destaque, sem element
 | F-8 | P | Destino do backup fora da VPS. Provisório: um segundo provedor de objeto com conta do PRISM | ADR-007, Revisão |
 | F-10 | P | Retenção do log do Caddy: 14 dias | ADR-007, Revisão (e T7-R) |
 | F-14 | P | North Star e meta de alcance do estudo piloto: "módulos educativos concluídos sem mediação", com meta a fixar com o PET-Saúde | ADR-005, Revisão; PRD §1.5 |
+| F-19 | M | **Titularidade do `prismrr.com.br`**: CPF ou CNPJ do titular no Registro.br, quem recebe os avisos de renovação e o plano de transferência se o titular sair do grupo (resposta **fora do repositório**, junto com F-1, F-2, F-4, F-8). O alerta de expiração cobre o esquecimento, não a saída da pessoa | Itens 27 e 28; ADR-009 |
 | F-1 | M | Provedor da VPS, região, snapshot, LUKS (resposta fora do repo) | Itens 27–28 |
 | F-2 | M | Os dois administradores da VPS e do domínio, por papel (resposta fora do repo) | Item 27 |
-| F-4 | M | Conta do Google Play: existe? Pessoal ou de organização? Em nome de quem? (resposta fora do repo) | Item 26 |
-| F-7 | M | Domínio do projeto e URL da política de privacidade. **Domínio respondido em 2026-11-02: `prismrr.com.br`.** Falta a URL da política (GitHub Pages ou o próprio domínio) e o nome dos subdomínios de conteúdo e do CMS | Itens 26–27 |
+| F-4 | M | Conta do Google Play: existe? Pessoal ou de organização? Em nome de quem? (resposta fora do repo) | Item 31 |
+| F-7 | M | Domínio do projeto e URL da política de privacidade. **Domínio respondido em 2026-11-02: `prismrr.com.br`.** Falta a URL da política (GitHub Pages ou o próprio domínio) e o nome dos subdomínios de conteúdo e do CMS | Itens 27 e 31 |
 | F-9 | M | O estudo piloto coleta dados de participantes? Há protocolo no CEP? | Início do estudo piloto (§J) |
 | F-18 | M | Com a triagem secundária, o modelo de ~806 MB continua sendo baixado automaticamente no 1º acesso ou passa a opt-in/sob demanda? | Item 30 (não bloqueia este plano) |
 | F-12 | — | Titular do copyright e DCO: **movida para o plano 2** (§I); classe I | — |
@@ -482,6 +489,7 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
 | F-11 | aberta (consulta institucional) | — |
+| F-19 | **aberta** | Titularidade do domínio: registrar fora do repositório. No repositório fica só "respondida em <data>" |
 | F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
 
 **Liberado:** E1 e, desde 2026-11-02, o E2 (domínio `prismrr.com.br` registrado). Os administradores do domínio (F-2) ficam no registro fora do repositório.
@@ -675,14 +683,14 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 - [ ] **Passo 2:** Roadmap:
   - rótulos "pré-requisito de piloto" → "pré-requisito de release pública";
   - L736 e L763;
-  - itens 21 e 22 com nota "absorvidos por 26/27";
-  - itens 25–28 e 30 (§C.3), cada um com link para `implantacao.md` e as dependências.
+  - itens 21 e 22 com nota "absorvidos por 27 e 31";
+  - itens 25, 27, 28, 30 e 31 (§C.3), cada um com link para `implantacao.md` e as dependências.
 - [ ] **Passo 3:** PR do E3.
 
 *Aceite:*
 - `git diff spec/arquitetura.md` não remove linha de nenhuma §5.x;
 - `grep -nE "pré-requisito de piloto" spec/arquitetura.md` sai vazio;
-- os itens 25, 26, 27, 28 e 30 existem com dependência declarada.
+- os itens 25, 27, 28, 30 e 31 existem com dependência declarada.
 
 ### Tarefa 7-R: revisão jurídica (E4, gate)
 
@@ -875,12 +883,12 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 
 ### Tarefa 12: registro histórico e GitHub (E6)
 
-**Leia:** §B (linha das issues), §C.3 (itens 25–28 e 30).
+**Leia:** §B (linha das issues), §C.3 (itens 25, 27, 28, 30 e 31).
 
 - [ ] **Passo 1:** colocar a nota "Superado pelo ADR-005 em 2026-11-02; ver plano 2026-11-02" no topo dos planos e issues de 2026-10-28 (P0-2, P1-5, P1-8, P1-9, P1-10, P2-7, P2-8, `_epica.md`, `levantamento`, `p0-2`) e do plano P1-1 (gatilho disparado).
 - [ ] **Passo 2:** **com confirmação do mantenedor** (ação externa):
   - editar a descrição do marco "Piloto" e os corpos dessas issues no GitHub;
-  - abrir issues para os itens 25–28 e 30;
+  - abrir issues para os itens 25, 27, 28, 30 e 31;
   - fechar a P2-11 como absorvida por 27/28.
 - [ ] **Passo 3:** PR do E6, junto com a T9.
 
@@ -921,7 +929,7 @@ Assim a revisão jurídica volta ao caminho crítico **do estudo com participant
 |---|---|---|---|---|
 | 1 | Revisão clínica golden (J.1) | processo existente | pack assinado | voluntários com registro; F-11 para o arquivamento |
 | 2 | Item 25: id, keystore, `signingConfig`, ABIs sem split, guarda de `minAppBuild` | **plano A** | os dois tipos de teste | ADR-009; F-3, F-6 |
-| 3 | Item 26 até a faixa de teste e a pre-release | **plano A** | os dois | 2; F-4 só para a Play. **Sem conta Play**, os dois testes rodam pela pre-release do GitHub |
+| 3 | Item 31 até a faixa de teste e a pre-release | **plano A** | os dois | 2; F-4 só para a Play. **Sem conta Play**, os dois testes rodam pela pre-release do GitHub |
 | 4 | Conteúdo estático com `CONTENT_DOMAIN` real (`manifest.json` + pack) | **plano B** | fluxo de conteúdo | F-7; 1 |
 | 5 | `MODEL_URL` de release | existente (ADR-004) | triagem com SLM (opcional) | 4, se o modelo sair do Hugging Face. Sem modelo, roda o `RuleOnlyEngine` (F-18) |
 | 6 | RIPD | T7b + documento | estudo externo | F-11, T7-R |
@@ -946,7 +954,7 @@ Assim a revisão jurídica volta ao caminho crítico **do estudo com participant
 **Reaceite dos termos durante o estudo.** Se o E7 for mergeado com o estudo em andamento, os participantes verão o gate dos termos de novo. O protocolo do estudo e o TCLE (se houver) trazem a linha: "o app pode pedir que você aceite os termos de novo durante o estudo; isso não apaga nada do que você fez nem envia nada". Para o estudo externo, que já exige o E7 antes de começar, isso só acontece se os termos mudarem de novo durante o estudo.
 
 **Total depois deste plano:**
-- dois planos de engenharia (A: itens 25 e 26 até a faixa de teste; B: conteúdo estático com assinatura provisória);
+- dois planos de engenharia (A: itens 25 e 31 até a faixa de teste; B: conteúdo estático com assinatura provisória);
 - a revisão clínica golden, que é o gargalo;
 - dois documentos de governança (RIPD; TCLE se for o caso).
 
@@ -1028,4 +1036,4 @@ Registrado aqui só para não se perder. Terá plano próprio, sem dependência 
   | 3. ADR certo | A exceção mora na **Revisão do ADR-001**, e o fundamento 4 dele ("assinatura só no CI", `stack.md:314`) entra na C19. O ADR-007 só aponta para lá |
   | 4. Entrega a subagentes | Resumo executivo no topo e linha **Leia:** em cada tarefa |
 
-- **Consistência:** RF-16/17, RNF-10/11, CAP-20/21, itens 25–28/30, ADR-005…009, F-0…F-18 e E1…E7 têm o mesmo significado em todas as seções. O item 29 e a F-12 aparecem só na §I.
+- **Consistência:** RF-16/17, RNF-10/11, CAP-20/21, itens 25, 27, 28, 30 e 31, ADR-005…009, F-0…F-18 e E1…E7 têm o mesmo significado em todas as seções. O item 29 e a F-12 aparecem só na §I.
