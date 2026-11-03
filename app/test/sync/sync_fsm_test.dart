@@ -54,6 +54,7 @@ void main() {
           signatureValid: true,
           versionIsNewer: true,
           schemaSupported: true,
+          appBuildSupported: true,
         ),
       );
 
@@ -68,6 +69,7 @@ void main() {
           signatureValid: false,
           versionIsNewer: true,
           schemaSupported: true,
+          appBuildSupported: true,
         ),
       );
 
@@ -88,6 +90,7 @@ void main() {
           signatureValid: true,
           versionIsNewer: false,
           schemaSupported: true,
+          appBuildSupported: true,
         ),
       );
 
@@ -108,6 +111,7 @@ void main() {
           signatureValid: false,
           versionIsNewer: false,
           schemaSupported: false,
+          appBuildSupported: true,
         ),
       );
 
@@ -121,11 +125,83 @@ void main() {
           signatureValid: true,
           versionIsNewer: true,
           schemaSupported: false,
+          appBuildSupported: true,
         ),
       );
 
       expect(t.next, SyncState.f2Rejected);
       expect(t.actions, [SyncAction.awaitBinaryUpdate]);
+    });
+
+    test('B5b — minAppBuild acima do build espera o binário, sem contar no '
+        'circuito [ADR-009]', () {
+      final t = _take(
+        SyncState.p1ManifestFetch,
+        const ManifestFetched(
+          signatureValid: true,
+          versionIsNewer: true,
+          schemaSupported: true,
+          appBuildSupported: false,
+        ),
+      );
+
+      expect(t.next, SyncState.f2Rejected);
+      expect(t.actions, [SyncAction.awaitBinaryUpdate]);
+      expect(t.rule, startsWith('B5b'));
+      expect(
+        t.actions,
+        isNot(contains(SyncAction.incrementCircuitCounter)),
+        reason: 'o binário é que está velho: contar no circuito pararia o '
+            'sync justamente de quem precisa atualizar',
+      );
+      expect(
+        t.actions,
+        isNot(contains(SyncAction.blacklistManifestDigest)),
+        reason: 'manifest autêntico e pack bom — o app novo vai querer os dois',
+      );
+      expect(t.actions, isNot(contains(SyncAction.blacklistPackHash)));
+    });
+
+    test('B5b — minAppBuild igual ao build (appBuildSupported) segue para o '
+        'download', () {
+      // `minAppBuild <= appBuild` é o que o driver calcula; a igualdade é o
+      // caso de fronteira e resulta em `appBuildSupported: true`.
+      final t = _take(
+        SyncState.p1ManifestFetch,
+        const ManifestFetched(
+          signatureValid: true,
+          versionIsNewer: true,
+          schemaSupported: true,
+          appBuildSupported: true,
+        ),
+      );
+
+      expect(t.next, SyncState.p2Downloading);
+      expect(t.actions, [SyncAction.startOrResumeDownload]);
+    });
+
+    test('B5b é avaliada depois da assinatura e do anti-downgrade', () {
+      final forjado = _take(
+        SyncState.p1ManifestFetch,
+        const ManifestFetched(
+          signatureValid: false,
+          versionIsNewer: true,
+          schemaSupported: true,
+          appBuildSupported: false,
+        ),
+      );
+      expect(forjado.rule, startsWith('B4a'));
+
+      final velho = _take(
+        SyncState.p1ManifestFetch,
+        const ManifestFetched(
+          signatureValid: true,
+          versionIsNewer: false,
+          schemaSupported: true,
+          appBuildSupported: false,
+        ),
+      );
+      expect(velho.rule, startsWith('B4b'));
     });
 
     test('B6 — erro de rede é retentável e conta contra o circuito', () {
@@ -285,10 +361,11 @@ const List<SyncEvent> _allEvents = [
   OnConnectivity(circuitClosed: true),
   OnConnectivity(circuitClosed: false),
   ManifestNotModified(),
-  ManifestFetched(signatureValid: true, versionIsNewer: true, schemaSupported: true),
-  ManifestFetched(signatureValid: false, versionIsNewer: true, schemaSupported: true),
-  ManifestFetched(signatureValid: true, versionIsNewer: false, schemaSupported: true),
-  ManifestFetched(signatureValid: true, versionIsNewer: true, schemaSupported: false),
+  ManifestFetched(signatureValid: true, versionIsNewer: true, schemaSupported: true, appBuildSupported: true),
+  ManifestFetched(signatureValid: false, versionIsNewer: true, schemaSupported: true, appBuildSupported: true),
+  ManifestFetched(signatureValid: true, versionIsNewer: false, schemaSupported: true, appBuildSupported: true),
+  ManifestFetched(signatureValid: true, versionIsNewer: true, schemaSupported: false, appBuildSupported: true),
+  ManifestFetched(signatureValid: true, versionIsNewer: true, schemaSupported: true, appBuildSupported: false),
   NetworkFailure(),
   DownloadWindowClosed(),
   DownloadComplete(),

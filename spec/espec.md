@@ -343,10 +343,11 @@ Rastreabilidade: P1–P5→RF-10/RF-11; F1→RNF-08; F2→RNF-05.
 |---|---|---|---|---|
 | P0_STEADY | `onConnectivity` (WorkManager) | circuito fechado | GET manifest c/ ETag (timeout 10 s) | P1_MANIFEST_FETCH |
 | P1_MANIFEST_FETCH | `304` | — | noop | P0_STEADY |
-| P1_MANIFEST_FETCH | `200(m)` | `verify(m.sig) ∧ m.version > vN ∧ m.schemaVersion ∈ suportados` | inicia/retoma download (Range) | P2_DOWNLOADING |
+| P1_MANIFEST_FETCH | `200(m)` | `verify(m.sig) ∧ m.version > vN ∧ m.schemaVersion ∈ suportados ∧ m.minAppBuild ≤ build do binário` | inicia/retoma download (Range) | P2_DOWNLOADING |
 | P1_MANIFEST_FETCH | `200(m)` | `¬verify(m.sig)` | blacklist(**sha256 dos bytes do manifest**) (INV-7) | F2_REJECTED |
 | P1_MANIFEST_FETCH | `200(m)` | `verify(m.sig) ∧ m.version ≤ vN` | nenhuma — manifest autêntico, apenas velho | F2_REJECTED |
 | P1_MANIFEST_FETCH | `200(m)` | `m.schemaVersion ∉ suportados` | aguarda update do binário | F2_REJECTED |
+| P1_MANIFEST_FETCH | `200(m)` | `m.minAppBuild > build do binário` ([ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)) | aguarda update do binário — **sem** blacklist e **sem** contar no circuito | F2_REJECTED |
 | P1_MANIFEST_FETCH | `timeout ∨ erro de rede` | — | incrementa contador do circuito | F1_RETRYABLE |
 | P2_DOWNLOADING | `janela fecha ∨ timeout` | bytes parciais persistidos | persiste o offset; **não** grava o ETag | F1_RETRYABLE |
 | P2_DOWNLOADING | `download completo` | — | — | P3_VERIFYING |
@@ -372,7 +373,15 @@ Rastreabilidade: P1–P5→RF-10/RF-11; F1→RNF-08; F2→RNF-05.
 > `packVersion` ou `schemaVersion` antes de saber de quem é o manifest seria
 > confiar no conteúdo para decidir se confiamos no conteúdo. A ordem
 > normativa é a de [contract/src/manifest.ts](../contract/src/manifest.ts):
-> assinatura → versão → schema → hash dos artefatos → swap.
+> assinatura → versão → schema → build do app → hash dos artefatos → swap.
+>
+> **`minAppBuild` acima do build do binário não é falha de sync** (linha
+> B5b, [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)). O manifest é autêntico e o pack não é ruim: o
+> binário é que está velho. Por isso não entra na blacklist (o app
+> atualizado vai querer o mesmo pack) e não conta no circuito — contar
+> pararia o sync justamente de quem precisa atualizar. O pack ativo
+> continua servindo. Com o build do binário ilegível, só passa manifest
+> com `minAppBuild ≤ 0`.
 >
 > **O ETag só é gravado quando o ciclo repousa** (`P0_STEADY` ou
 > `F2_REJECTED`), nunca com download em voo. Gravá-lo ao fechar a janela faria
@@ -412,8 +421,8 @@ stateDiagram-v2
         [*] --> P0_STEADY
         P0_STEADY --> P1_MANIFEST_FETCH : onConnectivity [circuito fechado]
         P1_MANIFEST_FETCH --> P0_STEADY : 304
-        P1_MANIFEST_FETCH --> P2_DOWNLOADING : 200 [sig ok ∧ v>vN ∧ schema ok]
-        P1_MANIFEST_FETCH --> F2_REJECTED : sig inválida / downgrade / schema incompatível
+        P1_MANIFEST_FETCH --> P2_DOWNLOADING : 200 [sig ok ∧ v>vN ∧ schema ok ∧ build ok]
+        P1_MANIFEST_FETCH --> F2_REJECTED : sig inválida / downgrade / schema incompatível / app velho
         P1_MANIFEST_FETCH --> F1_RETRYABLE : timeout rede
         P2_DOWNLOADING --> F1_RETRYABLE : janela fecha [persiste offset]
         P2_DOWNLOADING --> P3_VERIFYING : completo

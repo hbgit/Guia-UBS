@@ -159,9 +159,13 @@ void main() {
   const packV1Hash =
       '204477cedcc9a0260bc8f4dcfedc6aa52cf341e8483eef9eb5b2a0545af1b32e';
 
-  SyncService build({ManifestVerifier verifier = const ManifestVerifier(keys: _devKeys)}) =>
+  SyncService build({
+    ManifestVerifier verifier = const ManifestVerifier(keys: _devKeys),
+    int appBuild = 10000,
+  }) =>
       SyncService(
         manifestUrl: origin.manifestUrl,
+        appBuild: () async => appBuild,
         store: store,
         quiescence: () => idle,
         verifier: verifier,
@@ -196,6 +200,7 @@ void main() {
 
   SyncService semOrigem(String url) => SyncService(
         manifestUrl: Uri.parse(url),
+        appBuild: () async => 10000,
         store: store,
         quiescence: () => idle,
         verifier: const ManifestVerifier(keys: _devKeys),
@@ -506,6 +511,58 @@ void main() {
       expect(report.state, SyncState.f2Rejected);
       expect(report.rules, contains(startsWith('B5')));
       expect(origin.packRequests, 0);
+    });
+
+    test('minAppBuild acima do build do app espera o binário: não baixa, '
+        'não troca o pack ativo, não conta no circuito (B5b, ADR-009)',
+        () async {
+      // Primeiro um pack ativo de verdade, para provar que ele não muda.
+      final first = await service.runCycle();
+      expect(first.committed, isTrue);
+      expect((await store.loadActive())!.manifest.packVersion, 1);
+      final pedidosAntes = origin.packRequests;
+
+      final signer = await TestSigner.generate();
+      origin
+        ..manifest = await signer.sign(
+          manifestTemplate(packVersion: 2, minAppBuild: 999999),
+        )
+        ..etag = 'exige-app-novo';
+      service.close();
+      service = build(
+        verifier: ManifestVerifier(keys: {'k1': signer.publicKeyHex}),
+        appBuild: 10000,
+      );
+
+      final report = await service.runCycle();
+
+      expect(report.state, SyncState.f2Rejected);
+      expect(report.rules, contains(startsWith('B5b')));
+      expect(origin.packRequests, pedidosAntes, reason: 'o pack não é baixado');
+      expect((await store.loadActive())!.manifest.packVersion, 1);
+      expect(
+        service.retryState.failures,
+        0,
+        reason: 'binário velho não é falha de sync',
+      );
+      expect(service.circuitOpen, isFalse);
+    });
+
+    test('minAppBuild igual ao build do app segue o caminho normal', () async {
+      final signer = await TestSigner.generate();
+      origin.manifest = await signer.sign(
+        manifestTemplate(packVersion: 2, minAppBuild: 10000),
+      );
+      service.close();
+      service = build(
+        verifier: ManifestVerifier(keys: {'k1': signer.publicKeyHex}),
+        appBuild: 10000,
+      );
+
+      final report = await service.runCycle();
+
+      expect(report.rules, isNot(contains(startsWith('B5b'))));
+      expect(report.rules, contains(startsWith('B3')));
     });
 
     test('F2 não é poço: a versão seguinte resgata o ciclo (L2)', () async {

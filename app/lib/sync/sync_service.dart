@@ -23,6 +23,7 @@ import 'dart:math';
 
 import 'package:meta/meta.dart';
 
+import 'app_build.dart';
 import 'endpoint_config.dart';
 import 'manifest_verifier.dart';
 import 'pack_manifest.dart';
@@ -80,6 +81,7 @@ class SyncService {
     required this.manifestUrl,
     required this.store,
     required this.quiescence,
+    required this.appBuild,
     HttpClient? client,
     ResumableDownloader? downloader,
     ManifestVerifier verifier = const ManifestVerifier(),
@@ -102,6 +104,10 @@ class SyncService {
   /// Pergunta se a FSM-A está em `S0_IDLE`. Sem sessão de triagem em curso não
   /// há como uma leitura atravessar a troca de pack (análise S1).
   final QuiescenceProbe quiescence;
+
+  /// O `versionCode` deste binário, perguntado a cada manifest aceito (B5b,
+  /// ADR-009). Em produção é [readAppBuild]; `null` quer dizer ilegível.
+  final AppBuildProbe appBuild;
 
   final HttpClient _client;
   final ResumableDownloader _downloader;
@@ -286,6 +292,7 @@ class SyncService {
               outcome.reason != ManifestRejection.missingSignature,
           versionIsNewer: false,
           schemaSupported: false,
+          appBuildSupported: false,
         ),
       );
       await _runRejectionActions(manifestDigest: sha256OfBytes(bytes));
@@ -308,6 +315,10 @@ class SyncService {
         signatureValid: true,
         versionIsNewer: manifest.packVersion > activeVersion,
         schemaSupported: manifest.isSchemaSupported,
+        appBuildSupported: appBuildSatisfies(
+          minAppBuild: manifest.minAppBuild,
+          appBuild: await appBuild(),
+        ),
       ),
     );
 

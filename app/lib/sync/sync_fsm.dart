@@ -117,13 +117,14 @@ final class ManifestNotModified extends SyncEvent {
   const ManifestNotModified();
 }
 
-/// `200` com um manifest, já com as três guardas avaliadas pelo driver.
+/// `200` com um manifest, já com as quatro guardas avaliadas pelo driver.
 @immutable
 final class ManifestFetched extends SyncEvent {
   const ManifestFetched({
     required this.signatureValid,
     required this.versionIsNewer,
     required this.schemaSupported,
+    required this.appBuildSupported,
   });
 
   final bool signatureValid;
@@ -133,6 +134,10 @@ final class ManifestFetched extends SyncEvent {
   final bool versionIsNewer;
 
   final bool schemaSupported;
+
+  /// `m.minAppBuild <= build do binário` (ADR-009). Falso não é defeito do
+  /// pack nem do manifest: é o binário que está velho para ele.
+  final bool appBuildSupported;
 }
 
 /// Timeout ou erro de rede buscando o manifest.
@@ -248,10 +253,21 @@ SyncTransition? transition(SyncState state, SyncEvent event) {
           rule: 'B5 P1→F2 schemaVersion não suportado [INV-6]',
         );
       }
+      if (!e.appBuildSupported) {
+        // Mesmo tratamento da B5: o manifest é autêntico e o pack não é ruim
+        // — o binário é que está velho. Sem blacklist (o app atualizado vai
+        // querer este mesmo pack) e SEM contar no circuito: contar pararia o
+        // sync justamente de quem precisa atualizar.
+        return const SyncTransition(
+          SyncState.f2Rejected,
+          actions: [SyncAction.awaitBinaryUpdate],
+          rule: 'B5b P1→F2 minAppBuild > build do app [ADR-009]',
+        );
+      }
       return const SyncTransition(
         SyncState.p2Downloading,
         actions: [SyncAction.startOrResumeDownload],
-        rule: 'B3 P1→P2 200 [sig ok ∧ v>vN ∧ schema ok]',
+        rule: 'B3 P1→P2 200 [sig ok ∧ v>vN ∧ schema ok ∧ build ok]',
       );
 
     case (SyncState.p1ManifestFetch, NetworkFailure()):
