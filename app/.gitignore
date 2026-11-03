@@ -54,7 +54,10 @@ lib/l10n/app_localizations*.dart
 # arquivo que ninguem edita.
 *.g.dart
 
-# Defines reais do build (MODEL_URL etc.): um por ambiente, fora do git.
-# O modelo versionado e config/defines.example.json.
+# Defines do build (MODEL_URL etc.), um por ambiente. O de debug e o de profile
+# ficam fora do git. O de RELEASE e versionado: o conteudo vai embarcado num APK
+# publico, e versionado ele passa por PR e todo mundo sabe o que o ultimo
+# release embarcou (ADR-009). O modelo continua em config/defines.example.json.
 config/defines.*.json
 !config/defines.example.json
+!config/defines.release.json

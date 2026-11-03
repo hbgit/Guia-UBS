@@ -440,6 +440,103 @@ novo, e o script avisa).
 > `model:publish` a preserva, mas não a cria: num MinIO novo, o aparelho recebe
 > `403` no manifest até alguém configurá-la.
 
+### 2.11 Assinatura do APK
+
+O APK de release é assinado pelo keystore de release, que é **outra chave**,
+diferente da Ed25519 do pack ([ADR-009](../spec/stack.md), item 8). O keystore
+fica em cofre offline, com duas custódias, e nunca no repositório.
+
+- `app/android/key.properties` (o `.gitignore` de `android/` já o ignora, junto
+  com `*.jks` e `*.keystore`) aponta para o keystore. O modelo, sem segredo,
+  está em `app/android/key.properties.example`.
+- **Com o arquivo**, o release sai assinado por ele.
+- **Sem o arquivo**, o release sai com a chave **debug**. Isso existe só para a
+  conferência local em aparelho, e um APK assim nunca é publicado.
+- **Com `GUBS_REQUIRE_RELEASE_SIGNING=1`**, a falta do arquivo **reprova** o
+  build com "release sem key.properties". O workflow de release sempre liga
+  essa variável.
+
+Para conferir quem assinou:
+
+```sh
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
+```
+
+O certificado debug tem SHA-256 começando em `62c33cab`. Ver esse prefixo num
+APK que vai ser publicado é erro.
+
+### 2.12 Publicar uma versão do app
+
+O caminho é o workflow `.github/workflows/app-release.yml`, disparado por tag
+([`spec/implantacao.md`](../spec/implantacao.md) §2.6). Ele faz, nesta ordem:
+
+1. **Guarda de versão.** `dart run tool/release_version.dart --tag vX.Y.Z`
+   reprova se a tag não é `vX.Y.Z`, se o `version:` do `app/pubspec.yaml` não é
+   `X.Y.Z+<MAJOR*10000 + MINOR*100 + PATCH>`, ou se o código não é maior que o
+   da maior tag existente.
+2. **Build.** Um APK por ABI, `tool/build_apk.sh release <config> arm64` e
+   `... arm`, e o AAB. As guardas de `MODEL_URL` e `PACK_MANIFEST_URL` rodam
+   antes de cada build.
+3. **Conferências.** Lista fechada de permissões; cada APK só com a sua ABI e o
+   shim só no `arm64`; o mesmo `versionCode` nos dois; o certificado igual ao
+   cadastrado. A chave debug reprova.
+4. **Pre-release no GitHub** com os dois APKs e o `SHA256SUMS`, e a nota feita a
+   partir da seção da versão no `CHANGELOG.md`. O AAB fica como artefato do
+   workflow, porque o upload para a Play espera a conta.
+
+Para lançar:
+
+```sh
+# 1. version: X.Y.Z+<codigo> em app/pubspec.yaml e a secao [X.Y.Z] no CHANGELOG.md
+cd app && dart run tool/release_version.dart --tag vX.Y.Z   # confere antes do push
+# 2. PR develop -> main, CI verde, merge
+# 3. tag anotada em main
+git tag -a vX.Y.Z -m "Guia UBS vX.Y.Z" && git push origin vX.Y.Z
+```
+
+O job espera a aprovação de outro mantenedor no *environment* `release`. Uma vez
+aprovado, a pre-release sai. **Promover** é tirar a marca de *pre-release* no
+GitHub, sem rebuild.
+
+**Ensaio.** Um PR que mexa no workflow, em `app/android/`, no `build_apk.sh`, no
+`release_version.dart` ou no `pubspec.yaml` roda o mesmo build sem segredo
+nenhum, assinado com a chave debug e sem release. O artefato
+`ensaio-NAO-PUBLICAR` dura 3 dias e não deve ser distribuído.
+
+**O que precisa existir antes da primeira tag.** Tudo é configuração do
+repositório, feita pelo mantenedor. Os cinco controles abaixo compensam o
+keystore estar no CI ([ADR-009](../spec/stack.md), item 8) e são todos
+obrigatórios:
+
+1. **Environment `release`** com revisores obrigatórios e ***Prevent
+   self-review***, e *deployment branches and tags* restrito a tags `v*`.
+2. **Segredos do environment, não do repositório.** Assim eles só existem no
+   job aprovado:
+   - `ANDROID_KEYSTORE_B64` (o `.jks` em base64);
+   - `ANDROID_KEYSTORE_PASSWORD`;
+   - `ANDROID_KEY_ALIAS`;
+   - `ANDROID_KEY_PASSWORD`.
+3. **Ruleset de tags:** criar, mover ou apagar tag `v*` fica restrito aos
+   mantenedores. Sem ele, qualquer colaborador com escrita dispara o pipeline de
+   assinatura com um `git push --tags`.
+4. **Variável `RELEASE_CERT_SHA256`**, o SHA-256 do certificado de release, sem
+   `:` e em minúsculas, como o `apksigner` imprime.
+5. **`app/config/defines.release.json` com o `PACK_MANIFEST_URL` real.** O
+   arquivo é **versionado, não segredo**: vai embarcado num APK público, a
+   mudança dele passa por PR, e o job imprime no log o que o release embarcou.
+   Hoje ele traz um marcador `.invalid`, que a guarda do `build_apk.sh` recusa de
+   propósito até o plano B definir o domínio de conteúdo.
+
+**Ensaiar a tag num fork privado antes da primeira tag de verdade.** O ensaio
+por PR não exercita os segredos do environment, a aprovação, a conferência do
+certificado nem o job `publish`. Num fork privado, crie o mesmo environment com
+um keystore **descartável** e empurre `v0.1.0`. Assim o erro de segredo aparece
+lá, sem pre-release pública e sem gastar `versionCode` aqui.
+
+**Se o keystore vazar:** pela Play, a chave de upload é trocada sem afetar quem
+instalou. Pelo GitHub não há troca: todo aparelho instalado por lá precisa
+desinstalar e instalar de novo (ADR-009, Custo aceito 5).
+
 
 ## 3. Os três papéis
 

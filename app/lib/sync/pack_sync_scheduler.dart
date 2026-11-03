@@ -16,7 +16,7 @@ import 'package:meta/meta.dart';
 
 import 'endpoint_config.dart';
 
-const String packSyncTaskName = 'br.gov.exemplo.guia_ubs.pack_sync';
+const String packSyncTaskName = 'br.com.prismrr.guiasaude.pack_sync';
 
 @immutable
 class PackSyncPolicy {

@@ -20,6 +20,7 @@ import '../prefs/preferences_repository.dart';
 import '../speech/speaker.dart';
 import '../telemetry/telemetry_recorder.dart';
 import '../sync/model_provisioning.dart';
+import '../sync/app_build.dart';
 import '../sync/endpoint_config.dart';
 import '../sync/model_catalog.dart';
 import '../sync/pack_background_sync.dart';
@@ -428,6 +429,7 @@ final packSyncProvider = Provider<SyncService>((ref) {
     store: ref.watch(activeContentProvider).store,
     quiescence: () =>
         ref.read(triageControllerProvider).state == TriageState.s0Idle,
+    appBuild: readAppBuild,
   );
   ref.onDispose(service.close);
   return service;

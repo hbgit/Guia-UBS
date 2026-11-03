@@ -226,6 +226,64 @@ void main() {
       await p.dispose();
     });
 
+    test('sem shim: readyDegraded sem tocar rede nem downloader', () async {
+      // ADR-009: o APK armeabi-v7a sai sem `libgubs_llama.so`. Oferecer o
+      // download ali seria pedir 806 MB por um arquivo que nunca vai rodar.
+      final redeConsultada = <String>[];
+      final fake = _FakeDownloader();
+      final p = ModelProvisioning(
+        artifact: artifact(),
+        destinationDirectory: () async => tmp,
+        networkClass: () async {
+          redeConsultada.add('networkClass');
+          return NetworkClass.unmetered;
+        },
+        downloader: fake,
+        runtimeSupported: () => false,
+      );
+
+      final state = await p.checkPrerequisites();
+
+      expect(state.stage, SetupStage.readyDegraded);
+      expect(state.blockReason, SetupBlockReason.deviceUnsupported);
+      expect(state.blocksClinicalScreen, isFalse,
+          reason: 'sem shim o atendimento segue pelas regras');
+      expect(state.isDegraded, isTrue);
+      expect(redeConsultada, isEmpty);
+      expect(fake.requested, isEmpty);
+
+      // Nem um botão que escape da tela baixa ou importa.
+      expect((await p.startDownload()).stage, SetupStage.readyDegraded);
+      final pendrive = File('${tmp.path}/pendrive.gguf')
+        ..writeAsBytesSync(payload);
+      expect((await p.importFromLocalFile(pendrive)).stage,
+          SetupStage.readyDegraded);
+      expect(fake.requested, isEmpty);
+      expect(File('${tmp.path}/modelo.gguf').existsSync(), isFalse);
+      await p.dispose();
+    });
+
+    test('sem shim: modelo ja em disco fica onde esta, sem uso', () async {
+      // Caso improvavel (arquivo herdado de outro aparelho ou de um build
+      // anterior), mas apagar 800 MB por causa da ABI seria irreversivel.
+      final fake = _FakeDownloader();
+      final model = File('${tmp.path}/modelo.gguf')..writeAsBytesSync(payload);
+      final p = ModelProvisioning(
+        artifact: artifact(),
+        destinationDirectory: () async => tmp,
+        networkClass: () async => NetworkClass.unmetered,
+        downloader: fake,
+        runtimeSupported: () => false,
+      );
+
+      final state = await p.checkPrerequisites();
+
+      expect(state.stage, SetupStage.readyDegraded);
+      expect(fake.calls, 0, reason: 'nem a verificacao do hash roda');
+      expect(model.readAsBytesSync(), payload);
+      await p.dispose();
+    });
+
     test('com Wi-Fi, PEDE consentimento em vez de baixar sozinho', () async {
       final fake = _FakeDownloader();
       final p = make(network: NetworkClass.unmetered, downloader: fake);

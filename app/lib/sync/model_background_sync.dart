@@ -20,6 +20,7 @@ import '../core/app_paths.dart';
 import '../legal/terms.dart';
 import '../prefs/preferences_repository.dart';
 import '../prefs/user_database_connection.dart';
+import '../triage/engine/llama_bindings.dart';
 import 'model_catalog.dart';
 import 'model_downloader.dart';
 import 'model_sync_scheduler.dart';
@@ -33,9 +34,17 @@ import 'resumable_downloader.dart';
 ///
 /// Devolve `false` para pedir reagendamento com backoff.
 Future<bool> runModelSyncTask({
+  bool Function()? runtimeSupported,
   Future<bool> Function()? termsAccepted,
   Future<Directory> Function()? modelsDir,
 }) async {
+  // ADR-009: o APK `armeabi-v7a` não traz o shim. O primeiro plano não agenda
+  // este job ali, mas um job herdado (ou qualquer caminho que escape) chega
+  // aqui — e é aqui que 806 MB seriam baixados sem ninguém olhar. Primeiro de
+  // tudo, antes até de abrir o `user.db`. `true` = não reagendar: repetir não
+  // muda a ABI do aparelho.
+  if (!(runtimeSupported ?? shimSupported)()) return true;
+
   // ADR-004: o worker é o único caminho que baixa sem tela. Um job
   // registrado por uma versão anterior sobrevive à atualização, então a
   // regra do aceite é conferida AQUI, e não só onde o job é agendado.

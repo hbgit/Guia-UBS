@@ -1,7 +1,7 @@
 name: guia_ubs
 description: "Guia UBS — orientação sobre serviços da Atenção Básica, offline-first."
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.0+100
 
 environment:
   sdk: ^3.12.0

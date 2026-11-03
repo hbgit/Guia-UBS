@@ -69,6 +69,17 @@ DynamicLibrary? openShimLibrary({List<String>? candidates}) {
   return null;
 }
 
+/// `true` quando este aparelho consegue carregar o shim — isto é, rodar o SLM.
+///
+/// O APK `armeabi-v7a` sai SEM `libgubs_llama.so` (ADR-009). Nele, esta é a
+/// pergunta que o provisionamento e o worker fazem antes de qualquer download:
+/// baixar 806 MB para um aparelho que não carrega o motor é custo sem retorno.
+///
+/// Não guarda a resposta: o `DynamicLibrary` aberto aqui é descartado, e quem
+/// carrega o motor de verdade abre o seu dentro do isolate de inferência.
+bool shimSupported({List<String>? candidates}) =>
+    openShimLibrary(candidates: candidates) != null;
+
 /// Envelope tipado das 4 funções do shim.
 final class GubsLlamaShim {
   GubsLlamaShim(DynamicLibrary lib)

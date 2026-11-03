@@ -55,6 +55,7 @@ Map<String, Object?> manifestTemplate({
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   int packBytes = 1024,
   String packUrl = 'packs/pack-aaaaaaaaaaaa.db',
+  int minAppBuild = 1,
 }) =>
     <String, Object?>{
       'schemaVersion': schemaVersion,
@@ -62,6 +63,6 @@ Map<String, Object?> manifestTemplate({
       'municipality': '0000000',
       'pack': {'url': packUrl, 'sha256': packSha256, 'bytes': packBytes},
       'assets': <Object?>[],
-      'minAppBuild': 1,
+      'minAppBuild': minAppBuild,
       'publishedAt': '2026-08-19',
     };

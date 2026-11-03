@@ -15,6 +15,12 @@ import 'package:flutter/material.dart';
 import '../../sync/model_provisioning.dart';
 import '../more/legal_document.dart';
 
+// Sem shim nativo (ADR-009). Um texto só para os dois lugares que podem
+// mostrá-lo: duas cópias acabariam dizendo coisas diferentes.
+const _deviceUnsupportedTitle = 'Assistente indisponível';
+const _deviceUnsupportedMessage =
+    'Este aparelho não roda o assistente. O atendimento funciona sem ele.';
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({
     required this.provisioning,
@@ -131,6 +137,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           icon: Icons.check_circle,
           title: 'Tudo pronto',
           message: 'O aplicativo já funciona sem internet.',
+        ),
+      // Sem shim (ADR-009): a frase de sempre promete baixar quando houver
+      // Wi-Fi, o que aqui nunca vai acontecer.
+      SetupStage.readyDegraded
+          when state.blockReason == SetupBlockReason.deviceUnsupported =>
+        const _Centered(
+          icon: Icons.check_circle_outline,
+          title: _deviceUnsupportedTitle,
+          message: _deviceUnsupportedMessage,
         ),
       SetupStage.readyDegraded => const _Centered(
           icon: Icons.check_circle_outline,
@@ -327,11 +342,20 @@ class _Blocked extends StatelessWidget {
           'Este aparelho não tem de onde baixar o assistente. O atendimento '
               'funciona sem ele.'
         ),
+      // Normalmente não chega aqui: acompanha `readyDegraded`, que libera a
+      // tela. O caso existe para o `switch` ficar exaustivo e dizer a mesma
+      // coisa se um dia aparecer.
+      SetupBlockReason.deviceUnsupported => (
+          _deviceUnsupportedTitle,
+          _deviceUnsupportedMessage
+        ),
       null => ('Não foi possível preparar', 'Tente novamente.'),
     };
     // Sem origem configurada, tentar de novo daria o mesmo resultado: só o
-    // pendrive e seguir sem o assistente resolvem.
-    final canRetry = state.blockReason != SetupBlockReason.notConfigured;
+    // pendrive e seguir sem o assistente resolvem. Sem shim, nem isso.
+    final canRetry = state.blockReason != SetupBlockReason.notConfigured &&
+        state.blockReason != SetupBlockReason.deviceUnsupported;
+    final canImport = state.blockReason != SetupBlockReason.deviceUnsupported;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -357,7 +381,7 @@ class _Blocked extends StatelessWidget {
             onPressed: onRetry,
             child: const Text('Tentar novamente'),
           ),
-        if (onImport != null) ...[
+        if (onImport != null && canImport) ...[
           const SizedBox(height: 12),
           OutlinedButton(
             style:

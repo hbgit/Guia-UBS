@@ -1,4 +1,4 @@
-package br.gov.exemplo.guia_ubs
+package br.com.prismrr.guiasaude
 
 import io.flutter.embedding.android.FlutterActivity
 

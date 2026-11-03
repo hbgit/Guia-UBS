@@ -714,7 +714,16 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - a guarda é implementada no item 25, com teste;
    - **até lá, publicar pack que dependa de app novo é proibido**, porque nenhum aparelho o recusaria.
 7. **Play App Signing com chave gerada pela Google** (F-6, respondida em 2026-11-02). Consequência entre canais: o APK do GitHub (assinado pela chave de release do projeto) e o da Play (assinado pela chave da Google) **não se atualizam um sobre o outro**. A nota de release e a página do projeto avisam: "troque de canal só desinstalando; seus ajustes se perdem; nada de saúde é guardado".
-8. **Custódia do keystore de release** (o que assina o APK do GitHub e o AAB enviado à Play): gerado uma vez, guardado em cofre offline com **duas custódias**, no mesmo regime da chave Ed25519. Nunca vai para o repositório (o `.gitignore` já cobre); no CI, entra como segredo do *environment* `release`, com aprovação manual de um segundo mantenedor. É uma chave **diferente** da Ed25519 do pack, que continua fora de CI ([ADR-001](#10-registro-de-decisões-arquiteturais-adr), Revisão).
+8. **Custódia do keystore de release** (o que assina o APK do GitHub e o AAB enviado à Play): gerado uma vez e guardado em cofre offline com **duas custódias**, no mesmo regime da chave Ed25519. Nunca vai para o repositório (o `.gitignore` já cobre). É uma chave **diferente** da Ed25519 do pack.
+   - **Por que este keystore vai para o CI e a chave do pack não.** A Revisão do ADR-001 tira a chave do pack de CI porque qualquer workflow editável por quem tem escrita a expõe. O keystore tem **a mesma exposição**, e para quem instala pelo GitHub ele é a chave de distribuição, não uma chave recuperável.
+     - A diferença está em como cada artefato é conferido. O pack é **reprodutível** (`SOURCE_DATE_EPOCH`): um segundo mantenedor reconstrói o mesmo hash, e a assinatura pode ficar fora do pipeline sem perder a verificação.
+     - O APK **não é reprodutível** (build nativo, NDK, Gradle). Assinar fora do pipeline obrigaria a confiar no binário de uma máquina pessoal, que ninguém consegue reproduzir para conferir. Por isso o APK é assinado **no** pipeline, e a exposição é compensada pelos controles abaixo.
+   - **Controles compensatórios** (configuração do repositório, feita pelo mantenedor; lista em `docs/operacao.md` §2.12):
+     - (a) os segredos do keystore são do **environment `release`**, não do repositório. Só existem num job que referencia o environment, e só depois da aprovação;
+     - (b) o environment exige **revisor** e ***Prevent self-review***: quem dispara não aprova;
+     - (c) o environment só aceita **tags `v*`** (*deployment branches and tags*);
+     - (d) um **ruleset de tags** restringe a criação de `v*` aos mantenedores. Sem ele, qualquer colaborador com escrita dispara o pipeline de assinatura com um `git push --tags`;
+     - (e) o workflow confere o certificado de cada APK contra `vars.RELEASE_CERT_SHA256`. Uma chave trocada ou a debug reprova.
 
 **Fundamentos.**
 
@@ -729,6 +738,11 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 2. **Um build a mais no CI do app** (não do shim), para `armeabi-v7a`, e um segundo APK no GitHub, com o seu SHA-256.
 3. **Domínio `.br`.** O `docs/operacao.md` recomendava domínio fora de `.br`, porque o Registro.br exige CPF ou CNPJ do titular e expõe dados dele. O dono do projeto escolheu `.com.br` assim mesmo. O custo aceito é que o id e o domínio de conteúdo passam a depender de um titular identificado no Registro.br. **A renovação do domínio é obrigação permanente:** se ele expirar, o id passa a apontar para um domínio que outra pessoa pode registrar, e a frota perde a origem de conteúdo.
 4. **Regras da Play** citadas aqui — limite de `versionCode`, `targetSdk` mínimo, tamanho do AAB — mudam por decisão de terceiro; cada uma é conferida no Play Console na data da publicação.
+5. **Keystore no CI** (item 8): mesmo com os controles (a)–(e), quem conseguir editar o workflow **e** obter a aprovação do environment alcança a chave.
+   - **Se o keystore vazar, os dois canais não se recuperam igual.**
+     - Na Play, a chave vazada é a de **upload**, e a Play App Signing a troca sem afetar quem já instalou.
+     - No GitHub, a chave vazada **é a de distribuição**. Não há troca: um APK assinado por outra chave não atualiza o instalado, e **todo aparelho instalado pelo GitHub precisa desinstalar e instalar de novo**, perdendo os ajustes.
+   - Por isso o vazamento entra no runbook de incidente (item 28), com aviso aos usuários do canal GitHub.
 
 **Revisão.**
 - Decisões provisórias, revistas em **2027-05-01** ou quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005 (zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto), **o que vier primeiro**:

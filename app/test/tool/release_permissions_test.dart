@@ -21,7 +21,7 @@ const List<String> _herdadas = [
   'android.permission.FOREGROUND_SERVICE_SHORT_SERVICE',
   'android.permission.WAKE_LOCK',
   'android.permission.RECEIVE_BOOT_COMPLETED',
-  'br.gov.exemplo.guia_ubs.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+  'br.com.prismrr.guiasaude.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
 ];
 
 final String _herdadasXml = _herdadas.map(usesPermission).join();

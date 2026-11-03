@@ -22,6 +22,7 @@ import '../core/app_paths.dart';
 import 'endpoint_config.dart';
 import 'pack_store.dart';
 import 'pack_sync_scheduler.dart';
+import 'app_build.dart';
 import 'sync_service.dart';
 
 /// URL do manifest do município, constante de compilação: um espelho não
@@ -53,6 +54,8 @@ Future<bool> runPackSyncTask() async {
       store: PackStore(await packsDirectory()),
       // Sem UI, sem sessão de triagem: a FSM-A está em repouso por construção.
       quiescence: () => true,
+      // Outro isolate: pergunta à plataforma, não herda nada da UI.
+      appBuild: readAppBuild,
     );
 
     try {

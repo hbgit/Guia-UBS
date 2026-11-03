@@ -75,11 +75,22 @@
 
 - **Keystore de release** (assina o APK do GitHub e o AAB enviado à Play): gerado **uma vez**, guardado em cofre offline com **duas custódias**, no mesmo regime da chave Ed25519.
 - Nunca vai para o repositório (`app/android/.gitignore` já cobre `key.properties`, `*.keystore` e `*.jks`). O `signingConfig` de release lê `key.properties` de fora do repositório (item 25).
-- No CI, entra **só** como segredo do *environment* `release`, que exige aprovação manual de um segundo mantenedor.
+- No CI, entra **só** como segredo do *environment* `release`. Por que ele vai para o CI e a chave do pack não está no ADR-009, item 8: o APK não é reprodutível e precisa ser assinado no pipeline. A exposição é compensada por cinco controles, **todos obrigatórios antes da primeira tag**:
+  1. segredos **do environment**, não do repositório;
+  2. revisor obrigatório e *Prevent self-review*;
+  3. o environment só aceita tags `v*`;
+  4. ruleset que restringe a criação de tags `v*` aos mantenedores;
+  5. conferência do certificado contra `vars.RELEASE_CERT_SHA256`.
+- **Se o keystore vazar:** a Play troca a chave de upload, mas no GitHub ele é a chave de distribuição, e todo aparelho instalado por lá precisa desinstalar (ADR-009, Custo aceito 5). Isso entra no runbook de incidente (item 28).
+- **O `config/defines.release.json` é versionado, não segredo.** O conteúdo (`MODEL_URL`, `PACK_MANIFEST_URL`) vai embarcado num APK público. Versionado, ele passa por PR, e o log do job imprime o que cada release embarcou.
 - **Play App Signing com chave gerada pela Google.** Consequência: o APK do GitHub e o da Play **não se atualizam um sobre o outro**. O aviso de canal (§2.8) é obrigatório na nota de release e na página do projeto.
 - O keystore é uma chave **diferente** da Ed25519 do pack. A Ed25519 continua fora de CI (§3.7).
 
-*Aceite:* nenhum arquivo de chave no histórico do repositório; o job de release só obtém o keystore depois da aprovação do *environment* `release`; a impressão SHA-256 do certificado publicada na release confere com a do APK (`apksigner verify --print-certs`).
+*Aceite:* nenhum arquivo de chave no histórico do repositório; o job de release só obtém o keystore depois da aprovação do *environment* `release`; a impressão SHA-256 do certificado publicada na release confere com a do APK (`apksigner verify --print-certs`); um `git push` de tag `v*` por quem não é mantenedor é recusado pelo ruleset.
+
+**Antes da primeira tag de verdade, ensaiar o caminho da tag num fork privado.** O ensaio por PR não exercita o que mais importa: segredos do environment, aprovação, conferência do certificado e o job `publish`. Um fork privado com o mesmo environment, um keystore **descartável** e uma tag `v0.1.0` exercita tudo isso sem criar pre-release pública e sem gastar `versionCode` no repositório real.
+
+**Proveniência (melhoria do item 31, opcional).** O `SHA256SUMS` cobre a conferência do arquivo (RF-17). A atestação de proveniência do GitHub (`actions/attest-build-provenance`) daria a quem baixa a prova de que o APK saiu deste workflow e deste commit (`gh attestation verify`), sem custo. Fica registrada, não é bloqueio.
 
 ### 2.6 Fluxo de release (item 31)
 
@@ -88,7 +99,7 @@ Deriva do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr) e do [A
 1. **PR `develop` → `main`** com `CHANGELOG.md` atualizado e CI verde nos jobs `app`, `interop`, `shim`, `contract` e `cms`.
 2. **Tag anotada `vX.Y.Z`** em `main`. O `app-release.yml` dispara e roda no *environment* `release`, que exige aprovação de um **segundo mantenedor** (diferente de quem criou a tag).
 3. **Guarda de versão.** O job calcula o `versionCode` pela fórmula da §2.2, confere os limites e **reprova** se ele for ≤ o maior `versionCode` já publicado.
-4. **Build**, com `config/defines.release.json` montado a partir de segredo:
+4. **Build**, com o `config/defines.release.json` versionado (impresso no log):
    - `tool/build_apk.sh release` para cada ABI (guardas de `MODEL_URL` e `PACK_MANIFEST_URL` por `model_url_check.dart`);
    - `flutter build appbundle --release` com as mesmas guardas;
    - `dart run tool/check_release_permissions.dart` sobre o build.
@@ -115,6 +126,7 @@ Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão
 - [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R (conferir no Play Console em ____-__-__).
 - [ ] **Classificação e contato:** questionário IARC, público adulto, e-mail de contato de caixa do grupo (conferir no Play Console em ____-__-__).
 - [ ] **Descrição da ficha:** segue R1–R3 do [ADR-004](stack.md#10-registro-de-decisões-arquiteturais-adr) (sem "triagem", "diagnóstico" ou "classificação de risco"), traz o aviso do RF-16 em pt e es e o link para fontes oficiais, contra a política de *Misrepresentation* (conferir no Play Console em ____-__-__).
+- [ ] **Requisito de aparelho na ficha:** o **assistente virtual exige aparelho 64-bit**. Em aparelho 32-bit, o app funciona inteiro pelas regras de segurança, sem o assistente (ADR-009, item 5). Em pt e es (conferir no Play Console em ____-__-__).
 
 ### 2.8 Nota-modelo da release do GitHub
 

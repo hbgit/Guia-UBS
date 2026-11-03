@@ -34,6 +34,7 @@ import 'sync/model_provisioning.dart';
 import 'sync/model_sync_scheduler.dart';
 import 'sync/pack_background_sync.dart';
 import 'sync/resumable_downloader.dart';
+import 'triage/engine/llama_bindings.dart';
 import 'triage/engine/llama_engine.dart';
 import 'triage/engine/triage_engine.dart';
 import 'ui/app_scope.dart';
@@ -93,6 +94,9 @@ Future<void> main() async {
       // fica com o padrão zero e desiste — o WorkManager reagenda.
       writerWait: const Duration(minutes: 30),
     ),
+    // ADR-009: o APK `armeabi-v7a` sai sem o shim. Ali o setup nem pergunta
+    // pela rede: vai direto a degradado, sem oferecer 806 MB que nunca rodam.
+    runtimeSupported: shimSupported,
   )..allowMeteredNetworks = stored.allowMeteredDownload;
 
   runApp(
@@ -217,8 +221,10 @@ class _GuiaUbsAppState extends ConsumerState<GuiaUbsApp>
       switch (state.stage) {
         case SetupStage.ready:
           cancelModelSync().ignore();
+        // Sem shim (ADR-009), agendar seria mandar o worker baixar 806 MB que
+        // nunca rodam. O worker confere de novo; isto evita até acordá-lo.
         case SetupStage.readyDegraded || SetupStage.blocked
-            when ref.read(assistantAllowedProvider):
+            when ref.read(assistantAllowedProvider) && shimSupported():
           scheduleModelSync(
             policy: const ModelSyncPolicy().withMeteredOverride(
               allowed: ref.read(provisioningProvider).allowMeteredNetworks,
