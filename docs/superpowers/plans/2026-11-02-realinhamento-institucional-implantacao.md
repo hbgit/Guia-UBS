@@ -465,7 +465,7 @@ Só no **protótipo** (`design.html`): troca de ordem e de destaque, sem element
 | F-1 | M | Provedor da VPS, região, snapshot, LUKS (resposta fora do repo) | Itens 27–28 |
 | F-2 | M | Os dois administradores da VPS e do domínio, por papel (resposta fora do repo) | Item 27 |
 | F-4 | M | Conta do Google Play: existe? Pessoal ou de organização? Em nome de quem? (resposta fora do repo) | Item 26 |
-| F-7 | M | Domínio do projeto e URL da política de privacidade | Itens 26–27 |
+| F-7 | M | Domínio do projeto e URL da política de privacidade. **Domínio respondido em 2026-11-02: `prismrr.com.br`.** Falta a URL da política (GitHub Pages ou o próprio domínio) e o nome dos subdomínios de conteúdo e do CMS | Itens 26–27 |
 | F-9 | M | O estudo piloto coleta dados de participantes? Há protocolo no CEP? | Início do estudo piloto (§J) |
 | F-18 | M | Com a triagem secundária, o modelo de ~806 MB continua sendo baixado automaticamente no 1º acesso ou passa a opt-in/sob demanda? | Item 30 (não bloqueia este plano) |
 | F-12 | — | Titular do copyright e DCO: **movida para o plano 2** (§I); classe I | — |
@@ -477,14 +477,14 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | # | Situação | Resposta (só o que é público por natureza) |
 |---|---|---|
 | F-0 | respondida em 2026-11-02 | **Manter "Guia UBS"**, com aviso forte de não afiliação (RF-16). O risco vai para os Custos aceitos do ADR-005 |
-| F-3 | **parcial** em 2026-11-02 (2 registros) | **(1) 1ª resposta do dono do projeto, 2026-11-02:** "subdomínio da UFRR" (`br.ufrr.prism.<sufixo>`). **(2) Substituída pelo dono do projeto em 2026-11-02**, nas respostas ao PR #63, com as palavras: *"O PRISM não controla ou pode obter prism.ufrr.br, focar na ADR-007 (VPS do PRISM)"*. Fica valendo a (2): prefixo de **domínio próprio do PRISM, fora de `ufrr.br`**, e sufixo **`guiasaude`**, indicado na mesma rodada (neutro quanto ao nome, específico deste app; o PRISM tem outro app com o PET-Saúde). O executor não decidiu: registrou. **Pendente:** registrar o domínio (junto com a F-7). Bloqueia só o ADR-009 (E2) e o item 25 |
+| F-3 | **respondida** em 2026-11-02 (3 registros) | **(1) 1ª resposta do dono do projeto, 2026-11-02:** "subdomínio da UFRR" (`br.ufrr.prism.<sufixo>`). **(2) Substituída pelo dono do projeto em 2026-11-02**, nas respostas ao PR #63, com as palavras: *"O PRISM não controla ou pode obter prism.ufrr.br, focar na ADR-007 (VPS do PRISM)"*. Fica valendo a (2): prefixo de **domínio próprio do PRISM, fora de `ufrr.br`**, e sufixo **`guiasaude`**, indicado na mesma rodada (neutro quanto ao nome, específico deste app; o PRISM tem outro app com o PET-Saúde). O executor não decidiu: registrou. **Fechada em 2026-11-02:** o dono do projeto registrou **`prismrr.com.br`** (Registro.br), e o id é **`br.com.prismrr.guiasaude`** (ADR-009). A escolha de `.br` contraria a recomendação do `docs/operacao.md`; o custo está nos Custos aceitos do ADR-009 |
 | F-6 | respondida em 2026-11-02 | **Play App Signing com chave gerada pela Google.** APK do GitHub e da Play não se atualizam um sobre o outro; o aviso de canal é obrigatório |
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
 | F-11 | aberta (consulta institucional) | — |
 | F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
 
-**Liberado:** E1. **E2 espera:** o registro do domínio próprio do PRISM, que fecha a F-3 (prefixo do id) e a F-7 (domínio de conteúdo e URL da política). Os administradores do domínio (F-2) ficam no registro fora do repositório.
+**Liberado:** E1 e, desde 2026-11-02, o E2 (domínio `prismrr.com.br` registrado). Os administradores do domínio (F-2) ficam no registro fora do repositório.
 
 ### F.1 Material para decidir a F-0 (nome do app)
 

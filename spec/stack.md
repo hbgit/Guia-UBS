@@ -624,7 +624,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 1. **Dono.** A VPS é contratada e administrada pelo PRISM; não é da UFRR nem de unidade de saúde. **Dois administradores nomeados por papel** (F-2) para a VPS e para o domínio. Provedor, região, snapshot e LUKS (F-1) e os nomes ficam no registro de decisões fora do repositório; o país do provedor só entra em texto público se a revisão jurídica exigir.
 2. **Requisitos mínimos:** datacenter no Brasil, que é a postura do ADR-001 (fundamento 6) e da LGPD-RF06. Outro país só com transferência internacional registrada no RIPD e revisão deste ADR; ≥ 2 vCPU, 4 GB de RAM, disco ≥ 80 GB, snapshot disponível.
 3. **Topologia = `infra/compose.yaml`, sem override.** Sobe com `docker compose -f compose.yaml up -d`, por unit systemd; o `compose.override.yaml` é só de dev (edge sem TLS) e não entra na VPS. Só 80/443 públicas; `sqld` e MinIO em `127.0.0.1`; `cms` e `packer` sem `ports:` (§7). A chave Ed25519 fica `:ro` **só** no `packer`.
-4. **Domínio e TLS.** Domínio próprio do PRISM, fora de `ufrr.br` (ADR-005, Decisão 5), com `CONTENT_DOMAIN` (só GET/HEAD) e `CMS_DOMAIN`; Caddy com ACME e `ACME_EMAIL` de caixa do grupo. O domínio ainda não está registrado: **[a definir — F-7]**. O mesmo registro fecha o prefixo do `applicationId` ([ADR-009](#10-registro-de-decisões-arquiteturais-adr)).
+4. **Domínio e TLS.** Domínio próprio do PRISM, **`prismrr.com.br`** (registrado em 2026-11-02; ADR-005, Decisão 5; ADR-009, item 1), com `CONTENT_DOMAIN` (só GET/HEAD) e `CMS_DOMAIN`; Caddy com ACME e `ACME_EMAIL` de caixa do grupo. Os nomes dos subdomínios de conteúdo e do CMS ficam para o item 27 (F-7). O mesmo domínio dá o prefixo do `applicationId` ([ADR-009](#10-registro-de-decisões-arquiteturais-adr)).
 5. **Provisionamento por Ansible** (item 27), fonte da verdade: usuário de deploy com SSH só por chave e `PermitRootLogin no`, firewall 22/80/443, `unattended-upgrades` de segurança, Docker pinado, LUKS se o provedor permitir. `infra/.env` só na VPS, com permissão 600, e cópia cifrada no cofre.
 6. **Atualização.** Imagens com tag exata ou digest; toda mudança por PR com CI verde; migração do banco master só depois de backup.
 7. **Backup fora do host** (item 28): diário e cifrado (restic/age) — `sqld` (dump consistente), o que no MinIO for fonte primária, `caddydata` e `.env` —, com teste de restauração trimestral numa VPS descartável. Prioridade: banco master e trilha de auditoria, que não são reconstruíveis; os packs são, pelo packer reprodutível.
@@ -680,10 +680,10 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 
 **Decisão.**
 
-1. **`applicationId`:** `[a definir — F-3: domínio próprio do PRISM, fora de ufrr.br]`**`.guiasaude`**.
+1. **`applicationId`: `br.com.prismrr.guiasaude`.** Fixado em 2026-11-02 e permanente depois da 1ª publicação na Play.
    - O **sufixo `guiasaude` está decidido** (registro da T0, 2026-11-02): neutro quanto ao nome "Guia UBS", específico deste app — o PRISM tem outro app com o PET-Saúde.
-   - O **prefixo** é o domínio reverso de um domínio próprio do PRISM, fora de `ufrr.br` (o PRISM não controla `prism.ufrr.br`), sem `gov`. O domínio ainda não está registrado; o registro é o mesmo da F-7 ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)).
-   - **Esta é a única pendência que bloqueia o PR do estágio E2.** Fechado o domínio, o marcador acima é trocado pelo prefixo, e o id não muda nunca mais.
+   - O **prefixo** `br.com.prismrr` é o reverso de **`prismrr.com.br`**, domínio próprio do PRISM. Ele foi registrado no Registro.br em 2026-11-02 e escolhido pelo dono do projeto. Fica fora de `ufrr.br`, sem `gov` e sem "ufrr" no nome. O "rr" é Roraima. É o mesmo domínio da F-7 ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)).
+   - A titularidade do domínio fica no registro de decisões fora do repositório (F-2).
    - Mudam junto, no item 25: os nomes de tarefa do WorkManager (`pack_sync_scheduler.dart`, `model_sync_scheduler.dart`) e `app/tool/release_permissions.dart`.
 2. **Versionamento SemVer** no `pubspec.yaml`, `MAJOR.MINOR.PATCH`:
    - MAJOR: o app passa a rejeitar packs de um `schemaVersion` major antigo, ou muda o comportamento perceptível da orientação;
@@ -720,14 +720,14 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 
 1. **Canais incompatíveis** (item 7): trocar de canal custa desinstalar e perder preferências.
 2. **Um build a mais no CI do app** (não do shim), para `armeabi-v7a`, e um segundo APK no GitHub, com o seu SHA-256.
-3. **O PR do E2 espera o registro do domínio** (item 1).
+3. **Domínio `.br`.** O `docs/operacao.md` recomendava domínio fora de `.br`, porque o Registro.br exige CPF ou CNPJ do titular e expõe dados dele. O dono do projeto escolheu `.com.br` assim mesmo. O custo aceito é que o id e o domínio de conteúdo passam a depender de um titular identificado no Registro.br. **A renovação do domínio é obrigação permanente:** se ele expirar, o id passa a apontar para um domínio que outra pessoa pode registrar, e a frota perde a origem de conteúdo.
 4. **Regras da Play** citadas aqui — limite de `versionCode`, `targetSdk` mínimo, tamanho do AAB — mudam por decisão de terceiro; cada uma é conferida no Play Console na data da publicação.
 
 **Revisão.**
 - Decisões provisórias, revistas **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**:
   - **política de versionamento e modelo de promoção** (F-5; itens 2 a 4);
   - **ABIs e `minSdk`** (F-17; item 5). Antes de virar definitiva, o item 25 verifica que cada APK contém só as `.so` da sua ABI e que o `versionCode` lido no aparelho (`aapt dump badging` e a tela "Sobre") é igual nos três artefatos. Se falhar, a alternativa é o `minAppBuild` comparar com um número derivado do SemVer injetado por `--dart-define`, e não com o `versionCode` do pacote. Ainda a medir: o tamanho do APK `armeabi-v7a` e o custo da configuração a mais no CI.
-- **Emendar** quando o domínio próprio do PRISM for registrado (F-3), trocando o marcador do item 1 pelo prefixo.
+- Reabrir se o domínio `prismrr.com.br` for perdido ou mudar de titular (o id não muda, mas a origem de conteúdo e a verificação de posse sim).
 - Reabrir se a Play mudar o limite de `versionCode` ou a política de assinatura, ou se o projeto passar a enviar chave própria à Play (o que tornaria os canais compatíveis, com a custódia inteira na equipe).
 
 ---
