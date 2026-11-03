@@ -139,17 +139,17 @@ void main() {
   }
 
   group('cada mecanismo mostra o seu selo', () {
-    testWidgets('assistente indisponível: regras do posto sem assistente',
+    testWidgets('assistente indisponível: regras de segurança do app sem assistente',
         (tester) async {
       await pump(tester, engine: _FakeEngine(available: false));
       await compose(tester, ['throat', 'pain']);
 
       expect(find.byKey(const ValueKey('provenance-rulesOnly')), findsOneWidget);
-      expect(find.text('Regras do posto, sem o assistente'), findsOneWidget);
+      expect(find.text('Regras de segurança do app, sem o assistente'), findsOneWidget);
       expect(find.byIcon(Icons.cloud_off), findsOneWidget);
     });
 
-    testWidgets('red flag: regras do posto, sem o modelo participar',
+    testWidgets('red flag: regras de segurança do app, sem o modelo participar',
         (tester) async {
       // Este e o UNICO caminho que produz (gate, nao degradado): a regra de
       // seguranca dispara, a FSM vai direto ao resultado e o modelo nem e
@@ -163,13 +163,13 @@ void main() {
 
       expect(engine.inferCalls, 0, reason: 'INV-1: red flag ignora o modelo');
       expect(find.byKey(const ValueKey('provenance-rules')), findsOneWidget);
-      expect(find.text('Orientação das regras do posto'), findsOneWidget);
+      expect(find.text('Orientação das regras de segurança do app'), findsOneWidget);
       expect(find.byIcon(Icons.rule), findsOneWidget);
     });
 
     testWidgets('modelo sem opinião conta como SEM assistente', (tester) async {
       // O modelo respondeu, mas nao mudou nada. Dizer "gerado por assistente"
-      // seria falso, e dizer "regras do posto" esconderia que ele foi
+      // seria falso, e dizer "regras de segurança do app" esconderia que ele foi
       // consultado e nao ajudou.
       await pump(tester, engine: _FakeEngine());
       await compose(tester, ['throat', 'pain']);
@@ -308,7 +308,7 @@ void main() {
         withNote: false,
       );
 
-      expect(frase, 'Orientação das regras do posto. Emergência. '
+      expect(frase, 'Orientação das regras de segurança do app. Emergência. '
           'Procure emergência agora');
     });
   });
@@ -327,7 +327,7 @@ void main() {
         await compose(tester, ['throat', 'pain']);
 
         final texto = tester.renderObject<RenderParagraph>(
-          find.text('Regras do posto, sem o assistente'),
+          find.text('Regras de segurança do app, sem o assistente'),
         );
         expect(
           contrastRatio(texto.text.style!.color!, paleta.lilacSoft),
@@ -350,6 +350,6 @@ void main() {
     );
     await compose(tester, ['throat', 'pain']);
 
-    expect(find.text('Reglas del puesto, sin el asistente'), findsOneWidget);
+    expect(find.text('Reglas de seguridad de la app, sin el asistente'), findsOneWidget);
   });
 }

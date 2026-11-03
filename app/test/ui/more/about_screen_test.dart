@@ -106,6 +106,49 @@ void main() {
     expect(find.byType(Image), findsNWidgets(aboutLogos.length));
   });
 
+  for (final (locale, naoServico, apoio) in [
+    (
+      AppLocale.pt,
+      'não é serviço de saúde',
+      'Apoio institucional não é responsabilidade institucional',
+    ),
+    (
+      AppLocale.es,
+      'no es un servicio de salud',
+      'El apoyo institucional no es responsabilidad institucional',
+    ),
+  ]) {
+    testWidgets('o aviso de nao afiliacao esta na MESMA tela dos logos, logo '
+        'abaixo deles (RF-16, ${locale.code})', (tester) async {
+      // Para quem le pouco, o logo do Telessaude UFRR diz o contrario da
+      // frase "a UFRR nao responde pelo app" (ADR-005, Decisao 1). O aviso
+      // fica ao lado dos logos para que um nao apareca sem o outro.
+      //
+      // Tela alta: a lista e preguicosa, e rolar ate o aviso tiraria da arvore
+      // os logos contra os quais a posicao e medida.
+      tester.view.physicalSize = const Size(600, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester, locale: locale);
+      final aviso = find.byKey(const ValueKey('about-no-affiliation'));
+
+      expect(aviso, findsOneWidget);
+      expect(
+          find.descendant(of: aviso, matching: find.textContaining(naoServico)),
+          findsOneWidget);
+      expect(find.descendant(of: aviso, matching: find.textContaining(apoio)),
+          findsOneWidget);
+      // Na mesma tela E encostado no ultimo logo: um aviso perdido no fim da
+      // lista nao seria lido junto com a marca.
+      final logos = find.byType(Image);
+      expect(logos, findsWidgets);
+      final ultimoLogo = tester.getRect(logos.last);
+      final caixa = tester.getRect(aviso);
+      expect(caixa.top, greaterThanOrEqualTo(ultimoLogo.bottom));
+      expect(caixa.top - ultimoLogo.bottom, lessThan(spacing * 8));
+    });
+  }
+
   testWidgets('os creditos apontam para arquivos que existem', (tester) async {
     // Caminho de asset errado nao quebra o build nem lanca: aparece como
     // espaco vazio no aparelho de quem instalou. `runAsync` porque o bundle

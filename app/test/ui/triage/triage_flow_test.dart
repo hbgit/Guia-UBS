@@ -245,7 +245,7 @@ void main() {
       await compose(tester, ['throat', 'pain']);
 
       expect(find.byKey(const ValueKey('provenance-rulesOnly')), findsOneWidget);
-      expect(find.text('Regras do posto, sem o assistente'), findsOneWidget);
+      expect(find.text('Regras de segurança do app, sem o assistente'), findsOneWidget);
     });
 
     testWidgets('o texto do cartão é legível sobre o fundo da severidade',

@@ -10,7 +10,7 @@ library;
 /// no PRIMEIRO quadro: uma leitura assíncrona deixaria a pessoa entrar no app
 /// e, um instante depois, puxaria o portão no meio do uso. Um teste confere
 /// que os dois arquivos declaram exatamente esta versão.
-const String termsVersion = '2026-10-29';
+const String termsVersion = '2026-11-02';
 
 /// `true` só com aceite da versão VIGENTE. Aceite de versão anterior não vale
 /// para a nova; sem resposta, o modelo não é baixado nem carregado.
