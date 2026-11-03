@@ -121,7 +121,7 @@ Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão
 - [ ] **`targetSdk`** dentro do mínimo vigente (conferir no Play Console em ____-__-__).
 - [ ] **Tamanho do AAB** dentro do limite; o modelo SLM fica fora do pacote (conferir no Play Console em ____-__-__).
 - [ ] **`versionCode`** abaixo do teto aceito pela Play, que sustenta o limite MAJOR ≤ 210 da §2.2 (conferir no Play Console em ____-__-__).
-- [ ] **Política de privacidade** em `https://prismrr.com.br/guiasaude/privacidade` (§2.9), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
+- [ ] **Política de privacidade** em `https://guiasaude.prismrr.com.br/privacidade/` (§2.9), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
 - [ ] **Data safety:** proposta de declarar "nenhum dado coletado nem compartilhado pelo app", **sujeita** à revisão jurídica do tratamento de IP (T7-R; [lgpd.md](lgpd.md)). Não é decisão deste documento (conferir no Play Console em ____-__-__).
 - [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R (conferir no Play Console em ____-__-__).
 - [ ] **Classificação e contato:** questionário IARC, público adulto, e-mail de contato de caixa do grupo (conferir no Play Console em ____-__-__).
@@ -166,7 +166,7 @@ perdem; nada de saúde é guardado.
 ```
 
 - O trecho entre `< >` sobre o PET-Saúde só entra quando a citação ao usuário estiver liberada (F-13, ver [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão); até lá, sai sem ele.
-- A URL da política é **`https://prismrr.com.br/guiasaude/privacidade`** (§2.9).
+- A URL da política é **`https://guiasaude.prismrr.com.br/privacidade/`** (§2.9).
 - Na *pre-release*, acrescenta-se no topo que a versão está em teste no estudo piloto do projeto.
 - **Versão da Play, separada e curta.** O campo de notas de versão da Play tem limite de caracteres, de cerca de 500 por idioma (conferir no Play Console na data da publicação). Ali não cabe a nota acima. Na Play vão as novidades em uma ou duas linhas, mais a frase do aviso (não é serviço de saúde, não fala por UBS, SUS, Secretaria ou Ministério; emergência, 192). A conferência de SHA-256 e o aviso de canal ficam só no GitHub. O texto completo do aviso está na ficha da loja (§2.7, "Descrição da ficha").
 
@@ -176,10 +176,17 @@ perdem; nada de saúde é guardado.
 
 A ficha da Play exige a política em URL pública. Os termos vão para o mesmo lugar.
 
-- **URL no domínio do projeto, não em `github.io`:** `https://prismrr.com.br/guiasaude/privacidade` e `https://prismrr.com.br/guiasaude/termos`. O GitHub Pages fica **atrás de um CNAME**. A ficha da Play e os termos embarcados citam essa URL, então trocar de host não pode exigir release.
+- **Um subdomínio por projeto, e o apex livre.** A casa pública do app é **`https://guiasaude.prismrr.com.br/`**, com:
+  - `/privacidade/` e `/termos/` em português;
+  - `/es/privacidade/` e `/es/termos/` em espanhol;
+  - uma página inicial mínima na raiz, que diz o que o projeto é e traz os links.
+
+  O DNS é um `CNAME guiasaude → hbgit.github.io`. A ficha da Play e os termos embarcados citam essa URL, e trocar de host muda só o DNS, nunca exige release.
+- **O apex `prismrr.com.br` fica reservado ao grupo** (o site do PRISM, quando houver). Cada app tem o seu subdomínio, como `sinalacs.prismrr.com.br` no dia em que o SinalACS precisar, com o mesmo workflow copiado e sem tocar neste. O esquema casa com os outros nomes do app: `guiasaude.conteudo.` (packs), `guiasaude.cms.` (CMS) e `guiasaude.` (a casa pública).
 - **O texto servido é o mesmo arquivo que o app embarca, não uma cópia.** Um passo de build do Pages publica direto `app/assets/legal/{privacidade,termos}_{pt,es}.md`, e não existem duas versões que possam divergir. A página mostra a **versão e a data**, as mesmas do `<!-- versao -->` e do `termsVersion`.
 - **Nenhum analytics, nem script de terceiro.** O Pages não coleta por padrão e assim deve continuar: seria estranho a política de privacidade ser a única página do projeto que rastreia.
-- **Implementação:** um workflow de Pages no repositório, mais o registro DNS do domínio raiz e o CNAME, que são do mantenedor.
+- **Implementação:** um workflow de Pages no repositório, mais o CNAME no DNS e a configuração do domínio no repositório, que são do mantenedor.
+- **Domínio verificado na conta do GitHub** (registro TXT que o GitHub pede). Sem isso, se o site deste repositório for desativado com o CNAME ainda apontando para `hbgit.github.io`, outra conta pode reivindicar `guiasaude.prismrr.com.br` e servir o que quiser na URL da política de privacidade. A verificação é uma só por domínio e cobre os subdomínios.
 
 *Aceite:* a página publicada e o arquivo do app têm o mesmo `<!-- versao -->`; a página não carrega nenhum recurso de outro domínio; trocar o host (por exemplo, sair do Pages) muda só o DNS.
 
