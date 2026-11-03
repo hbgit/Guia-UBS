@@ -75,9 +75,21 @@ jobs:
         with:
           path: ${{ runner.temp }}/site
 
+  # So publica depois que o mantenedor configurar o Pages e o dominio e ligar
+  # a variavel do repositorio PAGES_CONFIGURED=true (docs/operacao.md 2.12).
+  # Antes disso o job e PULADO, e nao vermelho: um CI vermelho que todo mundo
+  # sabe ignorar e pior do que nenhum.
+  deploy-pendente:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PAGES_CONFIGURED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::Pages ainda nao configurado: o site foi gerado e conferido, mas nao publicado. Configure o Pages e o dominio e defina a variavel PAGES_CONFIGURED=true (docs/operacao.md 2.12)."
+
   deploy:
     needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.PAGES_CONFIGURED == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write

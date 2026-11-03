@@ -182,6 +182,7 @@ A ficha da Play exige a política em URL pública. Os termos vão para o mesmo l
   - uma página inicial mínima na raiz, que diz o que o projeto é e traz os links.
 
   O DNS é um `CNAME guiasaude → hbgit.github.io`. A ficha da Play e os termos embarcados citam essa URL, e trocar de host muda só o DNS, nunca exige release.
+- **A URL canônica tem barra final** (`https://guiasaude.prismrr.com.br/privacidade/`, `.../termos/`, `.../es/privacidade/`, `.../es/termos/`). Todo lugar que cita a URL usa exatamente essa forma: a ficha da Play, os termos embarcados (se passarem a citá-la), este documento e o manual. Assim ninguém depende do redirecionamento do Pages.
 - **O apex `prismrr.com.br` fica reservado ao grupo** (o site do PRISM, quando houver). Cada app tem o seu subdomínio, como `sinalacs.prismrr.com.br` no dia em que o SinalACS precisar, com o mesmo workflow copiado e sem tocar neste. O esquema casa com os outros nomes do app: `guiasaude.conteudo.` (packs), `guiasaude.cms.` (CMS) e `guiasaude.` (a casa pública).
 - **O texto servido é o mesmo arquivo que o app embarca, não uma cópia.** Um passo de build do Pages publica direto `app/assets/legal/{privacidade,termos}_{pt,es}.md`, e não existem duas versões que possam divergir. A página mostra a **versão e a data**, as mesmas do `<!-- versao -->` e do `termsVersion`.
 - **Nenhum analytics, nem script de terceiro.** O Pages não coleta por padrão e assim deve continuar: seria estranho a política de privacidade ser a única página do projeto que rastreia.

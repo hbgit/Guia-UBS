@@ -488,7 +488,13 @@ do `termsVersion`. O workflow também reprova qualquer `<script>`, `<link>`,
   Com publicação por Actions, um arquivo `CNAME` não é usado; vale o que está
   aqui;
 - no DNS do `prismrr.com.br`, os registros do domínio raiz para o GitHub Pages
-  (os endereços estão na documentação do GitHub; conferir na data).
+  (os endereços estão na documentação do GitHub; conferir na data);
+- por último, a **variável do repositório `PAGES_CONFIGURED=true`**. Sem ela, o
+  push em `main` gera e confere o site, mas o job `deploy-pendente` só deixa um
+  aviso, em vez de um `deploy` vermelho que todo mundo aprende a ignorar.
+
+Faça os passos acima **com o PR aberto**: o run do PR mostra as quatro páginas
+geradas, e o primeiro push em `main` já publica.
 
 A página não usa cookies, scripts nem rastreamento, e assim deve continuar.
 

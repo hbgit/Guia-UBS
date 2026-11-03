@@ -61,8 +61,14 @@ continua aqui, com <tag> & "aspas".
       expect(html, isNot(contains('src=')));
       expect(html, isNot(contains('@import')));
       // A CSP fecha a porta para qualquer edicao futura que tente carregar
-      // algo de fora: o navegador recusa, mesmo que o teste deixe passar.
-      expect(html, contains("default-src 'none'"));
+      // algo de fora: o navegador recusa, mesmo que o teste deixe passar. A
+      // diretiva e EXATAMENTE esta: sem o `style-src 'unsafe-inline'`, o
+      // navegador descarta o <style> e a pagina sai em texto cru; com algo
+      // a mais, abre porta para recurso externo.
+      expect(
+          html,
+          contains('<meta http-equiv="Content-Security-Policy" '
+              "content=\"default-src 'none'; style-src 'unsafe-inline'\">"));
     });
 
     test('lang do documento e link para o outro idioma', () {
