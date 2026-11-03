@@ -825,6 +825,8 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 
 ### Tarefa 8b: controlador e bases legais na política de privacidade (E7, exceção de código)
 
+> **Para o E7, os `**` dos termos (revisão do #75):** `termos_{pt,es}.md:17` põe a frase principal ("Este aplicativo não faz diagnóstico…") entre `**`, e o parser não interpreta negrito: os asteriscos aparecem na tela do app e na página pública. A correção entra **no mesmo bump do T8b**, para não haver um terceiro reaceite. **Tirar os `**`** é o caminho; ensinar negrito ao parser seria funcionalidade nova em texto legal, com dois lugares para errar. Se a frase precisa de destaque, o destaque é de layout (um parágrafo próprio), não de marcação.
+>
 > **Para o E7, tela de download do modelo (revisão do #74):** a frase "servidor fora do Brasil" entra acompanhada do **tamanho em MB** e da palavra **"opcional"**. "Módulo de idiomas" não diz à pessoa que são 800 MB, nem que o app funciona sem eles, e a frase sobre o país sozinha não resolve isso.
 >
 > **Decidido no #66 (2026-11-02), não reabrir no E7:** o gate (`termsGateBody`) diz "Grupo de Pesquisa PRISM, da UFRR". Está em `origensQueCitamUfrr` e, via `ufrrSoNaFrase`, a UFRR só pode aparecer nessa frase. O ajuste de dados móveis diz "Ative", e "ligue" fica reservado ao 192. Um guarda reprova o contrário.
