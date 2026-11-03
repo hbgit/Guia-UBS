@@ -1,0 +1,269 @@
+# Release do app (item 31 do roadmap; ADR-006 e ADR-009; spec/implantacao.md
+# §2.6 a §2.8).
+#
+# Dois modos, um caminho de build so:
+#
+# - TAG `vX.Y.Z` em main: release de verdade. Roda no environment `release`
+#   (revisores obrigatorios + Prevent self-review, configurados no repositorio),
+#   assina com o keystore de release vindo de segredo e cria uma PRE-RELEASE no
+#   GitHub com os APKs e o SHA256SUMS. A promocao e manual e sem rebuild.
+#
+# - PULL REQUEST que toca o build: ENSAIO. Sem segredo nenhum, assinado com a
+#   chave debug, sem release. Prova que os dois APKs e o AAB saem, com as .so
+#   certas por ABI e o mesmo versionCode. Os artefatos do ensaio NUNCA sao
+#   publicados.
+#
+# Upload para o Google Play fica de fora ate a conta existir (F-4): o AAB sai
+# como artefato do workflow.
+
+name: app-release
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/app-release.yml
+      - app/android/**
+      - app/tool/build_apk.sh
+      - app/tool/release_version.dart
+      - app/pubspec.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Tag: environment com aprovacao. PR: sem environment (e sem segredo).
+    environment: ${{ github.ref_type == 'tag' && 'release' || '' }}
+    defaults:
+      run:
+        working-directory: app
+    env:
+      RELEASE: ${{ github.ref_type == 'tag' }}
+      # Com 1, a falta de key.properties REPROVA o build em vez de cair na
+      # chave debug (build.gradle.kts). So na tag.
+      GUBS_REQUIRE_RELEASE_SIGNING: ${{ github.ref_type == 'tag' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A guarda de versao compara com a maior tag existente.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+
+      - name: Dependencias de build
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - run: flutter pub get
+
+      - name: Codegen (Drift)
+        run: dart run build_runner build
+
+      # Na tag: a tag e vX.Y.Z, o pubspec e X.Y.Z+<formula>, e o codigo e maior
+      # que o da maior tag existente. No PR: confere a versao do pubspec contra
+      # uma tag hipotetica igual a ela, so para pegar +N fora da formula.
+      - name: Guarda de versao
+        run: |
+          if [ "$RELEASE" = "true" ]; then
+            dart run tool/release_version.dart --tag "$GITHUB_REF_NAME"
+          else
+            v=$(sed -n 's/^version: *\([0-9.]*\)+.*/\1/p' pubspec.yaml)
+            git tag "v$v" 2>/dev/null || true
+            dart run tool/release_version.dart --tag "v$v"
+          fi
+
+      # Na tag, do segredo. No ensaio, um defines que passa nas guardas sem
+      # apontar para nada publicado: o APK do ensaio nao e distribuido.
+      - name: Defines do build
+        env:
+          DEFINES_RELEASE_JSON: ${{ secrets.DEFINES_RELEASE_JSON }}
+        run: |
+          if [ "$RELEASE" = "true" ]; then
+            printf '%s' "$DEFINES_RELEASE_JSON" > config/defines.release.json
+          else
+            cat > config/defines.release.json <<'EOF'
+          {
+            "MODEL_URL": "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/f9c28bcd85737ffc5aef028638d3341d49869c27/gemma-3-1b-it-Q4_K_M.gguf",
+            "PACK_MANIFEST_URL": "https://ensaio.prismrr.com.br/content-packs/0000000/manifest.json"
+          }
+          EOF
+          fi
+
+      # Na tag, o keystore de release do segredo. Arquivo temporario fora do
+      # repositorio, apagado no fim do job (passo "Apagar o keystore").
+      - name: Keystore de release
+        if: env.RELEASE == 'true'
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+
+      # Um APK por ABI, nunca --split-per-abi (o plugin do Flutter sobrescreveria
+      # o versionCode). As guardas de MODEL_URL e PACK_MANIFEST_URL rodam antes
+      # de cada build, dentro do build_apk.sh.
+      - name: APKs (arm64 e arm)
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          for abi in arm64 arm; do
+            rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+            tool/build_apk.sh release config/defines.release.json "$abi"
+            cp build/app/outputs/flutter-apk/app-release.apk \
+              "$RUNNER_TEMP/out/guia-ubs-$abi.apk"
+          done
+
+      - name: AAB
+        run: |
+          flutter build appbundle --release \
+            --target-platform=android-arm,android-arm64 \
+            --dart-define-from-file=config/defines.release.json
+          cp build/app/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/out/guia-ubs.aab"
+
+      - name: Lista fechada de permissoes
+        run: dart run tool/check_release_permissions.dart
+
+      # Cada APK empacota so a sua ABI; o shim so no arm64; o mesmo versionCode
+      # nos dois (ADR-009, itens 3 e 5).
+      - name: Conferir ABIs e versionCode
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          code() { "$BT/aapt" dump badging "$1" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p"; }
+          libs() { unzip -l "$1" | awk '{print $4}' | grep '^lib/' | sort; }
+          a64="$RUNNER_TEMP/out/guia-ubs-arm64.apk"; a32="$RUNNER_TEMP/out/guia-ubs-arm.apk"
+          libs "$a64"; libs "$a32"
+          libs "$a64" | grep -q '^lib/arm64-v8a/libgubs_llama.so$' || { echo "arm64 sem o shim"; exit 1; }
+          ! libs "$a64" | grep -qv '^lib/arm64-v8a/' || { echo "arm64 com outra ABI"; exit 1; }
+          libs "$a32" | grep -q '^lib/armeabi-v7a/libflutter.so$' || { echo "arm sem libflutter"; exit 1; }
+          ! libs "$a32" | grep -q 'libgubs_llama' || { echo "arm com o shim"; exit 1; }
+          ! libs "$a32" | grep -qv '^lib/armeabi-v7a/' || { echo "arm com outra ABI"; exit 1; }
+          [ "$(code "$a64")" = "$(code "$a32")" ] || { echo "versionCode diferente entre ABIs"; exit 1; }
+          echo "versionCode=$(code "$a64")"
+
+      # Na tag: o certificado TEM de ser o de release cadastrado. Pega a chave
+      # debug e qualquer chave trocada (ADR-009, item 8).
+      - name: Conferir o certificado
+        env:
+          RELEASE_CERT_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          for apk in "$RUNNER_TEMP"/out/*.apk; do
+            sha=$("$BT/apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+            echo "$(basename "$apk"): $sha"
+            if [ "$RELEASE" = "true" ]; then
+              [ -n "$RELEASE_CERT_SHA256" ] || { echo "vars.RELEASE_CERT_SHA256 nao cadastrada"; exit 1; }
+              [ "$sha" = "$RELEASE_CERT_SHA256" ] || { echo "certificado diferente do de release"; exit 1; }
+            fi
+          done
+          echo "$sha" > "$RUNNER_TEMP/out/CERT_SHA256"
+
+      - name: SHA256SUMS
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          sha256sum guia-ubs-arm64.apk guia-ubs-arm.apk > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Apagar o keystore
+        if: always() && env.RELEASE == 'true'
+        run: rm -f "$RUNNER_TEMP/release.jks" android/key.properties
+
+      # O AAB e os APKs do ensaio ficam so como artefato do workflow, com
+      # retencao curta. O nome diz o que sao.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RELEASE == 'true' && format('release-{0}', github.ref_name) || 'ensaio-NAO-PUBLICAR' }}
+          path: ${{ runner.temp }}/out/
+          retention-days: ${{ env.RELEASE == 'true' && 90 || 3 }}
+
+  # So na tag. Separado do build para que o `contents: write` exista apenas
+  # aqui: o ensaio de PR nunca tem token de escrita. Nao reconstroi nada:
+  # publica exatamente os artefatos que o build conferiu (ADR-009, item 4).
+  publish:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: out
+
+      # Confere de novo: o que vai para a release e o que o build hasheou.
+      - name: Conferir SHA256SUMS
+        working-directory: out
+        run: sha256sum -c SHA256SUMS
+
+      - name: Nota da release
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          cert=$(cat out/CERT_SHA256)
+          novidades=$(awk -v v="$v" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}' CHANGELOG.md)
+          [ -n "$novidades" ] || { echo "CHANGELOG.md sem a secao [$v]"; exit 1; }
+          cat > "$RUNNER_TEMP/nota.md" <<EOF
+          > **Versão em teste no estudo piloto do projeto.**
+
+          # Guia UBS ${GITHUB_REF_NAME}
+
+          ## Novidades
+          ${novidades}
+
+          ## Aviso
+          **pt:** O Guia UBS é um projeto educativo aberto do Grupo de Pesquisa PRISM
+          (UFRR). Não é serviço de saúde e não fala por UBS, SUS, Secretaria ou
+          Ministério. Em emergência, ligue 192.
+
+          **es:** Guia UBS es un proyecto educativo abierto del Grupo de Investigación
+          PRISM (UFRR). No es un servicio de salud y no habla en nombre de UBS, SUS,
+          Secretaría ni Ministerio. En emergencia, llame al 192.
+
+          ## Como conferir o arquivo
+          1. Baixe o APK da sua arquitetura (\`arm64\` na maioria dos aparelhos; \`arm\`
+             em aparelhos 32 bits, que rodam sem o assistente) e o \`SHA256SUMS\`.
+          2. Rode \`sha256sum -c SHA256SUMS --ignore-missing\`; a linha do seu APK deve
+             dizer \`OK\`.
+          3. Opcional: \`apksigner verify --print-certs <apk>\` deve mostrar o
+             certificado SHA-256 \`${cert}\`.
+
+          APK recebido por Bluetooth, cartão ou mensagem não é canal oficial:
+          confira o SHA-256 contra esta página antes de instalar.
+
+          ## Aviso de canal
+          O APK desta página e o do Google Play são assinados por chaves diferentes e
+          não se atualizam um sobre o outro. Troque de canal só desinstalando; seus
+          ajustes se perdem; nada de saúde é guardado.
+          EOF
+
+      - name: Pre-release no GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --prerelease \
+            --title "Guia UBS $GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/nota.md" \
+            out/guia-ubs-arm64.apk out/guia-ubs-arm.apk out/SHA256SUMS

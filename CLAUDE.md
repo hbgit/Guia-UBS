@@ -150,6 +150,8 @@ flutter test test/triage/       # so um diretorio
 flutter test --plain-name "trecho do nome do teste"
 flutter build apk --release --target-platform=android-arm64
 tool/build_apk.sh release       # idem, conferindo MODEL_URL e PACK_MANIFEST_URL antes (exige config/defines.release.json; modelo em config/defines.example.json, que o release recusa de proposito)
+tool/build_apk.sh release config/defines.release.json arm   # 3o argumento: arm64 (padrao) ou arm; arm sai SEM o shim (ADR-009)
+dart run tool/release_version.dart --tag vX.Y.Z   # guarda de versao do release: pubspec X.Y.Z+<MAJOR*10000+MINOR*100+PATCH> e maior que a maior tag
 flutter run --dart-define-from-file=config/defines.debug.json   # app com MODEL_URL e PACK_MANIFEST_URL; sem eles, assistente e conteudo ficam "nao configurados" (o Sobre avisa)
 dart run tool/check_release_permissions.dart   # lista fechada de permissoes do release (exige o build acima)
 tool/gen_launcher_icon.sh       # regenera os 15 PNGs do icone a partir do SVG

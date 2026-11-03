@@ -465,6 +465,61 @@ apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk
 O certificado debug tem SHA-256 começando em `62c33cab`. Ver esse prefixo num
 APK que vai ser publicado é erro.
 
+### 2.12 Publicar uma versão do app
+
+O caminho é o workflow `.github/workflows/app-release.yml`, disparado por tag
+([`spec/implantacao.md`](../spec/implantacao.md) §2.6). Ele faz, nesta ordem:
+
+1. **Guarda de versão.** `dart run tool/release_version.dart --tag vX.Y.Z`
+   reprova se a tag não é `vX.Y.Z`, se o `version:` do `app/pubspec.yaml` não é
+   `X.Y.Z+<MAJOR*10000 + MINOR*100 + PATCH>`, ou se o código não é maior que o
+   da maior tag existente.
+2. **Build.** Um APK por ABI, `tool/build_apk.sh release <config> arm64` e
+   `... arm`, e o AAB. As guardas de `MODEL_URL` e `PACK_MANIFEST_URL` rodam
+   antes de cada build.
+3. **Conferências.** Lista fechada de permissões; cada APK só com a sua ABI e o
+   shim só no `arm64`; o mesmo `versionCode` nos dois; o certificado igual ao
+   cadastrado. A chave debug reprova.
+4. **Pre-release no GitHub** com os dois APKs e o `SHA256SUMS`, e a nota feita a
+   partir da seção da versão no `CHANGELOG.md`. O AAB fica como artefato do
+   workflow, porque o upload para a Play espera a conta.
+
+Para lançar:
+
+```sh
+# 1. version: X.Y.Z+<codigo> em app/pubspec.yaml e a secao [X.Y.Z] no CHANGELOG.md
+cd app && dart run tool/release_version.dart --tag vX.Y.Z   # confere antes do push
+# 2. PR develop -> main, CI verde, merge
+# 3. tag anotada em main
+git tag -a vX.Y.Z -m "Guia UBS vX.Y.Z" && git push origin vX.Y.Z
+```
+
+O job espera a aprovação de outro mantenedor no *environment* `release`. Uma vez
+aprovado, a pre-release sai. **Promover** é tirar a marca de *pre-release* no
+GitHub, sem rebuild.
+
+**Ensaio.** Um PR que mexa no workflow, em `app/android/`, no `build_apk.sh`, no
+`release_version.dart` ou no `pubspec.yaml` roda o mesmo build sem segredo
+nenhum, assinado com a chave debug e sem release. O artefato
+`ensaio-NAO-PUBLICAR` dura 3 dias e não deve ser distribuído.
+
+**O que precisa existir antes da primeira tag.** Tudo é configuração do
+repositório, feita pelo mantenedor:
+
+- *environment* `release`, com revisores obrigatórios e *Prevent self-review*;
+- segredos do *environment*:
+  - `ANDROID_KEYSTORE_B64` (o `.jks` em base64);
+  - `ANDROID_KEYSTORE_PASSWORD`;
+  - `ANDROID_KEY_ALIAS`;
+  - `ANDROID_KEY_PASSWORD`;
+  - `DEFINES_RELEASE_JSON` (o `config/defines.release.json` real);
+- variável `RELEASE_CERT_SHA256`, o SHA-256 do certificado de release, sem `:`
+  e em minúsculas, como o `apksigner` imprime.
+
+O `DEFINES_RELEASE_JSON` precisa de um `PACK_MANIFEST_URL` real, que é o
+domínio de conteúdo do plano B. Antes disso, a guarda do `build_apk.sh` recusa
+o release, e é de propósito.
+
 
 ## 3. Os três papéis
 
