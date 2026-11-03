@@ -644,10 +644,16 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 3. **Fatura recorrente** da VPS e do destino do backup, pagas pelo PRISM.
 
 **Revisão.**
-- Decisões provisórias, revistas **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**:
+- Decisões provisórias, revistas em **2027-05-01** ou quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005 (zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto), **o que vier primeiro**:
   - **destino do backup fora da VPS** (F-8): um segundo provedor de armazenamento de objetos, com conta do PRISM; a retenção de 7 diárias, 4 semanais e 6 mensais também é provisória;
   - **retenção do log do Caddy em 14 dias** (F-10), sujeita também à revisão jurídica (T7-R).
 - Reabrir se o PRISM deixar de manter a VPS, se a revisão jurídica exigir datacenter ou operador diferente, ou se o projeto ganhar superfície web dinâmica pública (ADR-001).
+- **Se o domínio `prismrr.com.br` for perdido** (expiração, disputa, mudança de titular sem transferência):
+  - **o `applicationId` fica.** Ele é só um identificador na Play, que não verifica posse de domínio (ADR-009);
+  - **mudam de endereço** o domínio de conteúdo (`CONTENT_DOMAIN`, `PACK_MANIFEST_URL`, `MODEL_URL`), o CMS, a URL da política de privacidade da ficha da Play e qualquer e-mail de contato no domínio;
+  - **exige release do app**, porque `PACK_MANIFEST_URL` e `MODEL_URL` entram embutidos no build (`--dart-define`). Até o app novo chegar, os aparelhos antigos procuram conteúdo no endereço perdido. Nada de errado chega a eles, porque a assinatura Ed25519 e o SHA-256 não dependem do domínio e quem tomar o domínio não consegue assinar pack. Mas param de receber conteúdo novo (INV-8: nada bloqueia);
+  - **o modelo já instalado não é baixado de novo**, porque a identidade dele é o SHA-256, não a URL (ADR-004);
+  - **mitigação:** renovação automática, alerta de expiração no monitoramento (`implantacao.md` §3.6), titular e plano de transferência no registro operacional fora do repositório (F-2).
 
 ### ADR-008 — Escopo de conteúdo: de "município" para "edição": **ACEITO** (2026-11-02)
 
@@ -671,7 +677,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 2. **`municipality` na telemetria** continua sendo o nome da coorte de edição; o k-anonimato ≥ 20 não muda.
 
 **Revisão.**
-- **Pack único nacional** (F-16, provisório): uma edição nacional, com o mecanismo de edição preservado. Revisar **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**, ou antes se o estudo pedir uma edição regional.
+- **Pack único nacional** (F-16, provisório): uma edição nacional, com o mecanismo de edição preservado. Revisar em **2027-05-01** ou quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005 (zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto), **o que vier primeiro**, ou antes se o estudo pedir uma edição regional.
 - Reabrir se surgir motivo de código para renomear, ou se alguém propuser edição curada por terceiro (aí vale também o ADR-005: parceria exige ADR novo).
 
 ### ADR-009 — Identidade, versionamento, ABIs e assinatura do app: **ACEITO** (2026-11-02)
@@ -683,7 +689,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 1. **`applicationId`: `br.com.prismrr.guiasaude`.** Fixado em 2026-11-02 e permanente depois da 1ª publicação na Play.
    - O **sufixo `guiasaude` está decidido** (registro da T0, 2026-11-02): neutro quanto ao nome "Guia UBS", específico deste app — o PRISM tem outro app com o PET-Saúde.
    - O **prefixo** `br.com.prismrr` é o reverso de **`prismrr.com.br`**, domínio próprio do PRISM. Ele foi registrado no Registro.br em 2026-11-02 e escolhido pelo dono do projeto. Fica fora de `ufrr.br`, sem `gov` e sem "ufrr" no nome. O "rr" é Roraima. É o mesmo domínio da F-7 ([ADR-007](#10-registro-de-decisões-arquiteturais-adr)).
-   - A titularidade do domínio fica no registro de decisões fora do repositório (F-2).
+   - A titularidade do domínio (CPF ou CNPJ do titular no Registro.br), o plano de transferência e quem renova ficam no registro de decisões fora do repositório (F-2). Se o titular for pessoa física, o nome do domínio é dela até a transferência; se for a UFRR, isso precisa ser conciliado com a Decisão 1 do ADR-005.
+   - O que acontece se o domínio for perdido está na Revisão do ADR-007: o id fica, e o conteúdo e a política migram com uma release do app.
    - Mudam junto, no item 25: os nomes de tarefa do WorkManager (`pack_sync_scheduler.dart`, `model_sync_scheduler.dart`) e `app/tool/release_permissions.dart`.
 2. **Versionamento SemVer** no `pubspec.yaml`, `MAJOR.MINOR.PATCH`:
    - MAJOR: o app passa a rejeitar packs de um `schemaVersion` major antigo, ou muda o comportamento perceptível da orientação;
@@ -724,7 +731,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 4. **Regras da Play** citadas aqui — limite de `versionCode`, `targetSdk` mínimo, tamanho do AAB — mudam por decisão de terceiro; cada uma é conferida no Play Console na data da publicação.
 
 **Revisão.**
-- Decisões provisórias, revistas **em 2027-05-01 ou no fim do estudo piloto, o que vier primeiro**:
+- Decisões provisórias, revistas em **2027-05-01** ou quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005 (zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto), **o que vier primeiro**:
   - **política de versionamento e modelo de promoção** (F-5; itens 2 a 4);
   - **ABIs e `minSdk`** (F-17; item 5). Antes de virar definitiva, o item 25 verifica que cada APK contém só as `.so` da sua ABI e que o `versionCode` lido no aparelho (`aapt dump badging` e a tela "Sobre") é igual nos três artefatos. Se falhar, a alternativa é o `minAppBuild` comparar com um número derivado do SemVer injetado por `--dart-define`, e não com o `versionCode` do pacote. Ainda a medir: o tamanho do APK `armeabi-v7a` e o custo da configuração a mais no CI.
 - Reabrir se o domínio `prismrr.com.br` for perdido ou mudar de titular (o id não muda, mas a origem de conteúdo e a verificação de posse sim).
