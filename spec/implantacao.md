@@ -195,7 +195,7 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
   - datacenter **no Brasil** ([ADR-001](stack.md#10-registro-de-decisões-arquiteturais-adr), fundamento 6; LGPD-RF06). Outro país só com transferência internacional registrada no RIPD e revisão do ADR-007;
   - ≥ 2 vCPU, 4 GB de RAM, disco ≥ 80 GB;
   - snapshot disponível.
-- **Duas pessoas** (ADR-007, Decisão 1): o administrador da VPS e um **segundo mantenedor** que não opera a VPS, mas aprova releases, guarda a segunda custódia das chaves, tem a leitura do backup e sabe restaurá-lo numa VPS nova. O motivo é o fator ônibus. Os nomes ficam no registro operacional.
+- **Duas pessoas** (ADR-007, Decisão 1): o administrador da VPS e um **segundo mantenedor** que não opera a VPS, mas aprova releases, guarda a segunda custódia das chaves, tem a leitura do backup e **executa o teste trimestral de restauração seguindo o runbook escrito** (item 28). Quem precisa saber restaurar é o runbook, não a pessoa. O motivo é o fator ônibus. Os nomes ficam no registro operacional.
 
 *Aceite:* a VPS contratada atende a cada requisito acima, conferido no painel do provedor antes do item 27 ser dado como entregue.
 
@@ -205,6 +205,10 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
   - **`guiasaude.conteudo.prismrr.com.br`**: só `manifest.json` e packs, como arquivos estáticos. É o nome embarcado no APK, e não muda;
   - **`guiasaude.cms.prismrr.com.br`**: o CMS, atrás de VPN ou de autenticação. Pode mudar de endereço sem que o de conteúdo mude.
 - **Renovação do domínio é obrigação permanente** (ADR-009, Custos aceitos): renovação automática ligada e alerta de expiração no mesmo monitoramento da §3.6.
+- **Titularidade e cobrança do domínio (F-19).** O titular e os contatos ficam no registro operacional, fora do repositório; as regras abaixo são públicas, para que o próximo mantenedor saiba que existem:
+  - **dois contatos de cobrança** no registrador, de pessoas diferentes, para que o aviso de renovação não dependa de uma caixa só;
+  - **pagamento adiantado de mais de um ano**, para que uma renovação esquecida não derrube o domínio no mesmo mês;
+  - **transferência de titularidade ao próximo responsável pelo PRISM** em caso de afastamento do titular. O domínio dá o `applicationId` e o host de conteúdo, e não pode ficar preso a quem saiu (ADR-007, Revisão).
 - Dois nomes: `CONTENT_DOMAIN` (só GET/HEAD; `manifest.json` e packs) e `CMS_DOMAIN`.
 - Caddy com ACME (TLS automático) e `ACME_EMAIL` de caixa do grupo, não pessoal. HSTS e CSP como hoje em `infra/Caddyfile`. `BETTER_AUTH_URL` em `https://`.
 - **Só 80 e 443 públicas.** `sqld` e MinIO em `127.0.0.1`; `cms` e `packer` sem `ports:` ([stack.md](stack.md) §7).
@@ -294,7 +298,7 @@ Papéis, nunca nomes. A atribuição de pessoas a papéis fica no registro de de
 | Gerar o pack sem chave e conferir a assinatura publicada | Mantenedor B | Diferente do mantenedor A | [ADR-001](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão |
 | Aprovar conteúdo clínico | Revisores clínicos, por dual review | Autor ≠ revisor (gatilho `approval_no_self_approval`) | [espec.md](espec.md) INV-4 |
 | Operar a VPS e o domínio (provisionamento, atualização, backup, resposta a alerta) | Administrador da VPS | — | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 1 |
-| Restaurar o backup numa VPS nova, sem depender do administrador | Segundo mantenedor, com a credencial de leitura do backup | Diferente do administrador da VPS (fator ônibus) | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisões 1 e 7 |
+| Restaurar o backup numa VPS nova, sem depender do administrador, **seguindo o runbook** (e executar o teste trimestral) | Segundo mantenedor, com a credencial de leitura do backup | Diferente do administrador da VPS (fator ônibus). Passo que só o administrador saberia fazer é defeito do runbook | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisões 1 e 7 |
 | Comunicar incidente | PRISM, sob o controlador pendente | — | [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 8; [lgpd.md](lgpd.md) LGPD-RF12 |
 
 ---
