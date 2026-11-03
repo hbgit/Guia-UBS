@@ -1,10 +1,37 @@
 # Guia UBS
 
-Aplicativo Android **offline-only** que orienta populações rurais, imigrantes e
-pessoas de baixo letramento sobre os serviços da Atenção Básica do SUS. A
-interface é **100% iconográfica** — sem texto obrigatório — e a triagem roda no
-próprio aparelho, com um SLM local (llama.cpp) atrás de um gate determinístico
-de red flags.
+Aplicativo Android **offline-only** de **educação social em saúde** para
+populações rurais, imigrantes e pessoas de baixo letramento: como funcionam o SUS
+e a Atenção Primária, direitos, documentos e sinais de alerta. Como **apoio**, ele
+indica que tipo de serviço procurar. Para isso, a triagem roda no próprio
+aparelho, com um SLM local (llama.cpp) atrás de um gate determinístico de red
+flags. A interface é **100% iconográfica**, sem texto obrigatório.
+
+## Quem faz
+
+Projeto **educativo e de código aberto** do Grupo de Pesquisa **PRISM** (UFRR),
+em cooperação com o **PET-Saúde: Inovação e Saúde Digital**, iniciativa do Núcleo
+de Telessaúde da UFRR ([ADR-005](spec/stack.md)).
+
+> **Sem vínculo com unidades de saúde.** O Guia UBS não é serviço de saúde e não
+> fala por nenhuma UBS, nem pelo SUS, nem por Secretaria ou Ministério da Saúde.
+> "UBS", "UPA" e "posto" aparecem como tipos de serviço do SUS, para explicar
+> como eles funcionam. O projeto não tem vínculo com unidades de saúde públicas ou
+> privadas, secretarias ou prefeituras, e nada nele depende de dados, operação ou
+> aprovação delas.
+
+## Instalar
+
+Os canais oficiais são o **GitHub Releases** deste repositório e o **Google
+Play** ([ADR-006](spec/stack.md)). Nenhum dos dois está publicado ainda: o
+pipeline de release é o item 31 do roadmap.
+
+- **GitHub Releases.** Cada release traz o APK e o arquivo `SHA256SUMS`. Confira
+  antes de instalar (`sha256sum -c SHA256SUMS --ignore-missing`). Uma cópia
+  recebida por mensagem, Bluetooth ou cartão de memória não tem garantia.
+- **Trocar de canal exige desinstalar.** Pelo Play App Signing, o APK do GitHub
+  e o da Play têm assinaturas diferentes, e um não atualiza o outro. Os ajustes
+  se perdem; nada de saúde é guardado ([ADR-009](spec/stack.md)).
 
 O conteúdo clínico não vive no binário: ele chega em pacotes SQLite assinados
 (Ed25519), produzidos por um plano de controle em TypeScript e distribuídos como
@@ -243,7 +270,7 @@ estão no [ADR-003](spec/stack.md); os números completos, em
 [arquitetura.md §5.1](spec/arquitetura.md).
 
 **Próximo:** Fase 3.5 — interface de operação (`cms/web/`), pré-requisito de
-piloto, **concluída**: entrada, segundo fator, painel, ciclo da release, editor
+release pública, **concluída**: entrada, segundo fator, painel, ciclo da release, editor
 de regras com simulação e CRUD de conteúdo. Próximo: Fase 4 — endurecimento e GA.
 
 **Lacunas** (detalhe em [arquitetura.md §5.12 e §5.13](spec/arquitetura.md)):
@@ -267,6 +294,10 @@ Ordem de precedência — em conflito, vale o documento mais acima:
 4. [`spec/lgpd.md`](spec/lgpd.md) — conformidade LGPD
 5. [`spec/brainstorm.md`](spec/brainstorm.md) — visão de produto e milestones
 6. [`spec/arquitetura.md`](spec/arquitetura.md) — roadmap e o resultado medido de cada item entregue
+
+[`spec/implantacao.md`](spec/implantacao.md) traz as diretrizes normativas de
+release do APK e de operação da VPS do PRISM. Fica abaixo do `stack.md`; em
+conflito com um ADR, vale o ADR.
 7. [`spec/design.html`](spec/design.html) — protótipo interativo (abrir no navegador)
 
 ### Operação — não normativo
