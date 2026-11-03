@@ -1,3 +1,5 @@
+> **Gatilho disparado em 2026-11-02.** A distribuição pelo Google Play ([ADR-006](../../../spec/stack.md)) dispara o gatilho "publicar o app em loja" do ADR-004. "Parceria formal com Secretaria de Saúde ou UBS" saiu dos gatilhos e passou a fora de escopo ([ADR-005](../../../spec/stack.md)). Ver a "Revisão 2026-11-02 (ADR-005)" no fim do ADR-004. O texto abaixo fica como registro.
+
 # P1-1 (issue #3) — Gemma servido do storage próprio — Plano de implementação
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

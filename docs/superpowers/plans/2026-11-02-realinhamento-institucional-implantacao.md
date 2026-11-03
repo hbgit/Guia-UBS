@@ -699,6 +699,7 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 - [ ] **Passo 1:** preparar um dossiê curto com a §E.2 deste plano, a tese central do `lgpd.md` e as perguntas F-11 e F-9.
 - [ ] **Passo 2:** submeter ao encarregado ou à assessoria jurídica (classe I). Registrar quem revisou (por papel), a data e o parecer resumido. **Não** registrar nomes no repositório público, conforme a regra dos revisores golden.
 - [ ] **Passo 3:** registrar também a leitura de RDC 657/2022 e da *Health apps declaration* que a revisão confirmar.
+- [ ] **Passo 4:** o dossiê explica a distinção entre **responsável pelo app** e **controlador de dados**. Os termos (versão `2026-11-02`) dizem "Responsável: PRISM, da UFRR", e a privacidade diz "controlador: [a definir — F-11]". Não é contradição: são papéis distintos (quem mantém e distribui o app × quem decide sobre o tratamento de dado pessoal, LGPD art. 5º, VI). A pergunta ao parecer é se o controlador será a mesma entidade ou outra, para que a resposta à F-11 venha alinhada com os dois documentos.
 
 *Aceite:* existe um parecer com data. Sem ele, a T7b e a T8b não começam. A T8a não depende dele.
 
@@ -817,6 +818,8 @@ Esta tarefa **não decide base legal**. Ela só remove pressuposições.
 - conferência no aparelho registrada no PR.
 
 ### Tarefa 8b: controlador e bases legais na política de privacidade (E7, exceção de código)
+
+> **Decidido no #66 (2026-11-02), não reabrir no E7:** o gate (`termsGateBody`) diz "Grupo de Pesquisa PRISM, da UFRR". Está em `origensQueCitamUfrr` e, via `ufrrSoNaFrase`, a UFRR só pode aparecer nessa frase. O ajuste de dados móveis diz "Ative", e "ligue" fica reservado ao 192. Um guarda reprova o contrário.
 
 **Leia:** §E.2 (parte "T8b"), o `lgpd.md` aprovado na T7b.
 

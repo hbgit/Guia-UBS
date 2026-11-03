@@ -1,3 +1,5 @@
+> **Superado em parte pelo [ADR-005](../../../spec/stack.md) (2026-11-02).** Onde este plano pressupõe a Secretaria Municipal de Saúde (controladora, indicação ou arquivamento de revisores) ou um "piloto em UBS", vale o ADR-005: sem vínculo com unidades de saúde, controlador pendente (F-11), estudo piloto do projeto. O texto abaixo fica como registro. Ver [`2026-11-02-realinhamento-institucional-implantacao.md`](2026-11-02-realinhamento-institucional-implantacao.md).
+
 # P0-2 — Caso golden sem revisor vira portão bloqueante — Plano de implementação
 
 > **Para agentes:** SUB-SKILL OBRIGATÓRIA: use superpowers:subagent-driven-development (recomendado) ou superpowers:executing-plans para executar tarefa a tarefa. Passos usam checkbox (`- [ ]`).
