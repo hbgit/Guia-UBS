@@ -489,8 +489,13 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | F-15 | respondida em 2026-11-02 | **"regras de segurança do app"** / es "reglas de seguridad de la app" |
 | F-13, F-14, F-16, F-17, F-5, F-8, F-10 | provisórias em 2026-11-02 | Propostas deste plano adotadas. Datas de revisão no ADR que as registra: F-13 até 2027-02-01; F-14 com a meta antes do 1º participante externo e a métrica até 2027-05-01 (ADR-005). As demais recebem data no ADR do E2 |
 | F-11 | aberta (consulta institucional) | — |
-| F-19 | **aberta** | Titularidade do domínio: registrar fora do repositório. No repositório fica só "respondida em <data>" |
-| F-1, F-2, F-4, F-7, F-9, F-18 | abertas (classe M) | — |
+| F-19 | respondida em 2026-11-03 | Fora do repositório (dado pessoal do titular) |
+| F-1 | respondida em 2026-11-03 | Fora do repositório. Público por natureza: datacenter no Brasil, como exige o ADR-007; instância **ARM**, o que pede imagens `linux/arm64` de `sqld`, MinIO, Caddy e Node no item 27 (conferir cada uma) |
+| F-4 | respondida em 2026-11-03 | Fora do repositório. Público por natureza: **conta pessoal** da Play. Conferir no Play Console as exigências de conta pessoal nova (teste fechado, verificação de identidade) e se apps de saúde pedem conta de organização (Play@data) |
+| F-8 | respondida em 2026-11-03 | Fora do repositório. Público por natureza: **outro provedor que não o da VPS**, região no Brasil, escrita sem permissão de apagar ou bucket imutável por período, leitura com pessoa diferente do administrador da VPS, restauração trimestral registrada com data (ADR-007, Decisão 7) |
+| F-7 | **parcial** em 2026-11-03 | Subdomínios: **`guiasaude.conteudo.prismrr.com.br`** (só manifest e packs, estático; é o embarcado no APK) e **`guiasaude.cms.prismrr.com.br`** (CMS atrás de VPN ou autenticação; pode mudar sem mexer no de conteúdo). **Falta:** a URL da política de privacidade |
+| F-2 | respondida em 2026-11-03, **com conflito aberto** | Fora do repositório. Público por natureza: **um só administrador da VPS**. Conflita com controles já decididos que exigem duas pessoas: (1) assinatura do pack conferida por um 2º mantenedor (Revisão do ADR-001); (2) *environment* `release` com revisor e *Prevent self-review* (ADR-009, item 8), que com uma pessoa só impede qualquer release; (3) duas custódias do keystore e da chave Ed25519. A F-8 já prevê uma pessoa diferente com a leitura do backup. **Decisão pendente do dono do projeto** |
+| F-9, F-18 | abertas (classe M) | — |
 
 **Liberado:** E1 e, desde 2026-11-02, o E2 (domínio `prismrr.com.br` registrado). Os administradores do domínio (F-2) ficam no registro fora do repositório.
 

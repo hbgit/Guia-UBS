@@ -190,7 +190,9 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
 
 ### 3.2 Domínio e TLS (ADR-007, Decisão 4)
 
-- Domínio próprio do PRISM, fora de `ufrr.br`, com os dois administradores da §3.1: o nome, o registro e a consequência de perdê-lo estão no [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) (Decisão 4 e Revisão). É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os nomes dos subdomínios de conteúdo e do CMS ficam para o item 27: [a definir — F-7].
+- Domínio próprio do PRISM, fora de `ufrr.br`, com os dois administradores da §3.1: o nome, o registro e a consequência de perdê-lo estão no [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) (Decisão 4 e Revisão). É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os subdomínios são dois, **separados de propósito** (ADR-007, Decisão 4):
+  - **`guiasaude.conteudo.prismrr.com.br`**: só `manifest.json` e packs, como arquivos estáticos. É o nome embarcado no APK, e não muda;
+  - **`guiasaude.cms.prismrr.com.br`**: o CMS, atrás de VPN ou de autenticação. Pode mudar de endereço sem que o de conteúdo mude.
 - **Renovação do domínio é obrigação permanente** (ADR-009, Custos aceitos): renovação automática ligada e alerta de expiração no mesmo monitoramento da §3.6.
 - Dois nomes: `CONTENT_DOMAIN` (só GET/HEAD; `manifest.json` e packs) e `CMS_DOMAIN`.
 - Caddy com ACME (TLS automático) e `ACME_EMAIL` de caixa do grupo, não pessoal. HSTS e CSP como hoje em `infra/Caddyfile`. `BETTER_AUTH_URL` em `https://`.
@@ -228,9 +230,12 @@ O playbook Ansible é a **fonte da verdade** da VPS (substitui a promessa de `in
   - o volume `caddydata`;
   - `infra/.env`.
 - **Proteção:** tudo cifrado (restic ou age), com cópia **fora da VPS**. O destino é provisório (P, F-8): um segundo provedor de armazenamento de objetos, com conta do PRISM, a revisar na data do ADR-007.
+- **O destino é de outro provedor que não o da VPS**, com região no Brasil (o nome fica no registro operacional, fora do repositório). Uma suspensão de conta não pode levar a VPS e o backup juntos.
+- **A VPS não consegue apagar o backup:** credencial de escrita sem permissão de apagar, ou bucket com imutabilidade por período. Uma VPS comprometida não leva o backup junto.
+- **A credencial de leitura fica com uma pessoa diferente do administrador da VPS.**
 - **O destino também fica no Brasil**, pela mesma regra da VPS (§3.1; ADR-001, fundamento 6; LGPD-RF06). O backup carrega o banco master com a trilha de auditoria e os dados dos operadores do CMS (e-mail, IP com hash e sal), além do `infra/.env`. Cifrar não tira a natureza de dado pessoal nem afasta a transferência internacional. Destino fora do país só com transferência registrada no RIPD e revisão do ADR-007, como a VPS.
 - **Retenção (P, F-8):** 7 diárias, 4 semanais e 6 mensais. A retenção da trilha, dos logs e dos backups como tratamento de dado pessoal é tema da LGPD-RF07 em [lgpd.md](lgpd.md) e da T7-R; este documento não a decide.
-- **Teste de restauração trimestral**, numa VPS descartável.
+- **Teste de restauração trimestral**, numa VPS descartável, **registrado com data** no registro operacional. O alerta de backup com mais de 26 h está na §5.2.
 - **Prioridade:** banco master e trilha de auditoria, que não são reconstruíveis. Os packs são reconstruíveis pelo packer reprodutível (`SOURCE_DATE_EPOCH`).
 
 ### 3.6 Segurança e monitoramento (ADR-007, Decisão 8)
