@@ -26,7 +26,7 @@
 
 ### 2.1 Identidade
 
-- O `applicationId` definitivo é fixado **num lugar só**: o [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr), item 1 (sufixo decidido, prefixo pendente do registro do domínio próprio do PRISM). Este documento **não o reescreve**; quem precisar do id lê o ADR.
+- O `applicationId` definitivo é fixado **num lugar só**: o [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr), item 1 (`br.com.prismrr.guiasaude`, fixado em 2026-11-02). Este documento **não o reescreve**; quem precisar do id lê o ADR.
 - **Ordem obrigatória:** o id é fixado no ADR-009 **antes** da 1ª publicação na Play, porque depois dela não muda. Nenhum AAB é enviado à Play com o id de exemplo (`br.gov.exemplo.guia_ubs`).
 - Mudam junto com o id, no **item 25** do roadmap: os nomes de tarefa do WorkManager (`pack_sync_scheduler.dart`, `model_sync_scheduler.dart`) e `app/tool/release_permissions.dart`.
 - O título exibido é "Guia UBS" ([ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 5), sempre acompanhado do aviso do RF-16.
@@ -106,7 +106,7 @@ Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão
 - [ ] **`targetSdk`** dentro do mínimo vigente (conferir no Play Console em ____-__-__).
 - [ ] **Tamanho do AAB** dentro do limite; o modelo SLM fica fora do pacote (conferir no Play Console em ____-__-__).
 - [ ] **`versionCode`** abaixo do teto aceito pela Play, que sustenta o limite MAJOR ≤ 210 da §2.2 (conferir no Play Console em ____-__-__).
-- [ ] **Política de privacidade** em URL pública [a definir — F-7], da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
+- [ ] **Política de privacidade** em URL pública (GitHub Pages ou `prismrr.com.br`: [a definir — F-7]), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
 - [ ] **Data safety:** proposta de declarar "nenhum dado coletado nem compartilhado pelo app", **sujeita** à revisão jurídica do tratamento de IP (T7-R; [lgpd.md](lgpd.md)). Não é decisão deste documento (conferir no Play Console em ____-__-__).
 - [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R (conferir no Play Console em ____-__-__).
 - [ ] **Classificação e contato:** questionário IARC, público adulto, e-mail de contato de caixa do grupo (conferir no Play Console em ____-__-__).
@@ -150,7 +150,7 @@ perdem; nada de saúde é guardado.
 ```
 
 - O trecho entre `< >` sobre o PET-Saúde só entra quando a citação ao usuário estiver liberada (F-13, ver [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão); até lá, sai sem ele.
-- A URL da política depende do domínio do projeto ([a definir — F-7]).
+- A URL da política fica no GitHub Pages do repositório ou num caminho de `prismrr.com.br`: [a definir — F-7].
 - Na *pre-release*, acrescenta-se no topo que a versão está em teste no estudo piloto do projeto.
 
 ---
@@ -173,7 +173,8 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
 
 ### 3.2 Domínio e TLS (ADR-007, Decisão 4)
 
-- Domínio próprio do PRISM, fora de `ufrr.br`, em conta do PRISM com os dois administradores da §3.1: [a definir — F-7]. O mesmo registro fecha o prefixo do `applicationId` (ADR-009, item 1).
+- Domínio próprio do PRISM: **`prismrr.com.br`**, registrado no Registro.br em 2026-11-02, fora de `ufrr.br`, com os dois administradores da §3.1. É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os nomes dos subdomínios de conteúdo e do CMS ficam para o item 27: [a definir — F-7].
+- **Renovação do domínio é obrigação permanente** (ADR-009, Custos aceitos): renovação automática ligada e alerta de expiração no mesmo monitoramento da §3.6.
 - Dois nomes: `CONTENT_DOMAIN` (só GET/HEAD; `manifest.json` e packs) e `CMS_DOMAIN`.
 - Caddy com ACME (TLS automático) e `ACME_EMAIL` de caixa do grupo, não pessoal. HSTS e CSP como hoje em `infra/Caddyfile`. `BETTER_AUTH_URL` em `https://`.
 - **Só 80 e 443 públicas.** `sqld` e MinIO em `127.0.0.1`; `cms` e `packer` sem `ports:` ([stack.md](stack.md) §7).
