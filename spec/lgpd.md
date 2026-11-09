@@ -12,7 +12,7 @@ O Guia UBS foi concebido sob **Privacy by Design em grau máximo**: o usuário f
 Isso **não** torna a LGPD inaplicável ao projeto. Ela incide plenamente sobre:
 
 1. **Dados dos administradores e revisores do CMS** (nome, e-mail, credenciais, trilha de auditoria) — dados pessoais comuns de profissionais;
-2. **Participantes do estudo piloto do projeto (portão "participantes externos", ADR-005)** (observação de uso por 20–30 pessoas reais) — exige consentimento específico;
+2. **Participantes do estudo de impacto ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr))** (dados do estudo (observações de uso, respostas a entrevistas) de 20 a 30 pessoas, coletados fora do app): exige base LGPD própria (RF02), **distinta** do TCLE da ética em pesquisa. O lançamento do app não trata dado de usuário ([`docs/dados-do-usuario.md`](../docs/dados-do-usuario.md));
 3. **O desenho da telemetria** — que só permanece fora do escopo do art. 5º, I, enquanto a anonimização for irreversível (coortes pequenas podem reidentificar);
 4. **Operadores** (provedor da VPS do PRISM [F-1], que hospeda a stack self-hosted) — com **transferência internacional** (arts. 33 a 36) aplicável apenas se o datacenter estiver no exterior; a stack 100% self-hosted permite escolher datacenter no Brasil e eliminar essa hipótese na prática.
 
@@ -31,12 +31,12 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Artigos:** art. 6º, III; art. 46, §2º.
 - **Critério de aceitação:** auditoria de tráfego de rede em uso real demonstra que nenhuma requisição contém identificadores de usuário/dispositivo; análise do manifest Android confirma ausência de permissões além de `INTERNET` e afins; teste automatizado em CI falha se qualquer módulo de feature importar APIs de identificação (IMEI, Advertising ID, localização).
 
-### LGPD-RF02 — Consentimento (estudo piloto do projeto e operadores do CMS)
-- **Descrição:** (a) participantes do estudo piloto devem fornecer consentimento **livre, informado e inequívoco**, por escrito ou registro equivalente, destacado das demais cláusulas, descrevendo finalidade (validação de usabilidade), dados coletados (observações de uso, respostas a entrevistas) e prazo de descarte; para participantes não alfabetizados, o termo deve ser lido em voz alta no idioma da pessoa, com registro do assentimento. (b) Admins do CMS aceitam Termo de Uso no primeiro login, com registro de aceite.
+### LGPD-RF02 — Base legal e consentimento (estudo de impacto e operadores do CMS)
+- **Descrição:** (a) os dados do estudo (observações de uso, respostas a entrevistas) do estudo de impacto (ADR-010) são tratados sob uma de duas bases, escolhida com o controlador (F-11): **consentimento** livre, informado e inequívoco (art. 7º, I; art. 11, I), por escrito ou registro equivalente, destacado das demais cláusulas, com finalidade, dados coletados e prazo de descarte; ou **realização de estudos por órgão de pesquisa** (art. 7º, IV; art. 11, II, c), com **termo de informação** ao participante e anonimização sempre que possível. A segunda só é usada se o controlador confirmar que se enquadra como órgão de pesquisa (art. 5º, XVIII), a confirmar com o controlador (F-11) e o parecer jurídico (T7-R) (ADR-010, Decisão 4). Em qualquer caso, **Não é o TCLE:** o TCLE responde à ética em pesquisa (Lei 14.874/2024, art. 18; Res. CNS 466/2012 e 510/2016) e é exigido pelo CEP, e para dados de pesquisa a Lei 14.874/2024 manda aplicar a LGPD de forma subsidiária (art. 61). Podem estar no mesmo documento, em seções distintas (ADR-010, Decisão 6). O lançamento não tem dado de usuário a tratar, e o "li e concordo" dos termos do app não é consentimento LGPD (ADR-004); para participantes não alfabetizados, o termo deve ser lido em voz alta no idioma da pessoa, com registro do assentimento. (b) Admins do CMS aceitam Termo de Uso no primeiro login, com registro de aceite.
 - **Objetivo:** legitimar as duas únicas frentes de coleta direta de dados pessoais do projeto.
-- **Base legal:** consentimento (usuários do estudo piloto); execução de contrato/procedimentos preliminares (admins). **Em revisão (T7-R).**
-- **Artigos:** art. 7º, I e V; art. 8º, caput e §§1º–4º; art. 11, I (se o estudo piloto registrar dados de saúde).
-- **Critério de aceitação:** existe termo de consentimento do estudo piloto revisado juridicamente; nenhum dado do estudo piloto é coletado antes do registro do consentimento; o fluxo de primeiro login do CMS bloqueia o acesso até o aceite.
+- **Base legal:** consentimento (art. 7º, I; art. 11, I) ou estudos por órgão de pesquisa (art. 7º, IV; art. 11, II, c), este só se o controlador confirmar o enquadramento do art. 5º, XVIII (F-11): participantes do estudo de impacto; execução de contrato/procedimentos preliminares: admins. **Em revisão (T7-R).**
+- **Artigos:** art. 5º, XVIII; art. 7º, I, IV e V; art. 8º, caput e §§1º–4º; art. 11, I e II, c (se o estudo de impacto registrar dados de saúde).
+- **Critério de aceitação:** existe, revisado juridicamente, o consentimento LGPD do estudo de impacto **ou**, se a base for o art. 7º, IV, o termo de informação ao participante, em seção distinta do TCLE; existe o TCLE aprovado pelo CEP; nenhum dado do estudo é coletado antes dos dois; o fluxo de primeiro login do CMS bloqueia o acesso até o aceite.
 
 ### LGPD-RF03 — Gerenciamento de preferências de privacidade
 - **Descrição:** o app deve ter uma tela de privacidade acessível (ícone de cadeado/escudo, com leitura em áudio pt/es) permitindo: desligar a telemetria agregada (opt-out local), apagar todos os dados locais (`user.db` + sessões) com um toque, e ouvir o aviso de privacidade. No CMS, cada admin acessa e edita seus dados cadastrais.
@@ -46,18 +46,18 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Critério de aceitação:** opt-out de telemetria zera envios na próxima janela de sync (verificável em teste de integração); "apagar meus dados" remove `user.db` e preferências e é irreversível; a tela é operável sem leitura (ícones + áudio).
 
 ### LGPD-RF04 — Registro e auditoria de consentimentos
-- **Descrição:** todo consentimento/aceite (estudo piloto e CMS) deve ser registrado com: identificador do titular, versão do documento aceito, data/hora, meio de coleta e hash do texto vigente. Registros são imutáveis (append-only) e conserváveis pelo prazo prescricional.
+- **Descrição:** todo consentimento/aceite (estudo de impacto e CMS) deve ser registrado com: identificador do titular, versão do documento aceito, data/hora, meio de coleta e hash do texto vigente. Registros são imutáveis (append-only) e conserváveis pelo prazo prescricional. No estudo de impacto, vale para o consentimento LGPD quando for a base; sob o art. 7º, IV, registra-se a entrega do termo de informação.
 - **Objetivo:** permitir ao controlador **provar** o consentimento (o ônus da prova é dele).
 - **Base legal:** responsabilização e prestação de contas. **Em revisão (T7-R).**
 - **Artigos:** art. 8º, §2º (ônus da prova); art. 6º, X; art. 37 (registro das operações).
 - **Critério de aceitação:** consulta ao registro retorna, para qualquer titular fictício de teste (ex.: `operador.teste@exemplo.invalid`), a cadeia completa de versões aceitas; tentativa de UPDATE/DELETE no registro falha.
 
 ### LGPD-RF05 — Revogação de consentimento
-- **Descrição:** o titular pode revogar consentimento a qualquer momento, por procedimento **gratuito e facilitado**, pelo mesmo canal em que consentiu. Revogação no estudo piloto interrompe a coleta e descarta os dados do participante; revogação de telemetria = opt-out da RF03. Tratamentos realizados sob o consentimento anterior permanecem válidos até a revogação.
+- **Descrição:** o titular pode revogar consentimento a qualquer momento, por procedimento **gratuito e facilitado**, pelo mesmo canal em que consentiu. Revogação no estudo de impacto interrompe a coleta e descarta os dados do participante. A retirada do TCLE e a revogação do consentimento LGPD têm o mesmo efeito prático, mas são registradas separadamente; revogação de telemetria = opt-out da RF03. Tratamentos realizados sob o consentimento anterior permanecem válidos até a revogação.
 - **Objetivo:** garantir que o consentimento seja um estado reversível, não um evento.
 - **Base legal:** revogabilidade do consentimento. **Em revisão (T7-R).**
 - **Artigos:** art. 8º, §5º; art. 18, IX.
-- **Critério de aceitação:** fluxo de revogação testado de ponta a ponta em ≤ 2 interações; dados do participante revogado ausentes do conjunto final do estudo piloto.
+- **Critério de aceitação:** fluxo de revogação testado de ponta a ponta em ≤ 2 interações; dados do participante revogado ausentes do conjunto final do estudo de impacto.
 
 ### LGPD-RF06 — Compartilhamento com terceiros (operadores)
 - **Descrição:** com a stack 100% self-hosted (MinIO, Caddy, `sqld`, CMS numa única VPS mantida pelo PRISM), o rol de operadores reduz-se ao **provedor da VPS do PRISM [F-1]** (e ao serviço de e-mail transacional do CMS, se houver). Esses operadores devem: (a) constar de inventário público na Política de Privacidade; (b) ter contrato/DPA com cláusulas de tratamento conforme instruções do controlador ([a definir — F-11]); (c) **preferencialmente operar datacenter no Brasil** — o que elimina a transferência internacional; se no exterior, enquadrar-se em hipótese válida dos arts. 33–36 (cláusulas contratuais padrão ou garantias equivalentes). Espelhos de conteúdo (rsync) não tratam dado pessoal — servem apenas artefatos públicos assinados. É proibida qualquer transmissão de conteúdo de triagem a terceiros — estruturalmente garantido, pois a triagem não sai do device.
@@ -68,7 +68,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Critério de aceitação:** inventário de operadores versionado no repositório de compliance; DPA arquivado para cada um; a Política de Privacidade lista todos com finalidade e localização.
 
 ### LGPD-RF07 — Retenção e exclusão de dados
-- **Descrição:** política de retenção explícita por classe: (a) dados de admins — enquanto durar o vínculo + prazo prescricional para trilhas de auditoria; (b) dados do estudo piloto — descartados ou irreversivelmente anonimizados em até 90 dias após o relatório final; (c) telemetria — já nasce agregada, sem retenção individual; (d) dados locais do device — sob controle exclusivo do usuário (RF03). Ao término do tratamento, eliminação verificada, ressalvadas as hipóteses do art. 16.
+- **Descrição:** política de retenção explícita por classe: (a) dados de admins — enquanto durar o vínculo + prazo prescricional para trilhas de auditoria; (b) dados do estudo de impacto — descartados ou irreversivelmente anonimizados em até 90 dias após o relatório final; (c) telemetria — já nasce agregada, sem retenção individual; (d) dados locais do device — sob controle exclusivo do usuário (RF03). Ao término do tratamento, eliminação verificada, ressalvadas as hipóteses do art. 16.
 - **Objetivo:** impedir acúmulo de dados sem finalidade vigente.
 - **Base legal:** término do tratamento e conservação excepcional. **Em revisão (T7-R).**
 - **Artigos:** arts. 15 e 16; art. 6º, III.
@@ -110,7 +110,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 - **Critério de aceitação:** runbook de incidentes aprovado e testado em simulação (tabletop) anual; template de comunicação à ANPD pronto; responsáveis nomeados.
 
 ### LGPD-RF13 — Tratamento de dados sensíveis (saúde)
-- **Descrição:** os tokens de sintomas são dado de saúde (sensível). Regra absoluta: **processamento exclusivamente local, em memória; proibida a persistência da sequência de tokens e proibida qualquer transmissão** (espelha a INV-5 da spec). A telemetria só pode conter **contadores agregados por severidade de resultado**, nunca a combinação de sintomas de uma sessão. O estudo piloto, se registrar queixas de saúde de participantes identificáveis, opera sob consentimento específico e destacado (RF02).
+- **Descrição:** os tokens de sintomas são dado de saúde (sensível). Regra absoluta: **processamento exclusivamente local, em memória; proibida a persistência da sequência de tokens e proibida qualquer transmissão** (espelha a INV-5 da spec). A telemetria só pode conter **contadores agregados por severidade de resultado**, nunca a combinação de sintomas de uma sessão. O estudo de impacto, se registrar queixas de saúde de participantes identificáveis, o faz fora do app, sob a base LGPD do RF02 (consentimento específico e destacado, ou a hipótese do art. 11, II, c, se confirmada com o controlador) e o protocolo aprovado pelo CEP, distinto do TCLE ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr)). A regra do aparelho não muda.
 - **Objetivo:** impossibilitar, por arquitetura, a formação de base de dados de saúde de pessoas identificáveis.
 - **Base legal:** tratamento de dado sensível; anonimização. **Em revisão (T7-R).**
 - **Artigos:** art. 5º, II; art. 11, caput e I; art. 12.
@@ -161,7 +161,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 |---|---|---|
 | LGPD-DOC01 | **Termo de Uso** | Obrigatório para o CMS (admins). Para o app: versão simplificada com o disclaimer clínico ("este app orienta, não diagnostica") em ícones + áudio. |
 | LGPD-DOC02 | **Política de Privacidade** | Obrigatória, pública, versionada, disponível no app (multimodal) e na página do projeto. |
-| LGPD-DOC03 | **Aviso de Consentimento** | Obrigatório no estudo piloto (RF02) e no primeiro login do CMS. |
+| LGPD-DOC03 | **Aviso de Consentimento** | Obrigatório no estudo de impacto quando a base for o consentimento (RF02), separado do TCLE, e no primeiro login do CMS. |
 | LGPD-DOC04 | **Banner de Cookies** | **Não aplicável ao app** (não usa cookies). Obrigatório apenas se existir site institucional com cookies não essenciais — nesse caso, com recusa tão fácil quanto o aceite e bloqueio prévio de cookies não essenciais. |
 
 **Requisitos de conteúdo e forma (aplicáveis a DOC01–DOC03):**
@@ -235,7 +235,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 
 # 6. Direitos dos Titulares (art. 18)
 
-**Quem são os titulares no projeto:** admins/revisores do CMS, participantes do estudo piloto e — na medida em que algum dado pessoal venha a existir — usuários do app (hoje, nenhum).
+**Quem são os titulares no projeto:** admins/revisores do CMS, participantes do estudo de impacto e — na medida em que algum dado pessoal venha a existir — usuários do app (hoje, nenhum).
 
 | Direito (art. 18) | Como o sistema permite exercer |
 |---|---|
@@ -244,9 +244,9 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 | III — Correção | Edição de cadastro no CMS; solicitação via canal para os demais |
 | IV — Anonimização, bloqueio ou eliminação de dados desnecessários/excessivos | Avaliação pelo encarregado + execução com evidência de expurgo |
 | V — Portabilidade | Exportação em formato aberto (JSON/CSV) dos dados do solicitante |
-| VI — Eliminação de dados tratados com consentimento | Piloto: descarte imediato; CMS: eliminação ressalvado o art. 16 |
+| VI — Eliminação de dados tratados com consentimento | Estudo de impacto: descarte imediato; CMS: eliminação ressalvado o art. 16 |
 | VII — Informação sobre compartilhamentos | Lista de operadores (RF06) entregue com o extrato |
-| VIII — Informação sobre a possibilidade de não consentir | Termos do estudo piloto explicitam que a recusa não impede o uso do app |
+| VIII — Informação sobre a possibilidade de não consentir | Os termos do estudo de impacto explicitam que a recusa não impede o uso do app, que é o mesmo publicado para todos. |
 | IX — Revogação do consentimento | Fluxo da RF05 |
 | Art. 20 — Revisão de decisão automatizada | A triagem é orientativa, local e não produz decisão sobre pessoa identificada; ainda assim, o app sempre exibe o caminho humano (procurar a UBS) — nenhuma porta se fecha por decisão do algoritmo |
 
@@ -286,7 +286,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 | ID | Categoria | Requisito | Descrição resumida | Prioridade | Base legal (**em revisão (T7-R)**, todas as linhas) | Art. LGPD | Critério de aceitação |
 |---|---|---|---|---|---|---|---|
 | LGPD-RF01 | Coleta | Não-coleta no app | Zero dado pessoal do usuário final; permissões mínimas | P0 | Necessidade | 6º III; 46 §2º | Auditoria de tráfego + manifest limpos; CI bloqueia APIs de identificação |
-| LGPD-RF02 | Consentimento | Consentimento no estudo piloto e no CMS | Termo destacado, multimodal no estudo piloto; aceite no 1º login do CMS | P0 | Consentimento; contrato | 7º I e V; 8º; 11 I | Nenhuma coleta antes do registro do aceite |
+| LGPD-RF02 | Consentimento | Base legal do estudo de impacto (distinta do TCLE) e consentimento no CMS | Termo destacado, multimodal no estudo de impacto; aceite no 1º login do CMS | P0 | Consentimento; contrato | 7º I, IV e V; 8º; 11 I e II c | Nenhuma coleta antes do TCLE e da base LGPD registrados |
 | LGPD-RF03 | Preferências | Tela de privacidade | Opt-out de telemetria; apagar dados locais; aviso em áudio | P1 | Livre acesso | 6º IV; 9º; 18 II/IV | Opt-out zera envio; exclusão local irreversível; operável sem leitura |
 | LGPD-RF04 | Auditoria de consentimento | Registro imutável | Aceites versionados, append-only, com hash do documento | P0 | Prestação de contas | 8º §2º; 6º X; 37 | Cadeia completa recuperável; UPDATE/DELETE bloqueados |
 | LGPD-RF05 | Revogação | Revogação facilitada | Gratuita, mesmo canal, interrompe tratamento | P0 | Revogabilidade | 8º §5º; 18 IX | Fluxo ≤ 2 interações; dados do revogante fora do conjunto |
@@ -311,7 +311,7 @@ Todos os requisitos abaixo derivam dessa tese. Onde o produto **não possui** um
 
 - **Encarregado (DPO)** nomeado e publicado (art. 41) — pode ser membro da equipe com independência funcional; canal fictício de exemplo: `privacidade@guiaubs.exemplo.br`.
 - **Registro das operações de tratamento** (art. 37) mantido vivo — este documento é o ponto de partida.
-- **RIPD/Relatório de Impacto** (art. 38) elaborado antes do estudo piloto com participantes externos e revisado a cada feature que toque dados (o modo ACS da v2 exigirá um novo).
+- **RIPD/Relatório de Impacto** (art. 38) elaborado antes do estudo de impacto (ADR-010, DC-A) e revisado a cada feature que toque dados (o modo ACS da v2 exigirá um novo). No lançamento, a superfície de dados é o [`docs/dados-do-usuario.md`](../docs/dados-do-usuario.md), a confirmar com o encarregado (F-11).
 - **Revisão anual** desta especificação ou a cada mudança material de arquitetura.
 
 > **Nota de método:** este documento é uma especificação técnica de conformidade, não parecer jurídico. A revisão final dos documentos legais (§2) por advogado habilitado permanece obrigatória antes do lançamento. O texto integral da lei está em [planalto.gov.br](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm).
