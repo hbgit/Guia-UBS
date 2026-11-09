@@ -12,7 +12,7 @@ Cada release do GitHub copia daqui a seção da própria versão. O workflow
 
 ## [0.1.0]
 
-Primeira versão para o **estudo piloto do projeto** (dogfooding interno).
+Primeira versão para **teste interno** (dogfooding), antes do lançamento ([ADR-010](spec/stack.md)).
 
 ### Adicionado
 - Módulos educativos sobre o SUS e a Atenção Primária, em português e espanhol,

@@ -467,7 +467,7 @@ Só no **protótipo** (`design.html`): troca de ordem e de destaque, sem element
 | F-5 | P | Política de versionamento: adotar a da §D.1 (modelo de promoção) | ADR-009, Revisão |
 | F-8 | P | Destino do backup fora da VPS. Provisório: um segundo provedor de objeto com conta do PRISM | ADR-007, Revisão |
 | F-10 | P | Retenção do log do Caddy: 14 dias | ADR-007, Revisão (e T7-R) |
-| F-14 | P | North Star e meta de alcance do estudo piloto: "módulos educativos concluídos sem mediação", com meta a fixar com o PET-Saúde | ADR-005, Revisão; PRD §1.5 |
+| F-14 | P | North Star e meta de alcance do estudo de impacto (ADR-010; antes de 2026-11-09, "estudo piloto"): "módulos educativos concluídos sem mediação", com meta a fixar com o PET-Saúde | ADR-005, Revisão; PRD §1.5 |
 | F-19 | M | **Titularidade do `prismrr.com.br`**: CPF ou CNPJ do titular no Registro.br, quem recebe os avisos de renovação e o plano de transferência se o titular sair do grupo (resposta **fora do repositório**, junto com F-1, F-2, F-4, F-8). O alerta de expiração cobre o esquecimento, não a saída da pessoa | Itens 27 e 28; ADR-009 |
 | F-1 | M | Provedor da VPS, região, snapshot, LUKS (resposta fora do repo) | Itens 27–28 |
 | F-2 | M | Os dois administradores da VPS e do domínio, por papel (resposta fora do repo) | Item 27 |
@@ -476,6 +476,8 @@ Só no **protótipo** (`design.html`): troca de ordem e de destaque, sem element
 | F-9 | M | O estudo piloto coleta dados de participantes? Há protocolo no CEP? | Início do estudo piloto (§J) |
 | F-18 | M | Com a triagem secundária, o modelo de ~806 MB continua sendo baixado automaticamente no 1º acesso ou passa a opt-in/sob demanda? | Item 30 (não bloqueia este plano) |
 | F-12 | — | Titular do copyright e DCO: **movida para o plano 2** (§I); classe I | — |
+| F-20 | M | Consulta prévia ao CEP/UFRR: (a) desenho em duas partes; (b) UFRR como proponente de estudo de docente da casa (hipótese de trabalho); (c) como o CEP aplica a Res. 510/2016 depois da Lei 14.874/2024; (d) se C1 ou C1+C2, se a validação de produto é pesquisa | Antes do protocolo do estudo de impacto (ADR-010) |
+| F-21 | I | Titularidade do registro do software (UFRR/NIT ou autores), ligada à F-11 e à F-20 | Antes do registro no INPI (ADR-010, Decisão 7) |
 
 ### Registro da T0 (2026-11-02)
 
@@ -496,7 +498,9 @@ Base conferida: `develop` local e `origin/develop` em `2ab9f93`. As linhas citad
 | F-7 | respondida em 2026-11-03 | Subdomínios: **`guiasaude.conteudo.prismrr.com.br`** (só manifest e packs, estático; é o embarcado no APK) e **`guiasaude.cms.prismrr.com.br`** (CMS atrás de VPN ou autenticação). Política e termos em **`https://guiasaude.prismrr.com.br/{privacidade,termos}/`** (e `/es/`), no GitHub Pages por `CNAME guiasaude`, com o apex reservado ao grupo e um subdomínio por app, publicando o mesmo arquivo que o app embarca, com versão e data, sem analytics (`implantacao.md` §2.9) |
 | F-2 | respondida em 2026-11-03 (opção **a**) | Fora do repositório. Público por natureza: **duas pessoas**. O administrador da VPS e um segundo mantenedor que não opera a VPS, mas é revisor do release, segunda custódia das chaves, mantenedor B do pack, tem a leitura do backup e sabe restaurá-lo numa VPS nova. Motivo: **fator ônibus** (ADR-007, Decisão 1). Nenhum controle dos ADR-001 e 009 mudou |
 | Modelo no HF | decidido em 2026-11-03 | A exceção do ADR-004 **continua por decisão**, com quatro condições na Revisão do ADR-004: URL do modelo no manifest (plano B); aviso "servidor fora do Brasil" antes do "Baixar agora" (E7, T7-R); o espelho `ggml-org` e o limite de download anônimo do HF (controle: SHA-256 no app, que reprova); revisão de custo pelo volume real de downloads do estudo piloto |
-| F-9, F-18 | abertas (classe M) | — |
+| F-9 | respondida pelo ADR-010 (2026-11-09) | O lançamento não coleta; o estudo de impacto coleta, com TCLE e parecer do CEP antes do 1º participante |
+| F-18 | aberta (classe M) | — |
+| F-20, F-21 | abertas (2026-11-09, ADR-010) | — |
 
 **Liberado:** E1 e, desde 2026-11-02, o E2 (domínio `prismrr.com.br` registrado). Os administradores do domínio (F-2) ficam no registro fora do repositório.
 

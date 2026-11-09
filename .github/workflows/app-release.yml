@@ -230,7 +230,7 @@ jobs:
             on {print}' CHANGELOG.md)
           [ -n "$novidades" ] || { echo "CHANGELOG.md sem a secao [$v]"; exit 1; }
           cat > "$RUNNER_TEMP/nota.md" <<EOF
-          > **Versão em teste no estudo piloto do projeto.**
+          > **Versão em teste, ainda não promovida para produção.**
 
           # Guia UBS ${GITHUB_REF_NAME}
 
