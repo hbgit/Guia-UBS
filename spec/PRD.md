@@ -24,17 +24,31 @@ Guia UBS é um aplicativo Android educativo, offline-only em runtime, para **edu
 
 O antigo JTBD-3 (a gestão local de saúde divulgando campanha ou horário de uma unidade) saiu do escopo: o projeto não tem vínculo com unidades de saúde, e nenhum ator do produto as representa ([ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 4).
 
-### 1.3 Hipóteses (o que estamos validando)
+### 1.3 Hipóteses e requisito operacional
+
+O lançamento não mede hipótese com pessoas; o estudo de impacto mede ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr)).
+
+#### 1.3.1 Hipótese técnica (validada sem pessoas)
 
 | ID | Hipótese | Validação | Critério de sucesso |
 |---|---|---|---|
-| H1 | Interface 100% iconográfica + áudio permite **compreensão sem mediação humana** do conteúdo educativo pelo público-alvo (ex.: UBS × UPA, o que levar) | Teste de usabilidade (M2) + estudo piloto do projeto (M6) | ≥ 80% concluem os módulos educativos testados sem ajuda |
-| H1b | A mesma interface permite **completar a triagem** (apoio secundário) sem mediação | Teste de usabilidade (M2) + estudo piloto do projeto (M6) | ≥ 80% completam triagem sem ajuda |
-| H2 | Sync de oportunidade em janelas de ~30 s converge a frota de forma confiável | Rede instável simulada (M3) + estudo piloto do projeto | ≥ 90% dos devices atualizados em ≤ 7 dias |
 | H3 | SLM quantizado roda em aparelho mínimo com latência aceitável | PoC em device ≥ 4 GB RAM (M3) | Inferência p95 entre 3 s e 5 s; RAM pico ≤ 1,5 GB (ADR-003) |
-| H4 | GitHub Releases e Google Play ([ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr)), com apoio das ações educativas do PET-Saúde, alcançam o público-alvo | Estudo piloto do projeto | Meta de alcance **provisória**, a fixar com o PET-Saúde antes do 1º participante externo (F-14; [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão) |
 
-Evidência atual: H1–H4 (incluindo a H1b) são **premissas — precisam de validação pelos métodos acima**. Nenhuma é tratada como fato.
+#### 1.3.2 Hipóteses do estudo de impacto
+
+Origem: antes de 2026-11-09, eram validadas no "estudo piloto do projeto" (M6) e no teste M2. Destino: o estudo de impacto, sob TCLE e parecer do CEP (ADR-010, Decisão 4). O que se observar no lançamento não conta como evidência (ADR-010, Decisão 5).
+
+| ID | Hipótese | Validação | Critério de sucesso |
+|---|---|---|---|
+| H1 | Interface 100% iconográfica + áudio permite **compreensão sem mediação humana** do conteúdo educativo pelo público-alvo (ex.: UBS × UPA, o que levar) | Estudo de impacto | ≥ 80% concluem os módulos educativos testados sem ajuda |
+| H1b | A mesma interface permite **completar a triagem** (apoio secundário) sem mediação | Estudo de impacto | ≥ 80% completam triagem sem ajuda |
+| H4 | GitHub Releases e Google Play ([ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr)), com apoio das ações educativas do PET-Saúde, alcançam o público-alvo | Estudo de impacto; dados agregados da loja como insumo | Meta de alcance **provisória**, a fixar com o PET-Saúde antes do 1º participante do estudo de impacto (F-14) |
+
+#### 1.3.3 Antiga H2, agora requisito operacional
+
+A antiga H2 ("o sync de oportunidade converge a frota em ≤ 7 dias") não tem como ser medida no aparelho sem telemetria (INV-2). Virou o **RNF-12** ([espec.md](espec.md)): a correção de conteúdo é publicada em até 7 dias, e isso se mede do lado da publicação. O mecanismo de sync continua validado em rede instável simulada (M3).
+
+Evidência atual: H1, H1b e H4 são **premissas** até o estudo de impacto; a H3 foi medida na PoC ([arquitetura.md](arquitetura.md) §5.1).
 
 ### 1.4 Invariantes de Negócio (jamais violáveis)
 
@@ -49,9 +63,9 @@ Formalizadas em [espec.md §5.1](espec.md); enunciado de produto:
 
 ### 1.5 North Star e Métricas
 
-**North Star (provisória — F-14):** **Módulos educativos concluídos sem mediação** (proxy do valor: compreensão do SUS sem depender de quem leia por você). A métrica e a meta de alcance do estudo piloto do projeto são fixadas com o PET-Saúde; a meta antes do 1º participante externo, a métrica revisada até 2027-05-01 ou no fim do estudo piloto do projeto ([ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão). **Captura técnica a definir:** a allowlist de telemetria (`contract/telemetry-schema.json`) ainda não tem contador de módulo educativo, e acrescentá-lo é mudança de schema sujeita à revisão do encarregado (R3).
+**Métrica-norte do estudo de impacto (provisória — F-14):** **módulos educativos concluídos sem mediação** (proxy do valor: compreensão do SUS sem depender de quem leia por você). É medida no estudo de impacto, por observação sob TCLE, e não pelo app. A meta é fixada com o PET-Saúde antes do 1º participante do estudo; a métrica é revisada até 2027-05-01 ou no fim do estudo ([ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão; [ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr)). Medi-la no app exigiria telemetria nova, que é decisão separada (ADR-010, Decisão 5).
 
-As triagens completadas passam a métrica **secundária** (proxy do apoio: decisão de deslocamento informada).
+As triagens completadas sem ajuda passam a métrica **secundária** do estudo (proxy do apoio: decisão de deslocamento informada).
 
 | Métrica | Alvo | Captura técnica |
 |---|---|---|
@@ -108,7 +122,7 @@ Regra de dependência: `ui → triage → content ← sync`; `speech` é folha; 
 | CAP-04 | Gate determinístico de red flags (pré-LLM, fail-closed) | Sistema | M | **Crítico** (clínico) | MVP |
 | CAP-05 | Inferência SLM local (llama.cpp FFI, timeout 5 s) | Sistema | L | **Alto** (R1/H3) | MVP |
 | CAP-06 | Resposta multimodal (cartão + TTS pt/es) + **selo de procedência** (regras de segurança do app, assistente virtual, ou sem o assistente) | Usuário final | M | Médio (TTS de ROM) | MVP |
-| CAP-10 | Sync de oportunidade (retomável, backoff, circuit breaker) | Sistema | L | **Alto** (H2) | MVP |
+| CAP-10 | Sync de oportunidade (retomável, backoff, circuit breaker) | Sistema | L | **Alto** (RNF-12, antiga H2) | MVP |
 | CAP-11 | Verificação Ed25519 + swap atômico + anti-downgrade | Sistema | M | **Crítico** (segurança) | MVP |
 | CAP-12 | Degradação graciosa (kill switch → regras puras) | Sistema | M | Alto | MVP |
 | CAP-13 | Tela de privacidade (opt-out telemetria, apagar dados, aviso em áudio) | Usuário final | S | Baixo (obrig. LGPD-RF03) | MVP |
@@ -301,28 +315,31 @@ Racional: o risco do produto mora nas regras clínicas, nos contratos e na resil
 
 ### 6.1 MVP (núcleo duro que prova a hipótese)
 
-CAP-01…CAP-15 e CAP-19 (matriz §2.2), mais CAP-20 e CAP-21, que levam o APK e o conteúdo aos canais. Corte: prova H1 (compreensão iconográfica sem mediação) + H1b (triagem sem mediação) + H2 (sync confiável) + H3 (SLM em device de entrada). Fora: vacinas/farmácia (conteúdo nacional ainda a curar e revisar — v1.1), línguas indígenas e modo multiplicador (v2).
+CAP-01…CAP-15 e CAP-19 (matriz §2.2), mais CAP-20 e CAP-21, que levam o APK e o conteúdo aos canais. Corte: o lançamento entrega essas capacidades com a H3 validada e o RNF-12 operando; H1, H1b e H4 são provadas pelo estudo de impacto, depois da publicação ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr)). Fora: vacinas/farmácia (conteúdo nacional ainda a curar e revisar — v1.1), línguas indígenas e modo multiplicador (v2).
 
 ### 6.2 Milestones Técnicos
 
 | Fase | Semanas | Entregas | Riscos que valida | Gate de saída |
 |---|---|---|---|---|
-| **Fase 1 — PoC** | 1–7 (M1–M3) | Wireframes validados em campo; protótipo Figma/HTML; PoC SLM em device ≥ 4 GB; PoC sync em rede instável; esquema de dados + pipeline de pack assinado | R1 (FFI), H3 (latência), H2 (sync), H1 parcial (usabilidade de protótipo) | Inferência p95 entre 3 s e 5 s; sync resume após corte; ≥ 80% conclusão de tarefas no teste de protótipo |
-| **Fase 2 — Alpha/Beta** | 7–21 (M4–M6) | 5 sprints de módulos (casca+TTS → triagem → encaminhamento+fluxo → documentos+privacidade → sync+CMS); testes M5 (perf/segurança/72 h); pipeline de release (CAP-20) e CMS na VPS do PRISM (CAP-21); **estudo piloto do projeto** (PRISM/PET-Saúde, com voluntários da comunidade, fora de unidades de saúde — [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 7), em dois portões: **dogfooding interno** (só a equipe do projeto) e **estudo com participantes externos** (faixa de teste da Play e/ou pre-release do GitHub) | H1, H1b (campo real), R5 (conteúdo clínico), R7 (TTS) | Zero orientação clinicamente incorreta no estudo piloto do projeto; aprovação da coordenação clínica do projeto; crash-free ≥ 99,5%. O portão do **estudo com participantes externos** exige ainda a política de privacidade com o controlador identificado (LGPD, art. 9º; F-11), o RIPD e, **se** houver coleta de dados de participantes, TCLE e parecer de CEP (F-9) |
-| **Fase 3 — GA** | 22+ (M7) | Release pública nos canais oficiais do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr): GitHub Releases (com `SHA256SUMS`, RF-17) e Google Play; outro canal oficial só por ADR novo; telemetria agregada ativa; ciclo mensal de packs; delta packs (bsdiff) quando pack > 10 MB; edições de conteúdo ([ADR-008](stack.md#10-registro-de-decisões-arquiteturais-adr)); v1.1 (vacinas/farmácia) | H4 (alcance pelos canais), R6 (custo), R9 (política da Play), escala de conteúdo | ≥ 90% convergência em 7 dias; custo/usuário ~0 confirmado; processo editorial da equipe do projeto operando (dual review + ciclo mensal de packs) |
+| **Fase 1 — PoC** | 1–7 (M1–M3) | Wireframes validados em QA interno (ADR-010, 3f); protótipo Figma/HTML; PoC SLM em device ≥ 4 GB; PoC sync em rede instável; esquema de dados + pipeline de pack assinado | R1 (FFI), H3 (latência), sync em rede instável (RNF-12, antiga H2), usabilidade do protótipo como QA interno, com revisão de linguagem simples, legibilidade e escuta do TTS; validação de produto com pessoas indicadas pelo PET-Saúde, se e quando o CEP se manifestar por escrito (ADR-010, 3f) | Inferência p95 entre 3 s e 5 s; sync resume após corte; ≥ 80% conclusão de tarefas no teste de protótipo |
+| **Fase 2 — Alpha/Beta** | 7–21 (M4–M6) | 5 sprints de módulos (casca+TTS → triagem → encaminhamento+fluxo → documentos+privacidade → sync+CMS); testes M5 (perf/segurança/72 h); pipeline de release (CAP-20) e CMS na VPS do PRISM (CAP-21); **portão de lançamento** (dogfooding interno e QA; [ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 3); **protocolo do estudo de impacto submetido ao CEP em paralelo** | R2 mitigado (ADR-010, 3f), R5 (conteúdo clínico), R7 (TTS) | Critério de promoção para produção (ADR-010, 3g): zero orientação clinicamente incorreta na revisão clínica e aprovação da coordenação clínica do projeto; crash-free ≥ 99,5%; responsável identificado (F-11) e demais condições da Decisão 3 |
+| **Fase 3 — GA** | 22+ (M7) | Release pública nos canais oficiais do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr): GitHub Releases (com `SHA256SUMS`, RF-17) e Google Play; outro canal oficial só por ADR novo; sem telemetria (decisão separada, ADR-010, Decisão 5); registro do software como produção técnica (opcional: INPI; F-21); ciclo mensal de packs; delta packs (bsdiff) quando pack > 10 MB; edições de conteúdo ([ADR-008](stack.md#10-registro-de-decisões-arquiteturais-adr)); v1.1 (vacinas/farmácia) | H4 (alcance pelos canais, medido no estudo de impacto), R6 (custo), R9 (política da Play), escala de conteúdo | Correção de conteúdo publicada em ≤ 7 dias (RNF-12); custo/usuário ~0 confirmado; processo editorial da equipe do projeto operando (dual review + ciclo mensal de packs) |
+| **Estudo de impacto** | Tramitação a partir da Fase 2, em paralelo; coleta só depois da 1ª versão em produção e do parecer | TCLE e parecer do CEP/UFRR; observação de uso e entrevistas fora do app; relatório | H1, H1b, H4 (§1.3.2) | Relatório final; dados descartados ou anonimizados conforme a LGPD-RF07(b) |
+
+A tramitação do estudo de impacto (consulta prévia F-20, protocolo na Plataforma Brasil e parecer) leva de semanas a meses: o prazo legal de análise é de 30 dias úteis (Lei 14.874/2024, art. 14), sem contar as pendências. Por isso ela começa em paralelo com o lançamento, e não depois dele ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr)).
 
 ### 6.3 Matriz de Riscos
 
 | ID | Risco | Prob. | Impacto | Contingência |
 |---|---|---|---|---|
 | R1 | Binding FFI llama.cpp quebra/abandonado ([stack.md §6](stack.md)) | Alta | Alto | Interface `TriageEngine` com 3 implementações; kill switch para regras puras (CAP-12) — produto degrada, não para; fallback MediaPipe |
-| R2 | Público-alvo não compreende o conteúdo nem completa a triagem sem mediação (H1/H1b falham) | Média | **Crítico** (invalida a tese) | Detectar cedo (M1/M2 com usuários reais, incl. baixo letramento); iterar gramática de ícones; pivô parcial: o modo multiplicador (CAP-18) vira o produto |
+| R2 | Público-alvo não compreende o conteúdo nem completa a triagem sem mediação (H1/H1b falham) | Média | **Crítico** (invalida a tese) | Reduzir antes da publicação (QA interno, revisão de linguagem simples por profissionais do PET-Saúde, legibilidade e escuta do TTS) e, se o CEP se manifestar por escrito, detectar cedo por validação de produto com pessoas indicadas pelo PET-Saúde, sem registro e sem hipótese (ADR-010, 3f). Medir no estudo de impacto, que é onde H1/H1b são testadas (custo aceito 1); iterar gramática de ícones; pivô parcial: o modo multiplicador (CAP-18) vira o produto |
 | R3 | Reidentificação via telemetria (coorte pequena) | Baixa | Alto (legal/confiança) | k ≥ 20 enforced no pipeline; revisão do encarregado por mudança de schema; capacidade de desligar telemetria por release |
 | R4 | Comprometimento da chave de assinatura | Baixa | **Crítico** | Cofre offline/HSM; dual-key para rotação; anti-downgrade limita replay; runbook de revogação + pack de emergência |
 | R5 | Conteúdo clínico incorreto distribuído | Média | **Crítico** | Dual review obrigatório; suite golden no packer (bloqueia assinatura); auditoria por profissional (M5/M6); correção via pack em horas (não depende de release) |
 | R6 | Banda/disponibilidade da VPS única de conteúdo, mantida pelo PRISM ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr); stack 100% self-host) | Média | Baixo | Espelhos estáticos por rsync (Ed25519 dispensa confiança no espelho); backup diário cifrado fora do host com restauração testada e monitoramento externo (RNF-11, CAP-21); BASE tolera indisponibilidade — frota só converge mais devagar |
 | R7 | Qualidade/ausência de TTS do sistema em ROMs de entrada | Média | Médio | Detecção no boot; resposta visual íntegra (INV-8); v2 antecipável: áudios gravados como fallback universal |
-| R8 | Baixo alcance pelos canais (H4 falha) | Média | Alto | Ações educativas do PET-Saúde levam o app ao público; dois canais oficiais, GitHub Releases e Google Play ([ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr)); o repasse de APK e pack entre pessoas (sneakernet) continua possível sem ser canal oficial, e a verificação Ed25519 do pack dispensa confiar em quem repassou; o estudo piloto do projeto gera casos de referência |
+| R8 | Baixo alcance pelos canais (H4 falha) | Média | Alto | Ações educativas do PET-Saúde levam o app ao público; dois canais oficiais, GitHub Releases e Google Play ([ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr)); o repasse de APK e pack entre pessoas (sneakernet) continua possível sem ser canal oficial, e a verificação Ed25519 do pack dispensa confiar em quem repassou; o estudo de impacto gera casos de referência, sem dado de pessoa fora dele ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 5) |
 | R9 | Rejeição ou suspensão na Google Play por política de saúde ou *misrepresentation* (o nome "Guia UBS" pode ser lido como canal oficial — [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Custos aceitos) | Média | Alto | GitHub Releases continua como canal ([ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr)); aviso de não afiliação e caráter educativo no app e na ficha (RF-16); `applicationId` neutro permite renomear sem app novo ([ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)); regras da Play conferidas no Play Console na data de cada publicação |
 
 ### 6.4 Rastreabilidade (funcionalidade → requisito → métrica)
@@ -333,8 +350,8 @@ CAP-01…CAP-15 e CAP-19 (matriz §2.2), mais CAP-20 e CAP-21, que levam o APK e
 | CAP-03 (composição) | RF-03; RNF-06 | H1b | ≥ 80% triagens sem mediação |
 | CAP-04 (gate) | RF-04; INV-1/2 | — (invariante) | 100% red flags em CI; taxa EMERGENCY monitorada |
 | CAP-05 (SLM) | RF-05; RNF-02/03 | H3 | p95 entre 3 s e 5 s; `fallback_rate` < 10% em aparelhos recomendados (6–8 GB) |
-| CAP-06 (multimodal) | RF-06, RF-15; LGPD-RF10 | H1b | Compreensão do aviso/resposta sem mediação (teste M2/M6) |
-| CAP-10/11 (sync + integridade) | RF-10, RF-11; INV-3/7 | H2 | ≥ 90% convergência ≤ 7 dias; zero pack inválido ativado |
+| CAP-06 (multimodal) | RF-06, RF-15; LGPD-RF10 | H1b | Compreensão do aviso/resposta sem mediação (estudo de impacto) |
+| CAP-10/11 (sync + integridade) | RF-10, RF-11, RNF-12; INV-3/7 | RNF-12 (antiga H2) | Correção publicada em ≤ 7 dias; zero pack inválido ativado |
 | CAP-12 (degradação) | RF-12 (espec); INV-8 | — | Triagem completa com engine desligado (teste M5) |
 | CAP-13 (privacidade) | LGPD-RF03/13/14 | — | Auditoria de tráfego limpa; k ≥ 20 enforced |
 | CAP-14/15 (CMS + packer) | LGPD-RF11; RF-04 espec | R5 | Zero conteúdo sem dual review; suite golden verde por pack |
@@ -343,4 +360,4 @@ CAP-01…CAP-15 e CAP-19 (matriz §2.2), mais CAP-20 e CAP-21, que levam o APK e
 
 ---
 
-*Aprovação necessária de: coordenação do projeto (PRISM/PET-Saúde), revisor clínico responsável e encarregado (DPO; a designar com o controlador — F-11). Alterações a invariantes (§1.4) exigem revisão formal da espec e novo RIPD quando tocarem dados.*
+*Aprovação necessária de: coordenação do projeto (PRISM/PET-Saúde), revisor clínico responsável e encarregado (DPO; a designar com o controlador — F-11); o estudo de impacto exige ainda o parecer do CEP/UFRR e uma instituição proponente ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 4). Alterações a invariantes (§1.4) exigem revisão formal da espec e novo RIPD quando tocarem dados.*
