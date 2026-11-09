@@ -793,7 +793,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
    - **Estudo de impacto (Parte B):** pesquisa com seres humanos sobre o app **já publicado**.
 2. **"Piloto", nome usado antes de 2026-11-09, deixa de nomear etapa.** Onde se referia à publicação, passa a ser "lançamento". Onde se referia a observar pessoas, passa a ser "estudo de impacto". O dogfooding interno é uma fase do lançamento.
 3. **Portão do lançamento.** Substitui o portão "estudo com participantes externos" do ADR-005, Decisão 7.
-   a. Conteúdo de saúde validado por profissionais com registro ativo, com registro de revisão (quem, qual versão, quando): o portão golden ([#2](https://github.com/hbgit/Guia-UBS/issues/2)) e os atestados `AT-NNNN`. O PET-Saúde/Telessaúde UFRR participa como parceiro, citado ao usuário conforme a F-13.
+   a. Conteúdo de saúde validado por profissionais com registro ativo, com registro de revisão (quem, qual versão, quando): o portão golden ([#2](https://github.com/hbgit/Guia-UBS/issues/2)) e os atestados `AT-NNNN`. A revisão conta com o PET-Saúde/Telessaúde UFRR, em cooperação com a formalização pendente (ADR-005, Decisão 1), citado ao usuário conforme a F-13.
    b. Aviso de que o app não substitui atendimento ([RF-16](espec.md)) e encaminhamento explícito dos sinais de alarme para SAMU 192, UPA ou UBS (INV-1).
    c. Responsável institucional identificado (F-11). Continua no caminho crítico, junto com o parecer jurídico do ADR-004 (Revisão 2026-11-02).
    d. Política de privacidade e termos publicados em `guiasaude.prismrr.com.br` ([`implantacao.md`](implantacao.md) §2.9), mesmo sem coleta, e políticas da Google Play para apps de saúde conferidas (§2.7).

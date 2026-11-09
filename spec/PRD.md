@@ -67,14 +67,16 @@ Formalizadas em [espec.md §5.1](espec.md); enunciado de produto:
 
 As triagens completadas sem ajuda passam a métrica **secundária** do estudo (proxy do apoio: decisão de deslocamento informada).
 
+O app não envia telemetria ([`docs/dados-do-usuario.md`](../docs/dados-do-usuario.md)): os contadores existem só em memória no aparelho, e nenhuma linha abaixo é capturada no app até que um ADR de telemetria a autorize. As métricas do lançamento vêm do lado da publicação e da loja.
+
 | Métrica | Alvo | Captura técnica |
 |---|---|---|
-| Triagens completadas / dispositivo ativo (secundária) | tendência ↑ | Contadores agregados por coorte (`(versão_app, versão_pack, edição)` — ADR-008 —, k ≥ 20), enviados só na janela de sync — sem device ID (LGPD-RF14) |
-| Taxa de resultado EMERGENCY vs ROUTINE | monitorada (anomalia = regra ruim) | Mesmo pipeline agregado |
-| `fallback_rate` (LLM → regras) | < 10% | Contador agregado; proxy da saúde do FFI (Risco R1) |
-| Convergência de packs | ≥ 90% em ≤ 7 dias | Versão de pack reportada no ping agregado de sync |
+| Triagens completadas / dispositivo ativo (secundária) | tendência ↑ | Hoje: medida no estudo de impacto. No app: contadores agregados por coorte (`(versão_app, versão_pack, edição)` — ADR-008 —, k ≥ 20), sem device ID (LGPD-RF14), sem envio enquanto não houver ADR de telemetria ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 5) |
+| Taxa de resultado EMERGENCY vs ROUTINE | monitorada (anomalia = regra ruim) | Contador agregado, sem envio enquanto não houver ADR de telemetria ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 5); até lá, pela suíte golden e pela revisão clínica |
+| `fallback_rate` (LLM → regras) | < 10% | Contador agregado, sem envio enquanto não houver ADR de telemetria ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 5); proxy da saúde do FFI (Risco R1), medido em bancada até lá |
+| Correção de conteúdo publicada (RNF-12, antiga H2) | ≤ 7 dias | Data da aprovação × data da publicação, do lado da publicação; sem telemetria (INV-2) |
 | Acerto de red flags | **100%, pré-produção** | Suite golden clínica em CI — nunca medida em produção com dados reais |
-| Crash-free sessions | ≥ 99,5% | Crash handler local, upload agregado na janela de sync |
+| Crash-free sessions | ≥ 99,5% | Android vitals do Play Console, agregado pela loja e fora do app; teste de 72 h em bancada (RNF-07). O app não envia relatório de falha |
 
 ---
 

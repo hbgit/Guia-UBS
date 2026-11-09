@@ -125,7 +125,7 @@ Promover **educação social em saúde** sobre o SUS e a Atenção Primária —
 
 - Protótipo interativo de alta fidelidade (Figma) com a identidade minimalista final.
 - Teste de usabilidade sem mediação verbal: o usuário consegue entender um módulo educativo (UBS × UPA, o que levar) e completar a triagem sem que ninguém explique o app?
-- **Critério de saída:** ≥ 80% das tarefas-chave concluídas sem ajuda no QA interno e, se ativada, na validação de produto; textos e roteiros de áudio dentro do limiar de legibilidade; TTS pt e es ouvido no aparelho. É sinal para iterar, não evidência de H1 (PRD §1.3.2).
+- **Critério de saída:** ≥ 80% das tarefas-chave concluídas sem ajuda no QA interno (a validação de produto, se ativada, não tem métrica de sucesso: só aponta onde a interface travou); textos e roteiros de áudio dentro do limiar de legibilidade; TTS pt e es ouvido no aparelho. É sinal para iterar, não evidência de H1 (PRD §1.3.2).
 
 ### M3 — Configuração do Backend e Arquitetura Local (Semanas 5–7)
 
@@ -191,7 +191,7 @@ Parte B do [ADR-010](stack.md): pesquisa com seres humanos sobre o app já publi
 
 ## Definição do MVP (v1.0)
 
-**Princípio de corte:** o MVP deve provar as duas hipóteses de risco — (a) a interface iconográfica com áudio ensina o público-alvo sem mediação, e a IA local apoia o encaminhamento com segurança; (b) a arquitetura offline-first com sync de oportunidade é confiável.
+**Princípio de corte:** o MVP entrega o que sustenta as duas hipóteses de risco, sem prová-las antes da publicação ([ADR-010](stack.md)): (a) "a interface iconográfica com áudio ensina o público-alvo sem mediação" é premissa até o estudo de impacto (M8, H1/H1b), e a IA local apoiar o encaminhamento com segurança é garantido pela camada de regras e pela suíte golden; (b) a arquitetura offline-first com sync de oportunidade é validada em rede instável simulada (M3) e operada pelo RNF-12.
 
 ### Dentro do MVP
 
