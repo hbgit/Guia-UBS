@@ -48,4 +48,13 @@ O site `guiasaude.prismrr.com.br` é hospedado pelo GitHub Pages. O GitHub tamb�
 ## 4. Pontos fora do controle do app
 
 - **Voz (TTS):** o app usa o mecanismo de voz do Android. Dependendo do aparelho, esse mecanismo pode processar o texto na nuvem, fora do app. Vale citar isso na política quando a F-11 for resolvida.
-- **Google Play:** se o app for distribuído pela Play, a loja coleta os próprios dados de instalação. Isso não vem do app, mas entra no formulário de segurança de dados da Play ([`spec/implantacao.md`](../spec/implantacao.md) §2.7).
+- **Google Play:** se o app for distribuído pela Play, a loja coleta os próprios dados de instalação. Isso não vem do app, mas entra no formulário de segurança de dados da Play ([`spec/implantacao.md`](../spec/implantacao.md) §2.7). Os agregados do console podem ser insumo do estudo de impacto (§5).
+
+## 5. Estudo de impacto: canal próprio, fora do app
+
+O estudo de impacto ([ADR-010](../spec/stack.md#10-registro-de-decisões-arquiteturais-adr)) coleta os dados do estudo (observações de uso, respostas a entrevistas) por um canal próprio, definido no protocolo aprovado pelo CEP, como um formulário ou um caderno de campo. **Nunca pelo app.**
+
+- O app é o mesmo para quem participa do estudo e para o público: não há versão do estudo, nem identificador, nem telemetria. Tudo o que as §§1 a 3 listam vale também para quem participa.
+- Os dados do estudo seguem a [LGPD-RF02, RF04 e RF05](../spec/lgpd.md), a Lei 14.874/2024 e o protocolo do CEP. O TCLE e a base LGPD (consentimento ou termo de informação) ficam em documentos ou seções distintos (ADR-010, Decisão 6).
+- Os dados agregados da loja (instalações, versões ativas) podem ser insumo do estudo. Eles vêm do console da Play, não do app.
+- Telemetria no app seria uma decisão separada, com ADR próprio e revisão da INV-2 (ADR-010, Decisão 5). Se ela vier, este levantamento precisa ser refeito.
