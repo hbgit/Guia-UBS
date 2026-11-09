@@ -46,7 +46,7 @@ O dogfooding interno e o QA não exigem aprovação externa (ADR-010, Decisão 3
 - **Hipóteses do estudo:** H1, H1b e H4 ([`spec/PRD.md`](../spec/PRD.md) §1.3.2).
 - **Método:** observação de uso e entrevistas, por canal próprio, fora do app ([`dados-do-usuario.md`](dados-do-usuario.md) §5).
 
-**Caminho crítico do estudo:** consulta prévia ao CEP (F-20) → instituição proponente → protocolo na Plataforma Brasil → TCLE e base LGPD → RIPD → 1º participante. A tramitação corre em paralelo com o lançamento.
+**Caminho crítico do estudo:** consulta prévia ao CEP (F-20) → instituição proponente → protocolo na Plataforma Brasil → TCLE e base LGPD, em seções distintas → RIPD → 1º participante. A tramitação corre em paralelo com o lançamento.
 
 ## O que o PET-Saúde pode reportar
 
