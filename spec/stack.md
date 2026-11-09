@@ -827,7 +827,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 
 **Alternativas descartadas.**
 - **Manter publicação e estudo juntos.** O CEP ficaria no caminho da publicação de um app que não coleta nada: semanas a meses de tramitação sem nenhuma proteção a mais para quem usa o app. E o "se houver coleta" continuaria ambíguo, sugerindo que o app é a fonte dos dados.
-- **Remover o CEP de vez.** O estudo observa e entrevista pessoas de populações vulneráveis expostas a orientação de saúde, o que é pesquisa com seres humanos (Lei 14.874/2024, art. 2º, XXXIV). Sem o parecer, os resultados não são publicáveis, e o CEP não aprova retroativamente.
+- **Remover o CEP de vez.** O estudo observa e entrevista pessoas de populações vulneráveis expostas a orientação de saúde, e o projeto o trata como pesquisa com seres humanos: é a posição conservadora diante da definição da Lei 14.874/2024 (art. 2º, XXXIV), a confirmar na consulta prévia (F-20 a). Sem o parecer, os resultados não são publicáveis, e o CEP não aprova retroativamente.
 
 **Custos aceitos.**
 1. As mitigações da Decisão 3f medem a linguagem, não a compreensão. A validação de produto, se o CEP a aceitar, itera a interface, mas não produz evidência publicável. Em qualquer caso, a evidência de compreensão por quem tem baixo letramento (H1, H1b; risco R2, crítico) só vem do estudo de impacto, depois da publicação.

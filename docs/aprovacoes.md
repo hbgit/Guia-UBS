@@ -35,7 +35,7 @@ O dogfooding interno e o QA não exigem aprovação externa (ADR-010, Decisão 3
 
 | Exigência | Base | Estado em 2026-11-09 |
 |---|---|---|
-| Consulta prévia informal ao CEP/UFRR | ADR-010, Revisão; **F-20** | a fazer |
+| Consulta prévia informal ao CEP/UFRR | ADR-010, Decisões 3f e 4; **F-20** | a fazer |
 | Instituição proponente. Hipótese de trabalho: a UFRR, com o docente responsável como pesquisador | ADR-010, Decisão 4 | a confirmar na F-20 (b) |
 | TCLE e parecer do CEP/UFRR (Plataforma Brasil) antes do 1º participante | ADR-010, Decisão 4; Lei 14.874/2024 | protocolo não submetido |
 | Base LGPD dos dados do estudo (consentimento, ou termo de informação se for o art. 7º, IV), em seção distinta do TCLE | [`spec/lgpd.md`](../spec/lgpd.md), RF02; ADR-010, Decisão 6 | depende da F-11 |
