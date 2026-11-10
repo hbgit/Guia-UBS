@@ -840,7 +840,7 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 **Revisão.** Reabrir se:
 - a consulta prévia ao CEP/UFRR (F-20) entender que o lançamento também precisa de protocolo;
 - a UFRR não puder ser a proponente e não houver outra instituição;
-- a coordenação do PET-Saúde/Telessaúde não aceitar a regra de fronteira (Decisão 5) ou o cronograma da Parte B;
+- a coordenação do PET-Saúde/Telessaúde recusar a regra de fronteira (Decisão 5) ou a própria separação entre lançamento e estudo de impacto (Decisão 1). Ressalva sobre o cronograma da Parte B **não** reabre este ADR: ajusta-se o calendário do estudo de impacto em [`docs/aprovacoes.md`](../docs/aprovacoes.md);
 - sair o regulamento do art. 63 da Lei 14.874/2024;
 - surgir proposta de telemetria.
 

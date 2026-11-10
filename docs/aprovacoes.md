@@ -57,7 +57,10 @@ Regra de fronteira do ADR-010, Decisão 5:
 | Lançamento | O produto, o alcance agregado da loja (instalações, versões ativas) e o relato de experiência de desenvolvimento | Qualquer dado de pessoa, inclusive o que se observar no QA ou no dogfooding |
 | Estudo de impacto | Resultados com participantes, depois do parecer do CEP e dentro do protocolo | Dados coletados antes do parecer, porque o CEP não aprova retroativamente |
 
-O alinhamento com a coordenação do PET-Saúde/Telessaúde está pendente. Ele é condição da PR do ADR-010.
+O alinhamento com a coordenação do PET-Saúde/Telessaúde é condição da PR do ADR-010. **E-mail enviado em 2026-11-10; aguardando resposta.**
+
+- **Recusa da regra de fronteira ou da separação em si:** a PR não sai de rascunho e o ADR-010 é reaberto.
+- **Ressalva sobre o cronograma da Parte B:** não reabre o ADR-010. O calendário do estudo de impacto é ajustado neste quadro.
 
 ## Anvisa
 

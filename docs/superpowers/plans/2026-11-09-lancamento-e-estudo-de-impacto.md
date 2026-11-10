@@ -257,7 +257,7 @@ Ele encontrou 172 linhas. As que importam:
 **Revisão.** Reabrir se:
 - a consulta prévia ao CEP/UFRR (F-20) entender que o lançamento também precisa de protocolo;
 - a UFRR não puder ser a proponente e não houver outra instituição;
-- a coordenação do PET-Saúde/Telessaúde não aceitar a regra de fronteira (Decisão 5) ou o cronograma da Parte B;
+- a coordenação do PET-Saúde/Telessaúde recusar a regra de fronteira (Decisão 5) ou a própria separação entre lançamento e estudo de impacto (Decisão 1). Ressalva sobre o cronograma da Parte B **não** reabre este ADR: ajusta-se o calendário do estudo de impacto em [`docs/aprovacoes.md`](../../aprovacoes.md);
 - sair o regulamento do art. 63 da Lei 14.874/2024;
 - surgir proposta de telemetria.
 ```
@@ -655,7 +655,7 @@ Nenhuma destas ações gera commit. Elas são da coordenação e ficam registrad
   - Resultados com participantes só saem depois do parecer do CEP, na Parte B.
   - Confirme a hipótese de trabalho da Decisão 4: a Parte B submetida pelo docente responsável, com a UFRR como proponente.
   - Registre a data e o resultado na descrição da PR e no `docs/aprovacoes.md`.
-  - **Se a resposta for negativa** (o PET não aceita a regra de fronteira ou o cronograma da Parte B), a PR não sai de rascunho. O caso volta à coordenação, e o ADR-010 é reaberto pelo gatilho correspondente da sua Revisão.
+  - **Se a resposta for negativa** (o PET recusa a regra de fronteira ou a própria separação), a PR não sai de rascunho. O caso volta à coordenação, e o ADR-010 é reaberto pelo gatilho correspondente da sua Revisão. Ressalva sobre o cronograma da Parte B não reabre o ADR: ajusta-se o calendário do estudo em `docs/aprovacoes.md`.
 - [ ] **2. Consulta prévia informal ao CEP/UFRR (F-20).** Leve o ADR-010 e o `docs/dados-do-usuario.md` e pergunte:
   - (a) se o desenho em duas partes se sustenta, com o lançamento sem protocolo;
   - (b) a hipótese de trabalho: o CEP/UFRR recebe o protocolo do docente responsável com a UFRR como proponente, mesmo que a cooperação PRISM–UFRR ainda não esteja formalizada;
