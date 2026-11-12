@@ -1,4 +1,5 @@
-/// Guarda de build de `MODEL_URL` (P1-1, ADR-004) e `PACK_MANIFEST_URL` (#45).
+/// Guarda de build de `MODEL_URL` (P1-1, ADR-004), `PACK_MANIFEST_URL` (#45)
+/// e `PACK_SIGNING_KEY_K1` (plano B).
 ///
 /// Nenhuma das duas tem host padrão (`lib/sync/model_catalog.dart`,
 /// `lib/sync/pack_background_sync.dart`): um build sem elas compila e sai sem
@@ -22,6 +23,7 @@ import 'dart:io';
 
 import 'package:guia_ubs/sync/endpoint_config.dart';
 import 'package:guia_ubs/sync/model_catalog.dart';
+import 'package:guia_ubs/sync/pack_signing_keys.dart';
 
 /// A exceção do ADR-004: enquanto o projeto não tem servidor, o modelo vem
 /// direto do Hugging Face, NESTA URL e só nela.
@@ -129,6 +131,32 @@ String? sameHostProblem(
       'host no release: os dois saem do mesmo edge de conteudo';
 }
 
+final _hex64 = RegExp(r'^[0-9a-f]{64}$');
+
+/// `null` quando [k1] serve como `PACK_SIGNING_KEY_K1` (plano B).
+///
+/// Sem o define, `pack_signing_keys.dart` cai na chave de DESENVOLVIMENTO, que
+/// é pública no repositório: um release assim aceitaria pack assinado por
+/// qualquer pessoa que clonasse o projeto, e nada no app avisaria. Em debug a
+/// chave de dev é o esperado.
+String? packSigningKeyProblem(String? k1, {required bool release}) {
+  if (!release) return null;
+  final key = k1?.trim() ?? '';
+  if (key.isEmpty) {
+    return 'PACK_SIGNING_KEY_K1 ausente: o release embarcaria a chave de '
+        'desenvolvimento, que esta no repositorio (contract/keys/README.md)';
+  }
+  if (!_hex64.hasMatch(key)) {
+    return 'PACK_SIGNING_KEY_K1 precisa ser a publica Ed25519 em hex (64 '
+        'caracteres minusculos): "$key"';
+  }
+  if (key == devPackSigningKeyK1) {
+    return 'PACK_SIGNING_KEY_K1 e a chave de desenvolvimento: um release com '
+        'ela aceita pack assinado por qualquer pessoa';
+  }
+  return null;
+}
+
 void main(List<String> args) {
   String? config;
   String? mode;
@@ -163,6 +191,7 @@ void main(List<String> args) {
     packManifestUrlProblem(pack, release: release),
     if (model != null && pack != null)
       sameHostProblem(model, pack, release: release),
+    packSigningKeyProblem(defines['PACK_SIGNING_KEY_K1'], release: release),
   ].whereType<String>().toList();
 
   for (final p in problems) {

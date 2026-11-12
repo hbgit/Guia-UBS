@@ -89,17 +89,24 @@ jobs:
       # for o marcador .invalid, a guarda do build_apk.sh recusa o release (de
       # proposito, ate o plano B).
       # No ensaio: um defines que passa nas guardas sem apontar para nada
-      # publicado, porque o APK do ensaio nao e distribuido.
+      # publicado, porque o APK do ensaio nao e distribuido. A chave de pack e
+      # a publica de um par DESCARTAVEL gerado aqui: a guarda recusa a chave de
+      # desenvolvimento, e a privada morre com o runner (nunca assina nada).
       - name: Defines do build
         run: |
           if [ "$RELEASE" = "true" ]; then
             echo "defines embarcados neste release:"
             cat config/defines.release.json
           else
-            cat > config/defines.release.json <<'EOF'
+            openssl genpkey -algorithm ed25519 -out "$RUNNER_TEMP/ensaio-k1.pem"
+            k1=$(openssl pkey -in "$RUNNER_TEMP/ensaio-k1.pem" -pubout -outform DER \
+              | tail -c 32 | od -An -tx1 | tr -d ' \n')
+            rm -f "$RUNNER_TEMP/ensaio-k1.pem"
+            cat > config/defines.release.json <<EOF
           {
             "MODEL_URL": "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/f9c28bcd85737ffc5aef028638d3341d49869c27/gemma-3-1b-it-Q4_K_M.gguf",
-            "PACK_MANIFEST_URL": "https://ensaio.prismrr.com.br/content-packs/0000000/manifest.json"
+            "PACK_MANIFEST_URL": "https://ensaio.prismrr.com.br/content-packs/0000000/manifest.json",
+            "PACK_SIGNING_KEY_K1": "$k1"
           }
           EOF
           fi
@@ -135,6 +142,12 @@ jobs:
             cp build/app/outputs/flutter-apk/app-release.apk \
               "$RUNNER_TEMP/out/guia-ubs-$abi.apk"
           done
+
+      # O AAB NAO passa pelo build_apk.sh: sem este passo, um defines com a
+      # chave de desenvolvimento (ou sem PACK_MANIFEST_URL) chegaria a Play
+      # mesmo com os APKs barrados (plano B, Task 1).
+      - name: Guarda dos defines (AAB)
+        run: dart run tool/model_url_check.dart --config config/defines.release.json --mode release
 
       - name: AAB
         run: |

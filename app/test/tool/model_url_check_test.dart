@@ -5,8 +5,12 @@
 /// de compilar — e não no aparelho de alguém.
 library;
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/sync/model_catalog.dart';
+import 'package:guia_ubs/sync/pack_signing_keys.dart';
 
 import '../../tool/model_url_check.dart';
 
@@ -173,6 +177,58 @@ void main() {
           sameHostProblem(modelo, 'http://10.0.2.2:8081/manifest.json',
               release: false),
           isNull);
+    });
+  });
+
+  // Plano B, Task 1: sem PACK_SIGNING_KEY_K1, o release embarca a chave de
+  // desenvolvimento — versionada no repositório — e aceitaria pack assinado
+  // por qualquer pessoa que clonasse o projeto.
+  group('packSigningKeyProblem', () {
+    test('reprova ausente em release', () {
+      expect(packSigningKeyProblem(null, release: true), isNotNull);
+      expect(packSigningKeyProblem('', release: true), isNotNull);
+    });
+
+    test('reprova a chave de desenvolvimento em release', () {
+      expect(
+        packSigningKeyProblem(devPackSigningKeyK1, release: true),
+        contains('desenvolvimento'),
+      );
+    });
+
+    test('reprova formato', () {
+      expect(packSigningKeyProblem('abc', release: true), isNotNull);
+      expect(packSigningKeyProblem('a' * 63, release: true), isNotNull);
+      expect(packSigningKeyProblem('${'a' * 63}g', release: true), isNotNull);
+    });
+
+    test('aceita hex de 64 que nao e a de dev', () {
+      expect(packSigningKeyProblem('a' * 64, release: true), isNull);
+    });
+
+    test('debug aceita ausente', () {
+      expect(packSigningKeyProblem(null, release: false), isNull);
+    });
+
+    test('o main reprova defines de release sem a chave', () {
+      final tmp = Directory.systemTemp.createTempSync('gubs_k1_');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+      final config = File('${tmp.path}/defines.release.json')
+        ..writeAsStringSync(jsonEncode({
+          'MODEL_URL': huggingFaceExceptionUrl,
+          'PACK_MANIFEST_URL': 'https://edge.dominio-do-projeto-a-definir.org/'
+              'content-packs/0000000/manifest.json',
+        }));
+      final r = Process.runSync('dart', [
+        'run',
+        'tool/model_url_check.dart',
+        '--config',
+        config.path,
+        '--mode',
+        'release',
+      ]);
+      expect(r.exitCode, 1, reason: '${r.stdout}${r.stderr}');
+      expect('${r.stderr}', contains('PACK_SIGNING_KEY_K1'));
     });
   });
 }
