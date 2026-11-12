@@ -14,11 +14,11 @@
  * mesma forma do de producao.
  *
  * Uso: node --import tsx packer/test/support/manifest-interop.ts --key <pem> --out <dir>
- *        [--model-url <url> --model-sha256 <hex>]
+ *        [--model-url <url> --model-sha256 <hex>] [--pack-version <n>] [--arvore]
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
@@ -36,6 +36,13 @@ export function assinarManifestSintetico(opcoes: {
   saida: string;
   /** Plano B: `model` opcional, para a fixture `manifest-v3-model.json`. */
   model?: { url: string; sha256: string };
+  /** Padrao 1. O teste do host de conteudo publica uma v2 por cima da v1. */
+  packVersion?: number;
+  /**
+   * Plano B: deixa a ARVORE publicavel em `saida` (pack em `<pack.url>`, assets
+   * em `<asset.url>`), como o `pack:build` faz, para o `content:publish`.
+   */
+  arvore?: boolean;
 }): string {
   mkdirSync(opcoes.saida, { recursive: true });
   const packPath = join(opcoes.saida, 'pack-sintetico.txt');
@@ -52,9 +59,9 @@ export function assinarManifestSintetico(opcoes: {
       municipality: '0000000',
       sourceCommit: 'interop',
     });
-    const { manifest } = buildManifest({
+    const { manifest, packUrl } = buildManifest({
       schemaVersion: PACK_SCHEMA_VERSION,
-      packVersion: 1,
+      packVersion: opcoes.packVersion ?? 1,
       municipality: '0000000',
       packPath,
       assets,
@@ -63,6 +70,14 @@ export function assinarManifestSintetico(opcoes: {
       privateKeyPath: opcoes.chave,
       ...(opcoes.model ? { model: opcoes.model } : {}),
     });
+    if (opcoes.arvore) {
+      mkdirSync(join(opcoes.saida, dirname(packUrl)), { recursive: true });
+      copyFileSync(packPath, join(opcoes.saida, packUrl));
+      for (const a of assets) {
+        mkdirSync(join(opcoes.saida, dirname(a.path)), { recursive: true });
+        writeFileSync(join(opcoes.saida, a.path), a.content);
+      }
+    }
     return writeManifest(opcoes.saida, manifest);
   } finally {
     rmSync(rascunho, { recursive: true, force: true });
@@ -76,16 +91,25 @@ if (import.meta.filename === process.argv[1]) {
       out: { type: 'string' },
       'model-url': { type: 'string' },
       'model-sha256': { type: 'string' },
+      'pack-version': { type: 'string' },
+      arvore: { type: 'boolean' },
     },
   });
   if (!values.key || !values.out) {
     console.error(
-      'uso: manifest-interop.ts --key <pem> --out <dir> [--model-url <url> --model-sha256 <hex>]',
+      'uso: manifest-interop.ts --key <pem> --out <dir> [--model-url <url> --model-sha256 <hex>] ' +
+        '[--pack-version <n>] [--arvore]',
     );
     process.exit(2);
   }
   const model = modeloDoManifest(values['model-url'], values['model-sha256']);
   console.log(
-    assinarManifestSintetico({ chave: values.key, saida: values.out, ...(model ? { model } : {}) }),
+    assinarManifestSintetico({
+      chave: values.key,
+      saida: values.out,
+      ...(model ? { model } : {}),
+      ...(values['pack-version'] ? { packVersion: Number(values['pack-version']) } : {}),
+      ...(values.arvore ? { arvore: true } : {}),
+    }),
   );
 }

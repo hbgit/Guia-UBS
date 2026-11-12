@@ -28,13 +28,15 @@
     "web:dev": "npm --workspace @guia-ubs/cms-web run dev",
     "web:build": "npm --workspace @guia-ubs/cms-web run build",
     "web:test": "npm --workspace @guia-ubs/cms-web run test",
-    "infra:validate": "docker compose -f infra/compose.yaml config --quiet",
+    "infra:validate": "docker compose -f infra/compose.yaml config --quiet && docker compose -f infra/compose.content.yaml config --quiet",
     "test": "npm --workspaces --if-present run test",
     "pack:build": "npm --workspace @guia-ubs/packer run build:pack",
     "pack:publish": "npm --workspace @guia-ubs/packer run publish:pack",
     "pack:check": "npm --workspace @guia-ubs/packer run build:pack:dry",
     "pack:worker": "npm --workspace @guia-ubs/packer run worker --",
     "model:publish": "bash infra/scripts/publish-model.sh",
-    "model:check": "bash infra/scripts/check-model-endpoint.sh"
+    "model:check": "bash infra/scripts/check-model-endpoint.sh",
+    "content:publish": "bash infra/scripts/publish-content.sh",
+    "content:test": "bash infra/scripts/test-content-host.sh"
   }
 }

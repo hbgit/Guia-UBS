@@ -1,0 +1,44 @@
+# Host SO de conteudo (plano B; Revisao do ADR-007): o que o aparelho baixa,
+# servido de um DIRETORIO, sem MinIO e sem o CMS.
+#
+# Por que nao importa um bloco comum com o `Caddyfile`: la o conteudo vem do
+# MinIO por `reverse_proxy` e as chaves chegam prefixadas pelo bucket; aqui vem
+# de `/srv/conteudo` por `file_server`. Os matchers e os cabecalhos sao os
+# mesmos de proposito — o aparelho nao distingue os dois — e o item 27 decide
+# qual dos dois blocos sobrevive.
+#
+# Publicacao: `npm run content:publish` (rsync via SSH, usuario `publisher`
+# preso por `rrsync -no-del`). Packs, assets e o modelo antes; manifest.json
+# por ultimo. Nada em packs/, assets/ ou models/ e sobrescrito (`immutable`).
+#
+# A borda NAO e confiavel: o app confere assinatura e SHA-256 de tudo (INV-3).
+{
+	email {$ACME_EMAIL}
+}
+
+{$CONTENT_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	@manifest path_regexp manifest ^/.+/manifest\.json$
+	header @manifest Cache-Control "public, max-age=60, must-revalidate"
+
+	@immutable path_regexp immutable ^/.+/(packs|assets|models)/.+$
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Somente leitura publica: publicacao acontece por rsync/SSH, nunca por HTTP.
+	@mutating not method GET HEAD
+	respond @mutating 405
+
+	root * /srv/conteudo
+	# Sem `browse`: diretorio nao lista (#46). `hide .*`: o rsync escreve
+	# `.manifest.json.XXXXXX` antes do rename atomico, e isso nao e servido.
+	file_server {
+		hide .*
+	}
+}
