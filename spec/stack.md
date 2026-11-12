@@ -354,6 +354,14 @@ folga confortável.
 - **Saída.** A exceção **sai** quando o item 27 entrar e o job `packer` do compose passar a assinar na VPS. Ela não volta a citar CI em lugar nenhum, inclusive em `infra/.env.example`.
 - **Custo aceito:** a chave passa, durante a exceção, pela máquina de uma pessoa, e não por um container sem porta. A mitigação é o procedimento acima, a segunda posição de chave que o binário já aceita (`app/lib/sync/pack_signing_keys.dart`, para rotação) e o runbook de revogação.
 
+**Revisão 2026-11-12 (plano B) — o procedimento provisório ficou executável.** O runbook está em [`docs/operacao.md`](../docs/operacao.md) §2.7b.
+- **As duas verificações exigidas acima passaram** (`packer/test/cli.test.ts`): `pack:check` e `pack:build` produzem o mesmo `content.db`, ou seja, a assinatura só toca o manifest; e `resolveFromRepo` aceita `/dev/fd/3`. O teste achou um defeito ao lado: o **worker** lia a chave duas vezes (guarda de registro e assinatura), o que um pipe do cofre não suporta. Agora ela é lida uma vez (`carregarChavePrivada`).
+- **O passo 5 ("A envia ao host estático") tem forma:** `npm run content:publish` por `rsync` via SSH, com o usuário `publisher` preso ao diretório (`rrsync -no-del`: escreve e não apaga). Antes da rede, o manifest é conferido com a pública pelo mesmo código do app. Packs e assets vão sem sobrescrever, um destino com o mesmo nome e bytes diferentes aborta tudo, e o `manifest.json` vai por último.
+- **A conferência de B** é `app/tool/verify_published.dart`: o mesmo `ManifestVerifier` do app, aplicado ao que foi publicado. Ele confere a assinatura, o sha e o tamanho do pack, o `Cache-Control` e, havendo `model`, a regra de origem do app (Revisão 2026-11-12 do ADR-004).
+- **Registro fora da VPS:** cada publicação vira uma GitHub Release `conteudo-<edição>-p<versão>` com o `manifest.json` e o pack, com `--latest=false`. É o backup grátis e a evidência do que A assinou; os packs são reconstruíveis, a assinatura não.
+- **O APK de release não aceita mais a chave de desenvolvimento.** Sem `PACK_SIGNING_KEY_K1`, o binário embarcava a chave de dev, que é pública no repositório, e aceitaria pack assinado por qualquer pessoa. A guarda de build (`app/tool/model_url_check.dart`) agora reprova o release sem a chave ou com a de dev, inclusive no AAB, que não passa pelo `build_apk.sh`.
+- **Ensaio no host real:** pendente da implantação da VPS (§2.7b). Quando feito, com chave descartável e um manifest sintético na edição `ensaio-plano-b`, a data e o resultado entram aqui.
+
 ### ADR-002 — Fronteira com o llama.cpp: **shim C de 4 funções** (2026-08-13)
 
 **Contexto:** o app precisa chamar o llama.cpp a partir do Dart. O caminho usual é gerar bindings com `ffigen` direto sobre `llama.h` e escrever o laço de geração em Dart.
@@ -680,6 +688,19 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
   - **mitigação:** renovação automática, alerta de expiração no monitoramento (`implantacao.md` §3.6), titular e plano de transferência no registro operacional fora do repositório (F-2).
 
 **Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** "Quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005" lê-se "quando o lançamento for promovido para produção" (ADR-010, Decisão 3g).
+
+
+**Revisão 2026-11-12 (plano B) — host de conteúdo provisório sem MinIO; o object store do item 27 fica em aberto.**
+- **Até o item 27, o conteúdo sai de um host só de conteúdo nesta VPS** (`infra/compose.content.yaml`): um único serviço, o `edge`, um Caddy `file_server` sobre um diretório (`infra/Caddyfile.content`). Ele serve só GET/HEAD, não lista diretórios (#46) e mantém os mesmos `Cache-Control` do `infra/Caddyfile`. A publicação é por `rsync` via SSH (Revisão 2026-11-12 do ADR-001). O nome e a URL embarcada (`/content-packs/<edição>/manifest.json`) são os da Decisão 4, então o item 27 troca o backend sem release do app.
+- **Por que sem MinIO.** Conferido em 2026-11-12:
+  - o repositório [`minio/minio`](https://github.com/minio/minio) foi **arquivado em 2026-04-25** e diz "THIS REPOSITORY IS NO LONGER MAINTAINED". A edição community passou a sair **só como código-fonte**, sem binário nem imagem oficial;
+  - a correção da [CVE-2025-62506](https://github.com/minio/minio/security/advisories/GHSA-jjjj-jwhf-8rgr) (CVSS 8.1, escalada de privilégio em contas de serviço e STS; corrigida em `RELEASE.2025-10-15T17-29-55Z`) só existe como código-fonte;
+  - o Docker Hub **não serve mais** `minio/minio`, nem a tag fixada no `infra/compose.yaml` (`pull access denied`; ela só existe onde já estava em cache).
+
+  Para um host que só responde GET/HEAD de arquivos assinados, um object store sem patch é superfície sem ganho.
+- **Imagem do edge** fixada por digest (`caddy:2.10.2-alpine@sha256:4c6e91c6…`, índice multi-arquitetura com `linux/arm64`), com volumes `caddydata`/`caddyconfig` para o estado do ACME. Sem eles, cada recriação pede certificado novo.
+- **Pendência do item 27.** O CMS e o worker publicam por S3 (`packer/src/release.ts`, `S3Target`), e a imagem do `storage` do `compose.yaml` já não é baixável. O item 27 escolhe o object store (Garage, SeaweedFS ou outro) ou registra aqui a decisão de manter o MinIO, com imagem construída da fonte, fixada por digest, e a aceitação explícita de que não há patch. Isto **não** se reabre para a 1ª tag.
+- O item 7 (backup) não muda para este host: os packs são reconstruíveis, e a GitHub Release de cada publicação guarda o manifest assinado.
 
 ### ADR-008 — Escopo de conteúdo: de "município" para "edição": **ACEITO** (2026-11-02)
 
