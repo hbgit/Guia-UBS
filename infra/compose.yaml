@@ -109,6 +109,8 @@ services:
       PACK_SIGNING_KEY_PATH: /run/secrets/pack_signing_key
       PACK_SIGNING_KEY_ID: ${PACK_SIGNING_KEY_ID:-k1}
       SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-}
+      PACK_MODEL_URL: ${PACK_MODEL_URL:-}
+      PACK_MODEL_SHA256: ${PACK_MODEL_SHA256:-}
     volumes:
       - ${PACK_SIGNING_KEY_HOST_PATH:?defina em infra/.env}:/run/secrets/pack_signing_key:ro
     depends_on:

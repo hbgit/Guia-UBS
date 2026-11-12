@@ -52,6 +52,7 @@ import { extrairConteudo, lerAtestadosDoBanco, lerGoldenDoBanco } from './extrac
 import {
   buildManifest,
   conferirChaveRegistrada,
+  modeloDoManifest,
   publish,
   writeManifest,
   type S3Target,
@@ -386,6 +387,9 @@ export async function processar(
       minAppBuild: Number(process.env.MIN_APP_BUILD ?? 1),
       keyId,
       privateKeyPath: keyPath,
+      // Plano B: mesmas envs do CLI. Lidas a cada release, nao no boot do
+      // worker: trocar o host do modelo nao deve exigir reiniciar o job.
+      ...modeloOpcional(),
     });
     const manifestPath = writeManifest(OUT_DIR, manifest);
 
@@ -487,4 +491,9 @@ if (import.meta.filename === process.argv[1]) {
       await new Promise((ok) => setTimeout(ok, intervalo));
     }
   }
+}
+
+function modeloOpcional(): { model?: { url: string; sha256: string } } {
+  const model = modeloDoManifest(process.env.PACK_MODEL_URL, process.env.PACK_MODEL_SHA256);
+  return model ? { model } : {};
 }

@@ -19,7 +19,16 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { avaliarRegistro, PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
 
 import { buildPack, readRuleModel } from './build-pack.js';
-import { buildManifest, publish, writeManifest, type S3Target } from './release.js';
+import {
+  buildManifest,
+  ErroDeUso,
+  modeloDoManifest,
+  publish,
+  writeManifest,
+  type S3Target,
+} from './release.js';
+
+export { ErroDeUso };
 import {
   lerAtestadosDoYaml,
   lerGoldenDoYaml,
@@ -49,6 +58,7 @@ interface Args {
   packVersion: number;
   municipality: string;
   minAppBuild: number;
+  model?: { url: string; sha256: string };
 }
 
 function parseArgs(argv: string[]): Args {
@@ -62,6 +72,10 @@ function parseArgs(argv: string[]): Args {
     packVersion: Number(flag('pack-version') ?? process.env.PACK_VERSION ?? 1),
     municipality: flag('municipality') ?? process.env.MUNICIPALITY ?? '0000000',
     minAppBuild: Number(flag('min-app-build') ?? 1),
+    model: modeloDoManifest(
+      flag('model-url') ?? process.env.PACK_MODEL_URL,
+      flag('model-sha256') ?? process.env.PACK_MODEL_SHA256,
+    ),
   };
 }
 
@@ -177,6 +191,7 @@ export async function executarCli(
     minAppBuild: args.minAppBuild,
     keyId: process.env.PACK_SIGNING_KEY_ID ?? 'k1',
     privateKeyPath: resolveFromRepo(repoRoot, requireEnv('PACK_SIGNING_KEY_PATH')),
+    ...(args.model ? { model: args.model } : {}),
   });
   const manifestPath = writeManifest(outDir, manifest);
   console.log(`  ok    manifest assinado (${packUrl})`);

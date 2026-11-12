@@ -131,7 +131,9 @@ test('desfecho padrao inexistente falha ruidosamente', () => {
  * chave de desenvolvimento, senao um CI limpo falharia — e a chave de producao
  * jamais entra num runner de teste.
  */
-function loadArtifacts(): { manifest: Manifest; publicKey: KeyObject; packPath: string } {
+function loadArtifacts(
+  model?: { url: string; sha256: string },
+): { manifest: Manifest; publicKey: KeyObject; packPath: string } {
   const outDir = mkdtempSync(join(tmpdir(), 'guia-ubs-pack-'));
   const { privateKey, publicKey } = generateKeyPairSync('ed25519');
   const keyPath = join(outDir, 'ephemeral.pem');
@@ -155,6 +157,7 @@ function loadArtifacts(): { manifest: Manifest; publicKey: KeyObject; packPath: 
     minAppBuild: 1,
     keyId: 'test',
     privateKeyPath: keyPath,
+    ...(model ? { model } : {}),
   });
 
   return { manifest: manifestSchema.parse(manifest), publicKey, packPath: built.dbPath };
@@ -195,6 +198,28 @@ test('adulterar o hash de um asset invalida a assinatura', () => {
     assets: [{ ...first, sha256: '0'.repeat(64) }, ...rest],
   };
   assert.equal(signatureIsValid(tampered, publicKey), false);
+});
+
+// Plano B: a URL do modelo sai do APK e vai para o manifest ASSINADO.
+const MODEL = { url: '../models/gemma-3-1b-it-Q4_K_M-x.gguf', sha256: 'c'.repeat(64) };
+
+test('a assinatura cobre model.url', () => {
+  const { manifest, publicKey } = loadArtifacts(MODEL);
+  assert.deepEqual(manifest.model, MODEL);
+  assert.equal(signatureIsValid(manifest, publicKey), true);
+  const tampered: Manifest = {
+    ...manifest,
+    model: { ...MODEL, url: 'https://terceiro.example/m.gguf' },
+  };
+  assert.equal(signatureIsValid(tampered, publicKey), false);
+});
+
+test('sem model, o manifest e igual ao de antes', () => {
+  // Um manifest sem modelo nao pode ganhar nem `"model":null` nem
+  // `"model":undefined`: o app de hoje recusaria a chave desconhecida.
+  const { manifest } = loadArtifacts();
+  assert.equal('model' in manifest, false);
+  assert.equal(canonicalPayload(manifest).includes('"model"'), false);
 });
 
 test('o arquivo do pack no disco confere com o hash assinado', () => {

@@ -40,6 +40,24 @@
       "minimum": 0,
       "type": "integer"
     },
+    "model": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "sha256"
+      ],
+      "type": "object"
+    },
     "municipality": {
       "minLength": 1,
       "type": "string"

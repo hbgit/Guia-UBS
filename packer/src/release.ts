@@ -26,6 +26,8 @@ export interface ManifestInput {
   minAppBuild: number;
   keyId: string;
   privateKeyPath: string;
+  /** Plano B: URL do modelo SLM no manifest assinado. Ausente => sem a chave. */
+  model?: { url: string; sha256: string };
 }
 
 function sha256File(path: string): { sha256: string; bytes: number } {
@@ -69,6 +71,9 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
     // Mesma convencao do `built_at` do pack: `SOURCE_DATE_EPOCH` torna o
     // manifest — e portanto a assinatura — reproduzivel byte a byte.
     publishedAt: buildDate(),
+    // So emitida quando definida: um manifest sem modelo fica byte a byte
+    // igual ao de antes, e o app que nao conhece `model` continua aceitando.
+    ...(input.model ? { model: { url: input.model.url, sha256: input.model.sha256 } } : {}),
   };
 
   const privateKey = createPrivateKey(readFileSync(input.privateKeyPath, 'utf8'));
@@ -239,4 +244,25 @@ export async function publish(
   published.push(manifestKey);
 
   return published;
+}
+
+/**
+ * `model` do manifest a partir das flags/envs (`--model-url`/`PACK_MODEL_URL`
+ * e `--model-sha256`/`PACK_MODEL_SHA256`). Os dois juntos ou nenhum: so a URL
+ * apontaria o app para um arquivo cujo digest ninguem declarou.
+ */
+export function modeloDoManifest(
+  url: string | undefined,
+  sha256: string | undefined,
+): { url: string; sha256: string } | undefined {
+  const u = url?.trim() || undefined;
+  const s = sha256?.trim() || undefined;
+  if (!u && !s) return undefined;
+  if (!u || !s) throw new ErroDeUso('--model-url e --model-sha256 vão juntos');
+  return { url: u, sha256: s };
+}
+
+/** Erro de uso da linha de comando: o ponto de entrada sai com 64 (EX_USAGE). */
+export class ErroDeUso extends Error {
+  override name = 'ErroDeUso';
 }

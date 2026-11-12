@@ -13,14 +13,14 @@
  */
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { avaliarRegistro, avaliarRevisao, conferirContraRegistro } from '@guia-ubs/contract';
 
-import { executarCli, modoDoComando, type AmbienteCli } from '../src/cli.js';
+import { ErroDeUso, executarCli, modoDoComando, type AmbienteCli } from '../src/cli.js';
 import { lerAtestadosDoYaml, lerGoldenDoYaml } from '../src/validate.js';
 import { REG, REV_CRM, semRevisao } from './support/revisao.js';
 
@@ -31,7 +31,14 @@ const CASO_REVISADO = { ...CASO_SEM_REVISOR, reviewed_by: [REV_CRM] };
 
 let diretorio: string;
 const salvo: Record<string, string | undefined> = {};
-const CHAVES = ['PACK_SIGNING_KEY_PATH', 'PACK_SIGNING_KEY_ID', 'SOURCE_DATE_EPOCH', 'MINIO_ROOT_USER'];
+const CHAVES = [
+  'PACK_SIGNING_KEY_PATH',
+  'PACK_SIGNING_KEY_ID',
+  'SOURCE_DATE_EPOCH',
+  'MINIO_ROOT_USER',
+  'PACK_MODEL_URL',
+  'PACK_MODEL_SHA256',
+];
 
 before(() => {
   for (const k of CHAVES) salvo[k] = process.env[k];
@@ -43,6 +50,8 @@ before(() => {
   delete process.env.PACK_SIGNING_KEY_ID;
   process.env.SOURCE_DATE_EPOCH = '1787097600';
   delete process.env.MINIO_ROOT_USER;
+  delete process.env.PACK_MODEL_URL;
+  delete process.env.PACK_MODEL_SHA256;
 });
 
 after(() => {
@@ -205,4 +214,29 @@ test('os YAMLs reais nao tem revisao invalida', () => {
       assert.deepEqual(conferirContraRegistro(revisao.revisores, registro.entradas), [], caso.id);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// Plano B: model {url, sha256} no manifest
+// ---------------------------------------------------------------------------
+
+test('model-url sem model-sha256 e erro de uso', async () => {
+  const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  await assert.rejects(
+    executarCli(['build', '--model-url', '../models/m.gguf'], amb),
+    (e: Error) => e instanceof ErroDeUso && /vão juntos/.test(e.message),
+  );
+  assert.ok(!assinou(amb.outDir));
+});
+
+test('build com --model-url e --model-sha256 assina o model', async () => {
+  const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  const sha = 'c'.repeat(64);
+  const r = await executarCli(
+    ['build', '--model-url', '../models/m.gguf', '--model-sha256', sha],
+    amb,
+  );
+  assert.equal(r.estado, 'assinado', JSON.stringify(r.problemas));
+  const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8'));
+  assert.deepEqual(manifest.model, { url: '../models/m.gguf', sha256: sha });
 });
