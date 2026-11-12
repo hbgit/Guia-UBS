@@ -318,11 +318,15 @@ mesma versão de pack.
 SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> npm run pack:check
 sha256sum packer/out/content.db
 
-# 2. A (custódia): assina com a chave lida UMA vez de um descritor — nada em
-#    disco persistente. Confere que o sha do content.db é o de B; se divergir,
-#    NADA é enviado.
-SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> PACK_SIGNING_KEY_PATH=/dev/fd/3 \
-  npm run pack:build 3< <(comando-do-cofre)
+# 2. A (custódia): primeiro confere que o pipe do cofre chega ao packer e que
+#    a pública é a registrada; depois assina, com a chave lida UMA vez —
+#    nada em disco persistente. Confere que o sha do content.db é o de B; se
+#    divergir, NADA é enviado.
+#    `<(...)` e NÃO `3< <(...)`: o `npm run` não repassa o fd 3 ao filho, e
+#    há teste disso (packer/test/cli.test.ts).
+PACK_SIGNING_KEY_PATH=<(comando-do-cofre) npm run pack:key
+SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> \
+  PACK_SIGNING_KEY_PATH=<(comando-do-cofre) npm run pack:build
 sha256sum packer/out/content.db
 
 # 3. A: publica. O script confere o manifest com a pública (mesmo código do
@@ -356,7 +360,11 @@ gh release create conteudo-0000000-p<n> packer/out/manifest.json packer/out/pack
   `npm run content:publish -- --model <arquivo.gguf>` e um manifest novo com
   `PACK_MODEL_URL=../models/gemma-3-1b-it-Q4_K_M-<sha>.gguf` e
   `PACK_MODEL_SHA256=<sha do catálogo>`. Sem release do app; vale na abertura
-  seguinte de cada aparelho.
+  seguinte de cada aparelho. **Limite:** numa instalação nova ainda não há
+  pack ativo, então o primeiro download do onboarding vai ao `MODEL_URL`
+  embarcado (Hugging Face); só o worker ou a abertura seguinte usam o host do
+  manifest. Uma saída por 429 do HF não socorre a instalação nova até o
+  primeiro pack chegar.
 - **Teste local do host:** `npm run content:test` sobe o
   `compose.content.yaml` com `localhost` e confere 405, ausência de listagem,
   cache, ETag/304, Range e a recusa de pack divergente.

@@ -322,3 +322,31 @@ test('build deixa o pack em out/<pack.url> e os assets em out/<asset.url>', asyn
     assert.equal(sha256De(join(amb.outDir, a.url)), a.sha256, a.url);
   }
 });
+
+test('a chave chega ao script por npm run via <(cofre), e nao via 3<', { timeout: 120_000 }, async () => {
+  // O runbook (operacao.md 2.7b) roda o packer por `npm run`, que NAO repassa
+  // o fd 3 ao processo filho. Substituicao de processo (`<(...)`) entrega um
+  // caminho /dev/fd/N que sobrevive ao npm. Este teste passa pelo npm DE
+  // VERDADE; chamar executarCli direto nao pegaria o defeito.
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const pem = join(diretorio, 'npm-fd.pem');
+  writeFileSync(pem, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string);
+  const esperado = (publicKey.export({ type: 'spki', format: 'der' }) as Buffer)
+    .subarray(-32)
+    .toString('hex');
+  const rodar = (comando: string) =>
+    new Promise<{ codigo: number | null; saida: string }>((ok) => {
+      const p = spawn('bash', ['-c', comando], { cwd: REPO_ROOT, env: { ...process.env, PEM: pem } });
+      let saida = '';
+      p.stdout.on('data', (d) => (saida += d));
+      p.stderr.on('data', (d) => (saida += d));
+      p.on('exit', (codigo) => ok({ codigo, saida }));
+    });
+
+  const viaProcSub = await rodar('PACK_SIGNING_KEY_PATH=<(cat "$PEM") npm run --silent pack:key');
+  assert.equal(viaProcSub.codigo, 0, viaProcSub.saida);
+  assert.match(viaProcSub.saida, new RegExp(esperado));
+
+  const viaFd3 = await rodar('PACK_SIGNING_KEY_PATH=/dev/fd/3 npm run --silent pack:key 3< "$PEM"');
+  assert.notEqual(viaFd3.codigo, 0, 'se o npm passar a repassar o fd 3, o runbook pode voltar a usa-lo');
+});

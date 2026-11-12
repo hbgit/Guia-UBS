@@ -34,6 +34,7 @@
     "pack:publish": "npm --workspace @guia-ubs/packer run publish:pack",
     "pack:check": "npm --workspace @guia-ubs/packer run build:pack:dry",
     "pack:worker": "npm --workspace @guia-ubs/packer run worker --",
+    "pack:key": "npm --workspace @guia-ubs/packer run key:probe",
     "model:publish": "bash infra/scripts/publish-model.sh",
     "model:check": "bash infra/scripts/check-model-endpoint.sh",
     "content:publish": "bash infra/scripts/publish-content.sh",
