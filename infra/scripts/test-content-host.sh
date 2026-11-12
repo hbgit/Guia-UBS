@@ -93,6 +93,23 @@ else
   check "publicar pack divergente aborta sem manifest" "$VER" 1
 fi
 
+# rsync que falha NA CONFERENCIA (queda de SSH, rrsync recusando uma opcao):
+# a conferencia nao pode falhar aberta e deixar o manifest sair.
+FAKE="$WORK/rsync-falha-no-dry-run"
+cat > "$FAKE" <<'EOT'
+#!/bin/sh
+for a in "$@"; do [ "$a" = --dry-run ] && { echo "conexao perdida" >&2; exit 255; }; done
+exec rsync "$@"
+EOT
+chmod +x "$FAKE"
+if RSYNC_BIN="$FAKE" bash "$ROOT/infra/scripts/publish-content.sh" "$WORK/v2" falha-na-conferencia >/dev/null 2>&1; then
+  nok "rsync falhando na conferencia nao aborta (publicou)"
+else
+  [ -e "$SITE/content-packs/falha-na-conferencia/manifest.json" ] \
+    && nok "rsync falhando na conferencia deixou o manifest sair" \
+    || ok "rsync falhando na conferencia: manifest nao enviado"
+fi
+
 # Manifest que nao verifica: nada sai.
 if PACK_PUBKEY_HEX="$(printf 'a%.0s' $(seq 64))" bash "$ROOT/infra/scripts/publish-content.sh" "$WORK/v2" outra >/dev/null 2>&1; then
   nok "manifest com chave errada foi publicado"

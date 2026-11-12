@@ -55,6 +55,7 @@ import {
   conferirChaveRegistrada,
   modeloDoManifest,
   publish,
+  urlDoAsset,
   writeManifest,
   type S3Target,
 } from './release.js';
@@ -421,7 +422,10 @@ export async function processar(
       release.municipalityCode,
       [
         { key: packUrl, path: staged },
-        ...built.assets.map((a) => ({ key: a.path, path: join(REPO_ROOT, 'seed', a.path) })),
+        ...built.assets.map((a) => ({
+          key: urlDoAsset(a.path, a.sha256),
+          path: join(REPO_ROOT, 'seed', a.path),
+        })),
       ],
       manifestPath,
     );

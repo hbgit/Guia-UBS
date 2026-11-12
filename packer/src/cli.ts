@@ -24,6 +24,7 @@ import {
   ErroDeUso,
   modeloDoManifest,
   publish,
+  urlDoAsset,
   writeManifest,
   type S3Target,
 } from './release.js';
@@ -203,7 +204,7 @@ export async function executarCli(
   mkdirSync(dirname(staged), { recursive: true });
   copyFileSync(built.dbPath, staged);
   for (const a of built.assets) {
-    const destino = join(outDir, a.path);
+    const destino = join(outDir, urlDoAsset(a.path, a.sha256));
     mkdirSync(dirname(destino), { recursive: true });
     writeFileSync(destino, a.content);
   }
@@ -224,7 +225,10 @@ export async function executarCli(
 
   const files = [
     { key: packUrl, path: staged },
-    ...built.assets.map((a) => ({ key: a.path, path: join(repoRoot, 'seed', a.path) })),
+    ...built.assets.map((a) => ({
+      key: urlDoAsset(a.path, a.sha256),
+      path: join(outDir, urlDoAsset(a.path, a.sha256)),
+    })),
   ];
 
   const published = await publish(target, args.municipality, files, manifestPath);

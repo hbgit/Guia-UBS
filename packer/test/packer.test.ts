@@ -222,6 +222,16 @@ test('sem model, o manifest e igual ao de antes', () => {
   assert.equal(canonicalPayload(manifest).includes('"model"'), false);
 });
 
+test('assets no manifest sao nomeados pelo hash', () => {
+  // A borda serve `assets/` como `immutable` e o content:publish nunca
+  // sobrescreve: um icone trocado com o MESMO nome travaria a edicao. O nome
+  // precisa mudar quando o conteudo muda (stack.md 4.2).
+  const { manifest } = loadArtifacts();
+  for (const a of manifest.assets) {
+    assert.ok(a.url.includes(a.sha256.slice(0, 12)), a.url);
+  }
+});
+
 test('o arquivo do pack no disco confere com o hash assinado', () => {
   const { manifest, packPath } = loadArtifacts();
   const actual = createHash('sha256').update(readFileSync(packPath)).digest('hex');

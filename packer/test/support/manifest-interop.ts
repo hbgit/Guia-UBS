@@ -24,7 +24,7 @@ import { parseArgs } from 'node:util';
 import { PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
 
 import { buildPack } from '../../src/build-pack.js';
-import { buildManifest, modeloDoManifest, writeManifest } from '../../src/release.js';
+import { buildManifest, modeloDoManifest, urlDoAsset, writeManifest } from '../../src/release.js';
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..');
 
@@ -74,8 +74,9 @@ export function assinarManifestSintetico(opcoes: {
       mkdirSync(join(opcoes.saida, dirname(packUrl)), { recursive: true });
       copyFileSync(packPath, join(opcoes.saida, packUrl));
       for (const a of assets) {
-        mkdirSync(join(opcoes.saida, dirname(a.path)), { recursive: true });
-        writeFileSync(join(opcoes.saida, a.path), a.content);
+        const url = urlDoAsset(a.path, a.sha256);
+        mkdirSync(join(opcoes.saida, dirname(url)), { recursive: true });
+        writeFileSync(join(opcoes.saida, url), a.content);
       }
     }
     return writeManifest(opcoes.saida, manifest);

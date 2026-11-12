@@ -57,6 +57,18 @@ function buildDate(): string {
 }
 
 /**
+ * URL publicada de um asset: o caminho de autoria com o hash no nome
+ * (`assets/icon.head.svg` -> `assets/<sha12>-icon.head.svg`). A borda serve
+ * `assets/` como `immutable` e o `content:publish` nunca sobrescreve, entao o
+ * nome PRECISA mudar quando o conteudo muda (stack.md 4.2) — senao trocar um
+ * icone travaria a edicao inteira. O caminho dentro do pack nao muda.
+ */
+export function urlDoAsset(path: string, sha256: string): string {
+  const i = path.lastIndexOf('/');
+  return `${path.slice(0, i + 1)}${sha256.slice(0, 12)}-${path.slice(i + 1)}`;
+}
+
+/**
  * Nomeia o pack pelo hash do conteudo. E isso que permite `immutable` no cache
  * da borda: dois conteudos diferentes nunca compartilham URL (stack.md 4.2).
  */
@@ -71,7 +83,7 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
     pack: { url: packUrl, sha256: pack.sha256, bytes: pack.bytes },
     assets: input.assets.map((a) => ({
       ref: a.ref,
-      url: a.path,
+      url: urlDoAsset(a.path, a.sha256),
       sha256: a.sha256,
       bytes: a.bytes,
     })),

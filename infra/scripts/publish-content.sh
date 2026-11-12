@@ -32,7 +32,7 @@ fail() { echo "FALHOU  $*" >&2; exit 1; }
 uso() { echo "uso: publish-content.sh <out-dir> <edicao> | --model <arquivo.gguf>" >&2; exit 64; }
 
 [ -n "${CONTENT_TARGET:-}" ] || fail "CONTENT_TARGET nao definido (publisher@<host>: ou diretorio)"
-command -v rsync >/dev/null || fail "rsync nao instalado"
+command -v "${RSYNC_BIN:-rsync}" >/dev/null || fail "rsync nao instalado"
 
 # `publisher@host:` -> caminho relativo a raiz do rrsync; diretorio -> absoluto.
 destino() {
@@ -42,7 +42,8 @@ destino() {
   esac
 }
 
-RSYNC=(rsync --recursive --links --times --chmod=D755,F644 --mkpath)
+# RSYNC_BIN existe para o content:test simular falha do rsync.
+RSYNC=("${RSYNC_BIN:-rsync}" --recursive --links --times --chmod=D755,F644 --mkpath)
 
 if [ "${1:-}" = "--model" ]; then
   [ $# -eq 2 ] || uso
@@ -95,7 +96,13 @@ DEST="$(destino "content-packs/$ED")"
 "${RSYNC[@]}" --ignore-existing "${SRCS[@]}" "$DEST"
 
 # 3. Mesmo nome, bytes diferentes no destino? Entao NAO publica o manifest.
-DIVERGE="$("${RSYNC[@]}" --checksum --dry-run --itemize-changes "${SRCS[@]}" "$DEST" | grep -E '^[<>]f' || true)"
+# A conferencia FALHA FECHADA: se o proprio rsync falhar (SSH caiu, rrsync
+# recusou uma opcao), nao ha como saber se o destino diverge, e o manifest
+# nao sai. So o grep pode "nao achar nada".
+if ! ITEMS="$("${RSYNC[@]}" --checksum --dry-run --itemize-changes "${SRCS[@]}" "$DEST")"; then
+  fail "a conferencia do destino falhou (rsync); manifest NAO enviado"
+fi
+DIVERGE="$(printf '%s\n' "$ITEMS" | grep -E '^[<>]f' || true)"
 if [ -n "$DIVERGE" ]; then
   echo "$DIVERGE" >&2
   fail "o destino tem arquivo com o mesmo nome e bytes diferentes; manifest NAO enviado"
