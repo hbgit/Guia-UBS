@@ -313,7 +313,7 @@ Ordem derivada da dependência real (contrato → packer → app → CMS) e da u
 4. `infra/compose.yaml` subindo `sqld` + MinIO + Caddy.
 **Saída:** `docker compose up` verde; codegen reprodutível.
 
-### Fase 1 — PoC (valida R1, H2, H3 — PRD §6.2)
+### Fase 1 — PoC (valida R1, H3 e o sync em rede instável — RNF-12, antiga H2; PRD §6.2)
 5. `seed/` com ontologia mínima (~30 tokens), regras e cards.
 6. `packer` mínimo: build → validação referencial → golden → assinatura → publish.
 7. **`red_flag_gate.dart`** (função pura) + suite golden **pass 100%**.
@@ -738,7 +738,7 @@ o mesmo desenho são, para esse usuário, o mesmo botão.
 (6), mas `symptom` tem **12** e a grade rola. Resolver de verdade exige um dos
 dois, e ambos são decisão de conteúdo com dupla revisão clínica: subconjunto de
 sintomas por parte do corpo (exige tabela de associação no pack, que hoje não
-existe) ou redução da ontologia. Fica anotado para a revisão clínica do estudo piloto do projeto.
+existe) ou redução da ontologia. Fica anotado para a revisão clínica do portão de lançamento.
 
 #### 5.6 Resultado do item 13 — telas estáticas (2026-08-19)
 
@@ -1248,7 +1248,7 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 **Observação fora do escopo, anterior à #2:** `cms/Dockerfile` não copia `packer/` nem `seed/`, mas o serviço `packer` do compose roda `packer/src/worker.ts` a partir dessa imagem. Não foi tocado aqui; segue em [#44](https://github.com/hbgit/Guia-UBS/issues/44), que também cobre `seed/golden/atestados.yaml`, lido pelo worker desde esta issue.
 
-**Efeito da transição.** Com o portão no ar e os 24 casos sem revisão, nenhum caminho produz pack assinado. O pack já distribuído não muda: o portão age antes da assinatura e não revoga nada, e o aparelho mantém o pack ativo (FSM-B só troca por versão maior validada). Se existir MinIO de produção, ele fica **congelado** na versão atual, aceito pelo dono antes do piloto. O custo é que a verificação em emulador que precise de pack **novo** espera a revisão, e a contingência do R5 ("correção em horas") fica indisponível até lá.
+**Efeito da transição.** Com o portão no ar e os 24 casos sem revisão, nenhum caminho produz pack assinado. O pack já distribuído não muda: o portão age antes da assinatura e não revoga nada, e o aparelho mantém o pack ativo (FSM-B só troca por versão maior validada). Se existir MinIO de produção, ele fica **congelado** na versão atual, aceito pelo dono antes do lançamento. O custo é que a verificação em emulador que precise de pack **novo** espera a revisão, e a contingência do R5 ("correção em horas") fica indisponível até lá.
 
 **Revisor(es): pendente — ver Task 9.** Nenhum caso foi revisado. Esta seção registra o portão; a revisão é trabalho humano, conduzida pelo roteiro em [`docs/revisao-golden.md`](../docs/revisao-golden.md). Quando houver, aqui entram, **sem nome nem número de registro**, apenas atestado, conselho, UF e categoria de cada revisor (o repositório é público).
 

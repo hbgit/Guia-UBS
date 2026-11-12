@@ -53,10 +53,10 @@
 ### 2.3 Modelo de promoção ([ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr), item 4; [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 2)
 
 - Uma tag produz **um** conjunto de artefatos. O que é testado é o que é publicado: mesma tag, mesmo `versionCode`, mesmo binário.
-- **Play:** o AAB sobe para a faixa de teste (interno ou fechado), onde roda o estudo piloto, e é **promovido** para produção.
+- **Play:** o AAB sobe para a faixa de teste (interno ou fechado), onde rodam o dogfooding e o QA do lançamento ([ADR-010](stack.md#10-registro-de-decisões-arquiteturais-adr)), e é **promovido** para produção.
 - **GitHub:** a release nasce marcada como ***pre-release***; na promoção, só a marca sai. APK e `SHA256SUMS` não mudam.
 - **Não existe** sufixo `-rc`, PATCH reservado para pré-release nem rebuild da mesma versão. Defeito achado na faixa de teste vira um **PATCH novo** e uma nova rodada.
-- Sem conta Play ([a definir — F-4]), o estudo piloto roda só pela *pre-release* do GitHub (ADR-006, Decisão 2).
+- Sem conta Play ([a definir — F-4]), o dogfooding roda só pela *pre-release* do GitHub (ADR-006, Decisão 2).
 
 *Aceite:* o SHA-256 do APK na release promovida é igual ao da *pre-release*; o AAB em produção na Play é o mesmo `versionCode` testado na faixa de teste.
 
@@ -105,7 +105,7 @@ Deriva do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr) e do [A
    - `dart run tool/check_release_permissions.dart` sobre o build.
 5. **Artefatos:** um APK por ABI, `SHA256SUMS` e a impressão SHA-256 do certificado. **O job falha sem `SHA256SUMS`** (RF-17). O AAB **não** é anexado ao GitHub.
 6. **Release no GitHub** criada como ***pre-release***, com a nota-modelo da §2.8 preenchida.
-7. **AAB para a faixa de teste** (interno ou fechado) da Play. O estudo piloto roda aqui e na *pre-release*.
+7. **AAB para a faixa de teste** (interno ou fechado) da Play. O dogfooding roda aqui e na *pre-release*.
 8. **Promoção manual**, condicionada ao checklist da §2.7 conferido e datado: o AAB passa da faixa de teste para produção na Play, e a marca *pre-release* sai no GitHub. **Sem rebuild.**
 9. [docs/operacao.md](../docs/operacao.md) registra a versão publicada em cada canal.
 
@@ -117,13 +117,13 @@ Deriva do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr) e do [A
 
 Origem: [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), Decisão 6 e Custo aceito 2; [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr), Custo aceito 4. Toda linha é regra de terceiro ou proposta, e a promoção para produção só ocorre com **todas** as datas preenchidas na mesma rodada de publicação.
 
-- [ ] **Conta de desenvolvedor** [a definir — F-4]: tipo da conta (pessoal ou de organização, D-U-N-S) e exigência de teste fechado para conta pessoal nova (conferir no Play Console em ____-__-__).
+- [ ] **Conta de desenvolvedor** [a definir — F-4]: tipo da conta (pessoal ou de organização, D-U-N-S) e exigência de teste fechado para conta pessoal nova: número mínimo de testadores e de dias antes da produção (conferir no Play Console em ____-__-__). Os testadores são QA do lançamento (ADR-010, DC-D), sem coleta.
 - [ ] **`targetSdk`** dentro do mínimo vigente (conferir no Play Console em ____-__-__).
 - [ ] **Tamanho do AAB** dentro do limite; o modelo SLM fica fora do pacote (conferir no Play Console em ____-__-__).
 - [ ] **`versionCode`** abaixo do teto aceito pela Play, que sustenta o limite MAJOR ≤ 210 da §2.2 (conferir no Play Console em ____-__-__).
 - [ ] **Política de privacidade** em `https://guiasaude.prismrr.com.br/privacidade/` (§2.9), da mesma fonte e na mesma versão de `app/assets/legal/privacidade_*.md` (conferir no Play Console em ____-__-__).
 - [ ] **Data safety:** proposta de declarar "nenhum dado coletado nem compartilhado pelo app", **sujeita** à revisão jurídica do tratamento de IP (T7-R; [lgpd.md](lgpd.md)). Não é decisão deste documento (conferir no Play Console em ____-__-__).
-- [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R (conferir no Play Console em ____-__-__).
+- [ ] **Declaração de app de saúde:** proposta "informação/educação em saúde, não dispositivo médico". O enquadramento RDC 657/2022 do ADR-004 é leitura a confirmar na T7-R. Conferir também a política de conteúdo e serviços de saúde da Play (conferir no Play Console em ____-__-__).
 - [ ] **Classificação e contato:** questionário IARC, público adulto, e-mail de contato de caixa do grupo (conferir no Play Console em ____-__-__).
 - [ ] **Descrição da ficha:** segue R1–R3 do [ADR-004](stack.md#10-registro-de-decisões-arquiteturais-adr) (sem "triagem", "diagnóstico" ou "classificação de risco"), traz o aviso do RF-16 em pt e es e o link para fontes oficiais, contra a política de *Misrepresentation* (conferir no Play Console em ____-__-__).
 - [ ] **Requisito de aparelho na ficha:** o **assistente virtual exige aparelho 64-bit**. Em aparelho 32-bit, o app funciona inteiro pelas regras de segurança, sem o assistente (ADR-009, item 5). Em pt e es (conferir no Play Console em ____-__-__).
@@ -167,7 +167,7 @@ perdem; nada de saúde é guardado.
 
 - O trecho entre `< >` sobre o PET-Saúde só entra quando a citação ao usuário estiver liberada (F-13, ver [ADR-005](stack.md#10-registro-de-decisões-arquiteturais-adr), Revisão); até lá, sai sem ele.
 - A URL da política é **`https://guiasaude.prismrr.com.br/privacidade/`** (§2.9).
-- Na *pre-release*, acrescenta-se no topo que a versão está em teste no estudo piloto do projeto.
+- Na *pre-release*, acrescenta-se no topo que a versão está em teste, ainda não promovida para produção.
 - **Versão da Play, separada e curta.** O campo de notas de versão da Play tem limite de caracteres, de cerca de 500 por idioma (conferir no Play Console na data da publicação). Ali não cabe a nota acima. Na Play vão as novidades em uma ou duas linhas, mais a frase do aviso (não é serviço de saúde, não fala por UBS, SUS, Secretaria ou Ministério; emergência, 192). A conferência de SHA-256 e o aviso de canal ficam só no GitHub. O texto completo do aviso está na ficha da loja (§2.7, "Descrição da ficha").
 
 ---

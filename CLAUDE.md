@@ -16,7 +16,7 @@ O código já existe em `app/` (Flutter), `contract/` + `packer/` (TypeScript), 
 - **Sem vínculo com unidades de saúde, secretarias ou prefeituras.** Nenhum requisito pode pressupor integração, dados ou aprovação delas.
   - "UBS", "UPA" e "posto" são **categorias de serviço do SUS**, não parceiros.
   - Proibido é **atribuir** regra, decisão ou configuração do app a uma unidade (o teste frásico de `app/test/ui/more/no_endorsement_test.dart` reprova isso).
-- **Estudo piloto do projeto:** "piloto" significa este estudo, nunca "piloto em UBS". Tem dois portões: dogfooding interno, e participantes externos, que exigem controlador LGPD identificado e RIPD.
+- **Lançamento e estudo de impacto são etapas separadas** ([ADR-010](spec/stack.md)). O lançamento publica o app: é produto, sem coleta, sem hipótese e sem CEP, e teste com equipe, bolsistas e alunos é QA. O estudo de impacto é pesquisa com seres humanos sobre o app publicado, com TCLE e parecer do CEP antes do 1º participante (Lei 14.874/2024), e coleta fora do app. Nada observado no lançamento vira resultado do estudo. "Piloto", nome de antes de 2026-11-09, não nomeia mais etapa. TCLE e base LGPD nunca na mesma cláusula.
 - **Pendentes:** o controlador LGPD (F-11) e a citação do PET-Saúde pelo nome ao usuário (F-13). Nenhum texto as decide por conta própria.
 
 ## Hierarquia documental (ordem de precedência)

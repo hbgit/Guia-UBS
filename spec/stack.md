@@ -309,7 +309,7 @@ folga confortável.
 - **Modelo (Gemma 3 1B):** gratuito, mas *open weights* sob termos Google — **não é OSI**. Redistribuí-lo obriga a §3.1 dos Gemma Terms of Use (Notice, cópia dos termos, cláusula nos termos do app), e a Política de Uso Proibido restringe o uso; o enquadramento, a exceção do download direto do Hugging Face e o Gemma 4 (Apache 2.0, mas o E2B tem 2,84 GB e não cabe no ADR-003; não perseguido) estão no [ADR-004](#10-registro-de-decisões-arquiteturais-adr). Alternativas OSI-licenciadas de tamanho equivalente, compatíveis com o mesmo pipeline GGUF: **Qwen2.5 0.5B/1.5B (Apache-2.0)** e **Phi-3.5-mini (MIT)**. A troca é um arquivo — a interface `TriageEngine` e o eval harness clínico decidem por benchmark, não por ideologia.
 - **TTS:** o engine do sistema (Google TTS) é proprietário, embora gratuito e on-device. Opção 100% OSS que também mitiga o risco R7 (ROMs sem engine): **Piper (MIT) via sherpa-onnx**, com vozes pt-BR/es embarcadas (~20 MB/voz). Default continua `flutter_tts` (zero MB); Piper entra como fallback empacotável.
 - **CI:** GitHub Actions é serviço (gratuito para repositório público). Alternativas self-host quando desejado: **Woodpecker CI (Apache-2.0)** ou **Forgejo Actions (MIT)** no mesmo VPS.
-- **Distribuição** ([ADR-006](#10-registro-de-decisões-arquiteturais-adr)): os canais oficiais do APK são **GitHub Releases** (gratuito, com o SHA-256 de cada APK e a impressão do certificado, RF-17) e **Google Play** (taxa única de registro da conta de desenvolvedor). O **F-Droid** fica como canal futuro, não previsto para o estudo piloto: é gratuito e exige build reprodutível — bônus de transparência para um app de saúde pública —, mas em regra assina com chave própria, o que soma mais um canal incompatível com os outros dois (ADR-009). Repasse do APK entre pessoas (Bluetooth/SD) não é canal oficial. O **packer** já é reprodutível sob `SOURCE_DATE_EPOCH` (a convenção de builds reprodutíveis): duas builds do mesmo conteúdo produzem `content.db` byte-idêntico, o que além da transparência evita que a frota re-baixe o pack a cada republicação sem mudança.
+- **Distribuição** ([ADR-006](#10-registro-de-decisões-arquiteturais-adr)): os canais oficiais do APK são **GitHub Releases** (gratuito, com o SHA-256 de cada APK e a impressão do certificado, RF-17) e **Google Play** (taxa única de registro da conta de desenvolvedor). O **F-Droid** fica como canal futuro, não previsto para o lançamento ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)): é gratuito e exige build reprodutível — bônus de transparência para um app de saúde pública —, mas em regra assina com chave própria, o que soma mais um canal incompatível com os outros dois (ADR-009). Repasse do APK entre pessoas (Bluetooth/SD) não é canal oficial. O **packer** já é reprodutível sob `SOURCE_DATE_EPOCH` (a convenção de builds reprodutíveis): duas builds do mesmo conteúdo produzem `content.db` byte-idêntico, o que além da transparência evita que a frota re-baixe o pack a cada republicação sem mudança.
 
 **Custo remanescente honesto:** open source elimina licenças e SaaS, não hardware — resta a **VPS mantida pelo PRISM** ([ADR-007](#10-registro-de-decisões-arquiteturais-adr); único item de fatura recorrente da stack inteira), o destino do backup fora dela e a taxa única da conta do Google Play. Tudo o mais roda com custo marginal zero.
 
@@ -517,6 +517,8 @@ Custos aceitos:
   4. **Gatilho de revisão mensurável, e não só uma data.** Quando o estudo piloto mostrar o volume real de downloads, calcular o custo de servir 806 MB por pessoa a partir do provedor de objeto do backup (F-8), em São Paulo. Para dezenas de pessoas é pouco; para milhares, é dinheiro, e a decisão de trazer o modelo para o Brasil passa a ser informada. A revisão também ocorre em 2027-05-01 ou no critério de saída do estudo piloto (ADR-005, Decisão 7), o que vier primeiro.
 - **Enquadramento e logo.** O "Enquadramento do projeto" foi revisto acima. No "Logo do Telessaúde UFRR", a frase "a participação de um programa não é vínculo formal da universidade com o app" continua literalmente verdadeira enquanto a formalização estiver pendente, mas a cooperação com o PET-Saúde é declarada (ADR-005, Decisão 1, e suas condições para citar o PET-Saúde pelo nome).
 
+**Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** O "estudo com participantes externos" dos gatilhos passa a ser o **estudo de impacto**, e "crescer além do piloto" lê-se "promover para produção na Google Play ou iniciar o estudo de impacto"; "builds de piloto" lê-se "builds do lançamento". O parecer jurídico e o responsável (F-11) continuam como condição da promoção para produção. O CEP passa a ser condição só do estudo de impacto (ADR-010, Decisão 4). "Aparelho do estudo piloto" lê-se "aparelho do dogfooding ou do estudo de impacto". A taxa de falha de download é observada pela loja e pelos relatos de QA, nunca por telemetria (ADR-010, Decisão 5).
+
 ### ADR-005 — Enquadramento institucional: projeto educativo aberto, sem vínculo com unidades de saúde: **ACEITO** (2026-11-02)
 
 **Aprovação.** Contexto institucional e decisões de implantação definidos pelo dono do projeto em 2026-11-02. O nome do app foi decidido na mesma data. O plano de execução está em [`docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md`](../docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md).
@@ -592,6 +594,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
   - surgir proposta de vínculo com unidade de saúde, secretaria ou prefeitura (aí exige ADR novo, não emenda).
 - **Emendar** quando a consulta institucional definir o controlador.
 
+**Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** A Decisão 7 foi dividida. O dogfooding interno e o portão de publicação formam o **lançamento**, e a exigência de TCLE e CEP sai dele para o **estudo de impacto**, que tem portão próprio. O critério de saída vira o critério de promoção para produção (ADR-010, Decisão 3g). O custo aceito 4 lê-se "a promoção para produção e o estudo de impacto esperam o controlador", e o estudo pode depender ainda da formalização da Decisão 1 (ADR-010, Decisão 4). A métrica-norte passa a ser do estudo de impacto. O gatilho de reabrir "se o estudo piloto mostrar que o público lê o app como serviço oficial" lê-se "se o estudo de impacto ou os relatos do lançamento mostrarem…".
+
 ### ADR-006 — Canais oficiais do APK: GitHub Releases e Google Play: **ACEITO** (2026-11-02)
 
 **Contexto.** A **origem** desta decisão é o [ADR-005](#10-registro-de-decisões-arquiteturais-adr), Decisão 6: o APK é distribuído por **GitHub Releases e Google Play**, por pedido do dono do projeto, não por pergunta aberta. Este ADR só detalha. A especificação anterior previa Play + F-Droid + repasse por Bluetooth/SD, sem GitHub Releases, e um canal "a prefeitura distribui" que deixou de existir com o fim da premissa municipal (ADR-005, Custo aceito 2).
@@ -622,6 +626,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 **Revisão.**
 - Reabrir se a Play recusar ou suspender a ficha (aí o GitHub Releases segue sozinho, e o ADR-005 é reaberto pelo nome), se o projeto decidir entrar no F-Droid, ou se um canal novo for proposto.
 - A declaração de Data safety e a de app de saúde são **propostas**, sujeitas à revisão jurídica (T7-R), e conferidas no Play Console na data da publicação. Nada aqui decide base legal.
+
+**Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** Na Decisão 2, a faixa de teste da Play e a *pre-release* do GitHub servem ao dogfooding e ao QA do lançamento, e "o estudo piloto roda na faixa de teste" lê-se assim. O estudo de impacto usa o app publicado. Na Decisão 4 e no custo 3, "estudo piloto" lê-se "lançamento".
 
 ### ADR-007 — Plano de controle numa VPS mantida pelo PRISM: **ACEITO** (2026-11-02)
 
@@ -673,6 +679,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
   - **o modelo já instalado não é baixado de novo**, porque a identidade dele é o SHA-256, não a URL (ADR-004);
   - **mitigação:** renovação automática, alerta de expiração no monitoramento (`implantacao.md` §3.6), titular e plano de transferência no registro operacional fora do repositório (F-2).
 
+**Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** "Quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005" lê-se "quando o lançamento for promovido para produção" (ADR-010, Decisão 3g).
+
 ### ADR-008 — Escopo de conteúdo: de "município" para "edição": **ACEITO** (2026-11-02)
 
 **Contexto.** O contrato do pack e o banco master usam `municipality` (`municipalityCode` no manifest e em `contract/src/content-schema.ts`, as tabelas municipais do CMS, o campo `municipality` da telemetria, `contract/src/telemetry.ts`), desenhados para que cada município publicasse e curasse o próprio pack. O [ADR-005](#10-registro-de-decisões-arquiteturais-adr) (Decisão 4) retirou a premissa: não há prefeitura, secretaria nem curador municipal.
@@ -697,6 +705,8 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 **Revisão.**
 - **Pack único nacional** (F-16, provisório): uma edição nacional, com o mecanismo de edição preservado. Revisar em **2027-05-01** ou quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005 (zero orientação clinicamente incorreta e aprovação da coordenação clínica do projeto), **o que vier primeiro**, ou antes se o estudo pedir uma edição regional.
 - Reabrir se surgir motivo de código para renomear, ou se alguém propuser edição curada por terceiro (aí vale também o ADR-005: parceria exige ADR novo).
+
+**Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** "Quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005" lê-se "quando o lançamento for promovido para produção" (ADR-010, Decisão 3g).
 
 ### ADR-009 — Identidade, versionamento, ABIs e assinatura do app: **ACEITO** (2026-11-02)
 
@@ -770,6 +780,69 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 - Reabrir se a Play mudar o limite de `versionCode` ou a política de assinatura, ou se o projeto passar a enviar chave própria à Play (o que tornaria os canais compatíveis, com a custódia inteira na equipe).
 
 ---
+
+**Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** "Quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005" lê-se "quando o lançamento for promovido para produção" (ADR-010, Decisão 3g), e "defeito achado no estudo piloto" lê-se "defeito achado no dogfooding ou no teste fechado".
+
+### ADR-010 — Lançamento do app separado do estudo de impacto: **ACEITO** (2026-11-09)
+
+**Contexto.** Antes de 2026-11-09, o [ADR-005](#10-registro-de-decisões-arquiteturais-adr), Decisão 7, juntava a publicação do app e o estudo com usuários numa única etapa, o "estudo piloto do projeto", com dois portões. O segundo exigia TCLE e parecer de Comitê de Ética em Pesquisa "se houver coleta de dados de participantes", o que punha a ética em pesquisa no caminho crítico da publicação. O app não coleta dado pessoal ([INV-2](espec.md); [`docs/dados-do-usuario.md`](../docs/dados-do-usuario.md)). A coleta que existe é a do estudo: observação de uso e respostas a entrevistas ([LGPD-RF02](lgpd.md)). Decisão da coordenação do projeto em 2026-11-09.
+
+**Decisão.**
+1. **Duas etapas, cada uma com seu portão.**
+   - **Lançamento (Parte A):** a publicação do app. É produto, não pesquisa: não coleta dados de usuários, não mede hipótese e não observa nem entrevista pessoas externas para fins de pesquisa. Não depende de CEP.
+   - **Estudo de impacto (Parte B):** pesquisa com seres humanos sobre o app **já publicado**.
+2. **"Piloto", nome usado antes de 2026-11-09, deixa de nomear etapa.** Onde se referia à publicação, passa a ser "lançamento". Onde se referia a observar pessoas, passa a ser "estudo de impacto". O dogfooding interno é uma fase do lançamento.
+3. **Portão do lançamento.** Substitui o portão "estudo com participantes externos" do ADR-005, Decisão 7.
+   a. Conteúdo de saúde validado por profissionais com registro ativo, com registro de revisão (quem, qual versão, quando): o portão golden ([#2](https://github.com/hbgit/Guia-UBS/issues/2)) e os atestados `AT-NNNN`. A revisão conta com o PET-Saúde/Telessaúde UFRR, em cooperação com a formalização pendente (ADR-005, Decisão 1), citado ao usuário conforme a F-13.
+   b. Aviso de que o app não substitui atendimento ([RF-16](espec.md)) e encaminhamento explícito dos sinais de alarme para SAMU 192, UPA ou UBS (INV-1).
+   c. Responsável institucional identificado (F-11). Continua no caminho crítico, junto com o parecer jurídico do ADR-004 (Revisão 2026-11-02).
+   d. Política de privacidade e termos publicados em `guiasaude.prismrr.com.br` ([`implantacao.md`](implantacao.md) §2.9), mesmo sem coleta, e políticas da Google Play para apps de saúde conferidas (§2.7).
+   e. Correção de conteúdo publicada em até 7 dias ([RNF-12](espec.md), a antiga H2 do PRD), pelo GitHub Releases e pela Google Play.
+   f. Testes de usabilidade internos (equipe, bolsistas e alunos) são **QA**: não registram dado identificável, não medem hipótese e não são usados depois em publicação. O teste fechado da Play também é QA (DC-D). A ausência do público-alvo é compensada desde já por três mitigações: revisão de linguagem simples por profissionais do PET-Saúde que atendem essa população (ACS, enfermagem), com registro de quem revisou, qual versão e quando; índice de legibilidade em pt-BR como critério de aceite dos textos e roteiros de áudio (índice e limiar a definir); e escuta do TTS em pt e es no aparelho antes da promoção. **Se, e somente se**, o CEP/UFRR se manifestar por escrito de que o desenho não é pesquisa (F-20 d), soma-se a **validação de produto** com pessoas indicadas pelo PET-Saúde como representativas do público-alvo, cabendo a caracterização a quem indica. Antes da tarefa, a pessoa é informada oralmente de que é um teste do produto, voluntário e sem registro, e não assina nada. O teste não tem hipótese, registro identificável nem roteiro de entrevista; o resultado serve só para iterar e é descartado. Se o CEP entender que é pesquisa, a cláusula não se ativa, e o teste com o público-alvo fica no estudo de impacto.
+   g. **Critério de promoção para produção:** nenhuma orientação clinicamente incorreta na revisão clínica, mais a aprovação da coordenação clínica do projeto (DC-B).
+4. **Portão do estudo de impacto.**
+   - **Pré-condição: instituição proponente.** A Plataforma Brasil recebe o protocolo de uma instituição proponente cadastrada, e o CEP é "vinculado à instituição que realiza a pesquisa" (Lei 14.874/2024, art. 2º, X). **Hipótese de trabalho, a confirmar na consulta prévia (F-20 b):** o pesquisador responsável é docente da UFRR, e o CEP/UFRR recebe protocolos de pesquisadores da casa tendo a UFRR como proponente. O "sem vínculo formal" do PRISM (ADR-005, Decisões 1 e 8) diz respeito à publicação do app, não à submissão de um estudo por um docente da UFRR. Se a hipótese não se confirmar, a Parte B passa a depender da formalização da cooperação (custo aceito 4).
+   - **Base LGPD dos dados do estudo:** escolhida com o controlador (F-11). A hipótese de estudos por órgão de pesquisa (art. 7º, IV) só é usada se o controlador confirmar que se enquadra no art. 5º, XVIII. A proponente do estudo e o controlador dos dados do estudo podem ser respondidos juntos (F-11, F-20 b, F-21).
+   - **TCLE e parecer do CEP/UFRR** (Plataforma Brasil) antes do primeiro participante externo. **Postura do projeto:** até manifestação escrita do CEP/UFRR, o projeto não se apoia em nenhuma hipótese de dispensa, porque a Lei 14.874/2024 (art. 6º) e a pendência do regulamento do art. 63, parágrafo único, tornam incerta a aplicação da Res. CNS 510/2016, art. 1º, parágrafo único. O entendimento de que uma atividade não é pesquisa também só vale com manifestação escrita do CEP/UFRR (F-20 c e d).
+   - **Hipóteses:** H1, H1b e H4 do [PRD](PRD.md) §1.3.2.
+   - **Método:** observação de uso e respostas a entrevistas, por canal próprio, fora do app ([LGPD-RF02](lgpd.md)). Os dados agregados da loja (instalações, versões ativas) podem ser insumo.
+   - **Antes do primeiro participante, também:** a base LGPD dos dados do estudo escolhida com o controlador (consentimento, ou termo de informação se a base for o art. 7º, IV), o RIPD (DC-A) e o controlador (F-11).
+5. **Regras de fronteira.**
+   - Nada observado no lançamento vira dado de resultado no estudo de impacto. O CEP não aprova retroativamente.
+   - TCC e relatório do PET-Saúde com dados de participantes só existem dentro do estudo de impacto. Relato de experiência de desenvolvimento, sem dados de pessoas, não entra no CEP. Da Parte A, o PET-Saúde pode reportar o produto, o alcance agregado da loja e o relato de experiência, mas nenhum dado de pessoa.
+   - Telemetria futura é decisão separada, com ADR próprio, LGPD e revisão da INV-2. Não é consequência desta divisão.
+6. **TCLE e consentimento LGPD são exigências distintas.**
+   - O TCLE responde à ética em pesquisa (Lei 14.874/2024, art. 18; Res. CNS 466/2012 e 510/2016) e é exigido pelo CEP.
+   - A base LGPD responde ao tratamento de dados (arts. 7º e 11). Para dados de pesquisa, a LGPD se aplica de forma subsidiária à Lei 14.874/2024 (art. 61).
+   - Podem estar no mesmo documento, nunca na mesma cláusula.
+   - O "li e concordo" dos termos do app não é nenhum dos dois (ADR-004).
+7. **Registro do software** como produção técnica (e, opcionalmente, no INPI) é entregável do lançamento, independente do estudo. A titularidade fica aberta (F-21).
+
+**Decisões complementares (revisão de 2026-11-09).**
+- **DC-A (Q-A).** O RIPD é exigido antes do estudo de impacto. No lançamento, a superfície de dados é o `docs/dados-do-usuario.md`, a confirmar com o encarregado (F-11).
+- **DC-B (Q-B).** O antigo critério de saída vira o critério de promoção para produção (Decisão 3g). Os ADR-007, 008 e 009 recebem Revisões que apontam para ele.
+- **DC-C (Q-C).** Variante **C1+C2**: QA interno e as mitigações de linguagem desde já, mais a validação de produto condicionada à manifestação escrita do CEP/UFRR (F-20 d). Decidida pelo dono do projeto em 2026-11-09, na revisão do plano de implementação.
+- **DC-D (Q-D).** Os testadores do teste fechado da Play são QA do lançamento: equipe, bolsistas e alunos, sem coleta. O mínimo de testadores e de dias é lido no Play Console na data. Se faltar gente interna, a decisão volta à coordenação.
+- **DC-E (Q-E).** A titularidade do registro do software fica aberta (F-21), e a resposta sobre o vínculo institucional (Decisão 4, pré-condição) deve resolvê-la junto.
+
+**Alternativas descartadas.**
+- **Manter publicação e estudo juntos.** O CEP ficaria no caminho da publicação de um app que não coleta nada: semanas a meses de tramitação sem nenhuma proteção a mais para quem usa o app. E o "se houver coleta" continuaria ambíguo, sugerindo que o app é a fonte dos dados.
+- **Remover o CEP de vez.** O estudo observa e entrevista pessoas de populações vulneráveis expostas a orientação de saúde, e o projeto o trata como pesquisa com seres humanos: é a posição conservadora diante da definição da Lei 14.874/2024 (art. 2º, XXXIV), a confirmar na consulta prévia (F-20 a). Sem o parecer, os resultados não são publicáveis, e o CEP não aprova retroativamente.
+
+**Custos aceitos.**
+1. As mitigações da Decisão 3f medem a linguagem, não a compreensão. A validação de produto, se o CEP a aceitar, itera a interface, mas não produz evidência publicável. Em qualquer caso, a evidência de compreensão por quem tem baixo letramento (H1, H1b; risco R2, crítico) só vem do estudo de impacto, depois da publicação.
+2. A fronteira exige disciplina: toda observação precisa de data e de origem (lançamento ou estudo).
+3. Ficam duas listas de aprovação para manter ([`docs/aprovacoes.md`](../docs/aprovacoes.md)).
+4. Se a hipótese de trabalho da Decisão 4 não se confirmar (a UFRR como proponente de um estudo de docente da casa), a Parte B passa a depender da formalização da cooperação (ADR-005, Decisão 1).
+
+**Relação com outros ADRs.** Prevalece sobre o ADR-005, Decisão 7, sobre os gatilhos do ADR-004 e sobre as menções ao estudo nos ADR-006 a 009. Cada um recebe uma Revisão 2026-11-09 que aponta para cá.
+
+**Revisão.** Reabrir se:
+- a consulta prévia ao CEP/UFRR (F-20) entender que o lançamento também precisa de protocolo;
+- a UFRR não puder ser a proponente e não houver outra instituição;
+- a coordenação do PET-Saúde/Telessaúde recusar a regra de fronteira (Decisão 5) ou a própria separação entre lançamento e estudo de impacto (Decisão 1). Ressalva sobre o cronograma da Parte B **não** reabre este ADR: ajusta-se o calendário do estudo de impacto em [`docs/aprovacoes.md`](../docs/aprovacoes.md);
+- sair o regulamento do art. 63 da Lei 14.874/2024;
+- surgir proposta de telemetria.
 
 ## 11. Para o Sponsor — Por que um app "100% offline" ainda precisa de serviços web?
 

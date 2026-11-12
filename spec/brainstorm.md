@@ -119,13 +119,13 @@ Promover **educação social em saúde** sobre o SUS e a Atenção Primária —
 
 - Mapear os 6 fluxos principais (encaminhamento, documentos, fluxo típico da UBS, farmácia, vacinas e, como apoio, triagem) em wireframes de baixa fidelidade.
 - Definir a gramática visual: catálogo inicial de ~60 ícones com significado único.
-- **Critério de saída:** fluxos navegáveis em papel/Figma validados com 3–5 usuários representativos (incluindo ao menos 1 pessoa de baixo letramento).
+- **Critério de saída:** fluxos navegáveis em papel/Figma conferidos por 3 a 5 pessoas da equipe, bolsistas ou alunos, como QA, e revisados em linguagem simples por profissionais do PET-Saúde que atendem o público-alvo. Se, e somente se, o CEP/UFRR se manifestar por escrito de que o desenho não é pesquisa (F-20 d), também com 3 a 5 pessoas indicadas pelo PET-Saúde como representativas do público-alvo, como validação de produto: informação oral de que é teste do produto, voluntário e sem registro, sem assinatura; sem hipótese, registro identificável ou roteiro de entrevista; resultado descartado depois da iteração (ADR-010, 3f). Sem a manifestação, o teste com o público-alvo fica no M8.
 
 ### M2 — Protótipo Funcional de UI/UX (Semanas 3–5)
 
 - Protótipo interativo de alta fidelidade (Figma) com a identidade minimalista final.
 - Teste de usabilidade sem mediação verbal: o usuário consegue entender um módulo educativo (UBS × UPA, o que levar) e completar a triagem sem que ninguém explique o app?
-- **Critério de saída:** taxa de conclusão ≥ 80% das tarefas-chave por usuários do público-alvo, sem ajuda.
+- **Critério de saída:** ≥ 80% das tarefas-chave concluídas sem ajuda no QA interno (a validação de produto, se ativada, não tem métrica de sucesso: só aponta onde a interface travou); textos e roteiros de áudio dentro do limiar de legibilidade; TTS pt e es ouvido no aparelho. É sinal para iterar, não evidência de H1 (PRD §1.3.2).
 
 ### M3 — Configuração do Backend e Arquitetura Local (Semanas 5–7)
 
@@ -151,25 +151,47 @@ Promover **educação social em saúde** sobre o SUS e a Atenção Primária —
 - Testes de segurança: validação de assinatura dos pacotes de conteúdo; auditoria das respostas de triagem contra os protocolos oficiais (revisão por profissional de saúde).
 - Teste de estabilidade: 72h de uso simulado offline sem crash.
 
-### M6 — Estudo Piloto do Projeto (Semanas 19–21)
+### M6 — Portão de Lançamento (Semanas 19–21)
 
-Conduzido pelo PRISM/PET-Saúde com voluntários da comunidade, **fora de unidades de saúde** ([ADR-005](stack.md), Decisão 7). Dois portões, nesta ordem:
+Parte A do [ADR-010](stack.md): a publicação do app. É produto, não pesquisa: não coleta dados de usuários, não mede hipótese e não observa nem entrevista pessoas externas para fins de pesquisa. Não passa por unidade de saúde ([ADR-005](stack.md), Decisão 7) e não depende do CEP.
 
-- **Portão 1 — dogfooding interno:** só a equipe do projeto, ciente de que os textos legais podem estar incompletos. Canal: pré-release do GitHub ou faixa interna da Play.
-- **Portão 2 — estudo com participantes externos:** voluntários da comunidade, pela faixa de teste fechado da Play e/ou pré-release do GitHub. Exige antes a política de privacidade com o controlador identificado (LGPD, art. 9º), o RIPD e, **se** houver coleta de dados de participantes, TCLE e parecer de Comitê de Ética em Pesquisa.
-- Validação das orientações pela coordenação clínica do projeto (profissionais de saúde colaboradores, com registro ativo, sem representar unidade).
-- **Critério de saída:** zero orientações clinicamente incorretas registradas + aprovação da coordenação clínica do projeto. Nenhum dos portões passa por unidade de saúde.
+- **Dogfooding interno e QA:** equipe, bolsistas e alunos, sem dado identificável e sem uso posterior em publicação. O canal é a *pre-release* do GitHub ou a faixa de teste da Play; o teste fechado que a Play exige também é QA (ADR-010, DC-D).
+- **Portão (ADR-010, Decisão 3):**
+  - conteúdo validado, com registro de revisão;
+  - aviso de que o app não substitui atendimento, e encaminhamento dos sinais de alarme para SAMU 192, UPA ou UBS;
+  - responsável institucional (F-11);
+  - política e termos publicados, com as políticas da Play para apps de saúde conferidas;
+  - correção de conteúdo em ≤ 7 dias (RNF-12);
+  - a mitigação do R2 da Decisão 3f.
+- **Critério de promoção para produção:** nenhuma orientação clinicamente incorreta na revisão clínica, mais a aprovação da coordenação clínica do projeto.
+- **Em paralelo:** a consulta prévia ao CEP (F-20) e o protocolo do estudo de impacto (M8).
 
 ### M7 — Lançamento, Operações e Manutenção (Semana 22 em diante)
 
 - **Canais oficiais:** GitHub Releases (APK com SHA-256 e impressão do certificado — [espec](espec.md) RF-17) e Google Play, os dois alimentados pelo pipeline de release ([espec](espec.md) RNF-10). Os APKs dos dois canais não se atualizam um sobre o outro. Repassar o APK de pessoa para pessoa (Bluetooth/cartão SD) não é proibido, mas não é canal oficial; F-Droid fica como possibilidade futura, sem compromisso.
-- Monitoramento pós-lançamento por telemetria anônima e agregada (enviada apenas nas janelas de sync).
+- Sem telemetria: o app não envia nada (INV-2), e uma telemetria exigiria ADR próprio ([ADR-010](stack.md), Decisão 5). O acompanhamento pós-lançamento usa os agregados da loja e os relatos de correção (RNF-12).
+- **Registro do software** como produção técnica (opcional: INPI; titularidade F-21).
 - Ciclo mensal de atualização dos pacotes de conteúdo (campanhas nacionais, conteúdo educativo revisado) e trimestral do app.
 - Backlog v2: Funcionalidades 7, 8 e 9 completas (línguas indígenas), edições regionais de conteúdo, modo multiplicador.
 
+### M8 — Estudo de Impacto (coleta depois da 1ª versão em produção)
+
+Parte B do [ADR-010](stack.md): pesquisa com seres humanos sobre o app já publicado, com voluntários da comunidade, fora de unidades de saúde. A tramitação começa em paralelo com o M6.
+
+- **Instituição proponente:** a hipótese de trabalho é a UFRR, com o docente responsável como pesquisador. Ela é confirmada na consulta prévia (F-20 b; ADR-010, Decisão 4).
+- **Antes do 1º participante:**
+  - TCLE e parecer do CEP/UFRR (Plataforma Brasil);
+  - base LGPD dos dados do estudo, distinta do TCLE ([lgpd.md](lgpd.md), RF02);
+  - RIPD (ADR-010, DC-A);
+  - controlador (F-11);
+  - meta de alcance (F-14).
+- **Hipóteses:** H1, H1b e H4 ([PRD](PRD.md) §1.3.2).
+- **Método:** observação de uso e entrevistas, por canal próprio, fora do app ([`docs/dados-do-usuario.md`](../docs/dados-do-usuario.md) §5). Os agregados da loja são insumo.
+- **Fronteira:** nada observado no lançamento vira resultado. TCC e relatório do PET-Saúde com dados de participantes só existem aqui (ADR-010, Decisão 5).
+
 ## Definição do MVP (v1.0)
 
-**Princípio de corte:** o MVP deve provar as duas hipóteses de risco — (a) a interface iconográfica com áudio ensina o público-alvo sem mediação, e a IA local apoia o encaminhamento com segurança; (b) a arquitetura offline-first com sync de oportunidade é confiável.
+**Princípio de corte:** o MVP entrega o que sustenta as duas hipóteses de risco, sem prová-las antes da publicação ([ADR-010](stack.md)): (a) "a interface iconográfica com áudio ensina o público-alvo sem mediação" é premissa até o estudo de impacto (M8, H1/H1b), e a IA local apoiar o encaminhamento com segurança é garantido pela camada de regras e pela suíte golden; (b) a arquitetura offline-first com sync de oportunidade é validada em rede instável simulada (M3) e operada pelo RNF-12.
 
 ### Dentro do MVP
 
@@ -191,8 +213,11 @@ Conduzido pelo PRISM/PET-Saúde com voluntários da comunidade, **fora de unidad
 
 ### Métricas de sucesso do MVP
 
-- **Métrica-norte (provisória, F-14):** módulos educativos concluídos sem mediação. A meta é fixada com o PET-Saúde antes do 1º participante externo; a métrica é revisada até 2027-05-01 ou no fim do estudo piloto ([ADR-005](stack.md), Revisão).
-- Secundária: ≥ 80% dos participantes do estudo piloto completam uma triagem sem ajuda humana.
+**Lançamento:**
 - 100% dos casos com sinais de alarme direcionados corretamente à emergência (camada de regras).
-- ≥ 90% dos dispositivos do estudo piloto recebem uma atualização de conteúdo via sync de oportunidade em até 7 dias.
-- Redução autodeclarada de deslocamentos inúteis entre os participantes do estudo piloto.
+- Correção de conteúdo publicada em ≤ 7 dias (RNF-12, antiga H2).
+
+**Estudo de impacto** ([ADR-010](stack.md)):
+- **Métrica-norte (provisória, F-14):** módulos educativos concluídos sem mediação. A meta é fixada com o PET-Saúde antes do 1º participante do estudo de impacto; a métrica é revisada até 2027-05-01 ou no fim do estudo de impacto ([ADR-005](stack.md), Revisão).
+- Secundária: ≥ 80% dos participantes do estudo de impacto completam uma triagem sem ajuda humana.
+- Redução autodeclarada de deslocamentos inúteis entre os participantes do estudo de impacto.
