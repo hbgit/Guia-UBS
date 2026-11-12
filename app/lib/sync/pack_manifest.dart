@@ -55,6 +55,19 @@ class ArtifactRef {
   final int bytes;
 }
 
+/// De onde baixar o modelo SLM, como o manifest ASSINADO diz (plano B;
+/// Revisão do ADR-004). A identidade do modelo continua no binário
+/// (`model_catalog.dart`): quem decide se esta URL vale é `resolveModelUri`,
+/// que exige o mesmo [sha256] do modelo compilado e a origem certa.
+@immutable
+class ManifestModel {
+  const ManifestModel({required this.url, required this.sha256});
+
+  /// Absoluta ou relativa à URL do manifest.
+  final String url;
+  final String sha256;
+}
+
 /// Manifest já **verificado**. Não existe instância desta classe cuja
 /// assinatura não tenha sido conferida: o único caminho de construção passa
 /// por [ManifestVerifier].
@@ -70,6 +83,7 @@ class PackManifest {
     required this.publishedAt,
     required this.keyId,
     required this.rawBytes,
+    this.model,
   });
 
   final String schemaVersion;
@@ -82,6 +96,9 @@ class PackManifest {
   final List<ArtifactRef> assets;
   final int minAppBuild;
   final String publishedAt;
+
+  /// `null` quando o manifest não traz `model` (packer anterior ao plano B).
+  final ManifestModel? model;
 
   /// Qual chave pública embarcada validou a assinatura (rotação dual-key).
   final String keyId;
@@ -180,7 +197,28 @@ PackManifest parseVerifiedManifest(
     publishedAt: publishedAt,
     keyId: keyId,
     rawBytes: rawBytes,
+    model: json.containsKey('model') ? _model(json['model']) : null,
   );
+}
+
+/// `model` é estrito como no Zod (`.strict()`): exatamente `url` e `sha256`.
+/// Campo a mais, mesmo assinado, é recusado — o app não deve aprender a
+/// ignorar o que não entende num objeto que decide para onde vai o IP dele.
+/// `"model": null` também é recusado, como no Zod (`optional`, não `nullable`).
+ManifestModel _model(Object? value) {
+  if (value is! Map) {
+    throw const ManifestFormatException('model não é objeto');
+  }
+  final extra = value.keys.where((k) => k != 'url' && k != 'sha256').toList();
+  if (extra.isNotEmpty) {
+    throw ManifestFormatException('model com campo desconhecido: $extra');
+  }
+  final json = value.cast<String, Object?>();
+  final sha = _string(json, 'sha256');
+  if (!_sha256Pattern.hasMatch(sha)) {
+    throw const ManifestFormatException('model.sha256 não é hex minúsculo de 64');
+  }
+  return ManifestModel(url: _string(json, 'url'), sha256: sha);
 }
 
 final RegExp _sha256Pattern = RegExp(r'^[0-9a-f]{64}$');

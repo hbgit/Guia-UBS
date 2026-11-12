@@ -32,6 +32,21 @@ cp packer/out/manifest.json app/test/fixtures/sync/manifest-v2.json
 cp packer/out/content.db    app/test/fixtures/sync/pack-v2.db
 ```
 
+### `manifest-v3-model.json` (plano B)
+
+Prova que o campo `model` assinado em Node fecha em Dart. O `pack:build`
+recusa assinar sem a revisão clínica da #2, então esta fixture sai do mesmo
+gerador SINTÉTICO do job `interop`: o "pack" referenciado são bytes de texto
+(nenhum `.db` acompanha), e só o manifest importa aqui.
+
+```sh
+SHA=8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135
+SOURCE_DATE_EPOCH=1787097600 node --import tsx packer/test/support/manifest-interop.ts \
+  --key contract/keys/dev-k1.pem --out /tmp/v3 \
+  --model-url "../models/gemma-3-1b-it-Q4_K_M-$SHA.gguf" --model-sha256 "$SHA"
+cp /tmp/v3/manifest.json app/test/fixtures/sync/manifest-v3-model.json
+```
+
 Se o conteúdo de `seed/` mudar, os hashes mudam junto. Os testes referenciam
 alguns por constante — `packV1Url`, `packV2Url` e `packV1Hash` em
 `test/sync/sync_service_test.dart`, e o hash esperado em
