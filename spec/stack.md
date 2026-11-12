@@ -705,7 +705,6 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
 
 **Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** "Quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005" lê-se "quando o lançamento for promovido para produção" (ADR-010, Decisão 3g).
 
-
 **Revisão 2026-11-12 (plano B) — host de conteúdo provisório sem MinIO; o object store do item 27 fica em aberto.**
 - **Até o item 27, o conteúdo sai de um host só de conteúdo nesta VPS** (`infra/compose.content.yaml`): um único serviço, o `edge`, um Caddy `file_server` sobre um diretório (`infra/Caddyfile.content`). Ele serve só GET/HEAD, não lista diretórios (#46) e mantém os mesmos `Cache-Control` do `infra/Caddyfile`. A publicação é por `rsync` via SSH (Revisão 2026-11-12 do ADR-001). O nome e a URL embarcada (`/content-packs/<edição>/manifest.json`) são os da Decisão 4, então o item 27 troca o backend sem release do app.
 - **Por que sem MinIO.** Conferido em 2026-11-12:

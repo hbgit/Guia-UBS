@@ -45,7 +45,7 @@ Estas regras são de segurança clínica/legal, não preferências (detalhes em 
 
 ## Decisões de stack já tomadas (não reabrir sem ADR)
 
-- **100% open source** (stack.md §9): Turso→`sqld` self-host, R2/CDN→MinIO+Caddy, Railway→Compose+Ansible. Não reintroduzir SaaS pago sem registrar novo ADR em stack.md §10.
+- **100% open source** (stack.md §9): Turso→`sqld` self-host, R2/CDN→MinIO+Caddy (o MinIO community foi arquivado; o host de conteúdo provisório é só Caddy, e o object store do CMS é pendência do item 27, Revisão 2026-11-12 do ADR-007), Railway→Compose+Ansible. Não reintroduzir SaaS pago sem registrar novo ADR em stack.md §10.
 - **Vercel rejeitado** (ADR-001, stack.md §10) — só reavaliar se surgir superfície web dinâmica pública.
 - O `docker-compose.yaml` de stack.md §7 **é** a topologia de produção planejada (paridade dev/prod literal).
 - Type safety cruza TS→Dart por codegen: schema Drizzle → Zod → `pack-schema.json` → freezed; mudança de schema deve quebrar `flutter analyze` no mesmo PR (stack.md §3.3).
@@ -192,7 +192,10 @@ docker compose -f infra/compose.yaml config --quiet
   - **O `applicationId` é permanente depois da 1ª publicação na Play.** O id de hoje, `br.gov.exemplo.guia_ubs`, é de exemplo e nunca sobe. O definitivo é `br.com.prismrr.guiasaude` e mora só no ADR-009. Ele vem do domínio do projeto. O nome, a renovação e o que acontece se o domínio for perdido estão no ADR-007 (Decisão 4 e Revisão): cite por referência, não repita.
   - **`--split-per-abi` sobrescreve o `versionCode`** (`abi*1000 + código`, no plugin gradle do Flutter), e o deslocamento cai dentro da fórmula `MAJOR*10000 + MINOR*100 + PATCH`. Por isso sai um build por ABI, e MINOR e PATCH ficam ≤ 99.
   - **`docker compose up` sem `-f compose.yaml` carrega o override de dev** (edge sem TLS). Na VPS, o `-f` é obrigatório.
-  - **A chave Ed25519 do pack nunca vai para CI.** Enquanto a VPS não existe, assina-se na máquina de um mantenedor, com um segundo mantenedor reconstruindo o pack e conferindo o hash (Revisão do ADR-001).
+  - **A chave Ed25519 do pack nunca vai para CI.** Enquanto a VPS não existe, assina-se na máquina de um mantenedor, com um segundo mantenedor reconstruindo o pack e conferindo o hash (Revisão do ADR-001; runbook em `docs/operacao.md` §2.7b).
+  - **Release sem `PACK_SIGNING_KEY_K1` embarca a chave de DESENVOLVIMENTO**, que é pública no repositório, e aceitaria pack assinado por qualquer pessoa. A guarda (`app/tool/model_url_check.dart`) reprova isso no `build_apk.sh` **e** num passo próprio antes do AAB, que não passa pelo script.
+  - **Host de conteúdo: pack antes, manifest por último, nada sobrescrito.** `npm run content:publish` garante a ordem e aborta se o destino tiver o mesmo nome com bytes diferentes; o `publisher` da VPS escreve e não apaga (`rrsync -no-del`).
+  - **A URL do modelo pode vir do manifest assinado, mas só no mesmo sha e na mesma origem** (`app/lib/sync/model_source.dart`). Afrouxar a regra de origem faria um manifest assinado mandar o IP do usuário a um terceiro host.
   - **Editar um documento legal sem bump é invisível para quem já aceitou.** Qualquer edição em `app/assets/legal/{termos,privacidade}_*.md`, até de acento, exige no mesmo commit:
     - o `<!-- versao -->` dos quatro documentos;
     - `termsVersion` (`app/lib/legal/terms.dart`);
