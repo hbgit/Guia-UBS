@@ -36,7 +36,7 @@ O dogfooding interno e o QA não exigem aprovação externa (ADR-010, Decisão 3
 | Exigência | Base | Estado em 2026-11-09 |
 |---|---|---|
 | Consulta prévia informal ao CEP/UFRR | ADR-010, Decisões 3f e 4; **F-20** | a fazer |
-| Instituição proponente. Hipótese de trabalho: a UFRR, com o docente responsável como pesquisador | ADR-010, Decisão 4 | a confirmar na F-20 (b) |
+| Instituição proponente. Hipótese de trabalho: a UFRR, com o docente responsável como pesquisador | ADR-010, Decisão 4 | com acordo do PET-Saúde/Telessaúde (2026-11-12); falta a confirmação do CEP/UFRR na F-20 (b) |
 | TCLE e parecer do CEP/UFRR (Plataforma Brasil) antes do 1º participante | ADR-010, Decisão 4; Lei 14.874/2024 | protocolo não submetido |
 | Base LGPD dos dados do estudo (consentimento, ou termo de informação se for o art. 7º, IV), em seção distinta do TCLE | [`spec/lgpd.md`](../spec/lgpd.md), RF02; ADR-010, Decisão 6 | depende da F-11 |
 | Controlador LGPD e encarregado | LGPD, art. 9º; F-11 | aberta (**F-11**) |
@@ -57,7 +57,13 @@ Regra de fronteira do ADR-010, Decisão 5:
 | Lançamento | O produto, o alcance agregado da loja (instalações, versões ativas) e o relato de experiência de desenvolvimento | Qualquer dado de pessoa, inclusive o que se observar no QA ou no dogfooding |
 | Estudo de impacto | Resultados com participantes, depois do parecer do CEP e dentro do protocolo | Dados coletados antes do parecer, porque o CEP não aprova retroativamente |
 
-O alinhamento com a coordenação do PET-Saúde/Telessaúde é condição da PR do ADR-010. **E-mail enviado em 2026-11-10; aguardando resposta.**
+O alinhamento com a coordenação do PET-Saúde/Telessaúde é condição da PR do ADR-010. **Concluído:** o e-mail foi enviado em 2026-11-10, e a resposta, registrada em 2026-11-12, foi **sim** às três perguntas do coordenador do PET-Saúde/Telessaúde:
+
+1. aceita a regra de fronteira (ADR-010, Decisão 5), ou seja, o que o PET reporta da Parte A;
+2. aceita o cronograma da Parte B, com resultados de participantes só depois do parecer do CEP;
+3. está de acordo com a hipótese de trabalho de a UFRR ser a proponente, com o docente responsável (ADR-010, Decisão 4).
+
+A resposta fica guardada no e-mail do grupo, fora do repositório. As regras abaixo continuam valendo se a posição do PET mudar.
 
 - **Recusa da regra de fronteira ou da separação em si:** a PR não sai de rascunho e o ADR-010 é reaberto.
 - **Ressalva sobre o cronograma da Parte B:** não reabre o ADR-010. O calendário do estudo de impacto é ajustado neste quadro.

@@ -650,7 +650,7 @@ sys.exit(1 if bad else 0)
 
 Nenhuma destas ações gera commit. Elas são da coordenação e ficam registradas aqui para não se perderem. O item 1 é condição da PR; os outros correm em paralelo.
 
-- [ ] **1. Alinhamento com a coordenação do PET-Saúde/Telessaúde, antes de a PR sair de rascunho.** O PET-Saúde presta contas ao Ministério da Saúde e tem cronograma próprio de relatório. A regra de fronteira (ADR-010, Decisão 5) afeta esses prazos diretamente.
+- [x] **1. Alinhamento com a coordenação do PET-Saúde/Telessaúde, antes de a PR sair de rascunho.** Feito: e-mail em 2026-11-10, resposta "sim" às três perguntas registrada em 2026-11-12. O PET-Saúde presta contas ao Ministério da Saúde e tem cronograma próprio de relatório. A regra de fronteira (ADR-010, Decisão 5) afeta esses prazos diretamente.
   - Da Parte A, o PET pode reportar o produto, o alcance agregado da loja e o relato de experiência, mas nenhum dado de pessoa.
   - Resultados com participantes só saem depois do parecer do CEP, na Parte B.
   - Confirme a hipótese de trabalho da Decisão 4: a Parte B submetida pelo docente responsável, com a UFRR como proponente.
