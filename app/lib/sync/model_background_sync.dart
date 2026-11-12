@@ -67,18 +67,7 @@ Future<bool> runModelSyncTask({
 
   try {
     final result = await downloader.ensureAvailable();
-    return switch (result) {
-      // Pronto: o trabalho cumpriu seu papel e não precisa voltar.
-      ModelReady() => true,
-      // `false` pede REAGENDAMENTO com backoff. É o desfecho normal de uma
-      // janela que fechou no meio — o parcial ficou salvo e a próxima
-      // execução continua dele.
-      ModelUnavailable(reason: ModelUnavailableReason.interrupted) => false,
-      // Sem disco ou arquivo inválido: repetir agora não resolve. Devolver
-      // `true` evita queimar bateria numa tentativa que já sabemos inútil;
-      // a próxima janela periódica tenta de novo.
-      ModelUnavailable() => true,
-    };
+    return modelTaskDone(result, backoff: const ModelSyncPolicy().backoff);
   } finally {
     downloader.close();
   }
@@ -139,6 +128,31 @@ Future<bool> _termsAcceptedOnDisk() async {
     return false;
   }
 }
+
+/// `true` = o WorkManager NÃO reagenda com backoff (a próxima janela
+/// periódica tenta); `false` = reagenda com [backoff].
+bool modelTaskDone(ModelFetchResult result, {required Duration backoff}) =>
+    switch (result) {
+      // Pronto: o trabalho cumpriu seu papel e não precisa voltar.
+      ModelReady() => true,
+      // O servidor pediu para esperar mais que o backoff (429/503): um
+      // reagendamento curto desrespeitaria o pedido e, atrás de um CGNAT,
+      // gastaria a cota de todo mundo. Espera a próxima janela periódica.
+      ModelUnavailable(
+        reason: ModelUnavailableReason.interrupted,
+        :final retryAfter?,
+      )
+          when retryAfter > backoff =>
+        true,
+      // `false` pede REAGENDAMENTO com backoff. É o desfecho normal de uma
+      // janela que fechou no meio — o parcial ficou salvo e a próxima
+      // execução continua dele.
+      ModelUnavailable(reason: ModelUnavailableReason.interrupted) => false,
+      // Sem disco ou arquivo inválido: repetir agora não resolve. Devolver
+      // `true` evita queimar bateria numa tentativa que já sabemos inútil;
+      // a próxima janela periódica tenta de novo.
+      ModelUnavailable() => true,
+    };
 
 Future<ModelArtifact> _effectiveFromDisk() async {
   try {

@@ -362,6 +362,66 @@ void main() {
     expect(dest.readAsBytesSync(), payload);
   });
 
+  // Plano B, Task 5: 429 do Hugging Face.
+  test('429 aparece como interrompido, nao como integridade', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((r) {
+      r.response
+        ..statusCode = HttpStatus.tooManyRequests
+        ..headers.set('retry-after', '600')
+        ..close();
+    });
+    final downloader = ModelDownloader(
+      artifact: ModelArtifact(
+        url: 'http://${server.address.host}:${server.port}/m-$hash.gguf',
+        sha256: hash,
+        sizeBytes: payload.length,
+        fileName: 'modelo.gguf',
+      ),
+      destination: File('${tmp.path}/modelo.gguf'),
+      downloader: ResumableDownloader(writerLabel: 'teste'),
+      requiredFreeBytes: 0,
+    );
+    addTearDown(downloader.close);
+
+    final r = await downloader.ensureAvailable() as ModelUnavailable;
+    expect(r.reason, ModelUnavailableReason.interrupted);
+    expect(r.retryAfter, const Duration(minutes: 10));
+  });
+
+  group('reagendamento do worker', () {
+    const backoff = Duration(minutes: 15);
+    test('interrompido sem retryAfter pede reagendamento', () {
+      expect(
+        modelTaskDone(
+            const ModelUnavailable(ModelUnavailableReason.interrupted),
+            backoff: backoff),
+        isFalse,
+      );
+    });
+
+    test('retryAfter maior que o backoff nao pede reagendamento curto', () {
+      expect(
+        modelTaskDone(
+            const ModelUnavailable(ModelUnavailableReason.interrupted,
+                retryAfter: Duration(hours: 1)),
+            backoff: backoff),
+        isTrue,
+      );
+    });
+
+    test('retryAfter menor que o backoff segue o backoff', () {
+      expect(
+        modelTaskDone(
+            const ModelUnavailable(ModelUnavailableReason.interrupted,
+                retryAfter: Duration(minutes: 1)),
+            backoff: backoff),
+        isFalse,
+      );
+    });
+  });
+
   test('worker sem aceite dos termos nao baixa e nao pede reagendamento',
       () async {
     // ADR-004: o job periodico de uma versao anterior sobrevive a

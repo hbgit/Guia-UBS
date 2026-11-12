@@ -59,7 +59,15 @@ final class ModelReady extends ModelFetchResult {
 /// Modelo indisponível — o app segue em modo degradado.
 @immutable
 final class ModelUnavailable extends ModelFetchResult {
-  const ModelUnavailable(this.reason, {this.detail, this.bytesSoFar = 0});
+  const ModelUnavailable(
+    this.reason, {
+    this.detail,
+    this.bytesSoFar = 0,
+    this.retryAfter,
+  });
+
+  /// Quanto o servidor pediu para esperar (429/503), quando pediu.
+  final Duration? retryAfter;
 
   final ModelUnavailableReason reason;
 
@@ -175,10 +183,12 @@ class ModelDownloader {
 
     return switch (outcome) {
       DownloadCompleted(:final file) => ModelReady(file),
-      DownloadInterrupted(:final bytesSoFar, :final reason) => ModelUnavailable(
+      DownloadInterrupted(:final bytesSoFar, :final reason, :final retryAfter) =>
+        ModelUnavailable(
           ModelUnavailableReason.interrupted,
           detail: reason,
           bytesSoFar: bytesSoFar,
+          retryAfter: retryAfter,
         ),
       DownloadRejected(:final reason) => ModelUnavailable(
           ModelUnavailableReason.rejected,
