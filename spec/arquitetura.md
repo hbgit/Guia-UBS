@@ -1309,6 +1309,30 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 **Achados.** O `endpoint_config.dart` importava `package:flutter/foundation` só pelo `kDebugMode`, e o guarda de build, que roda por `dart run`, não compilava; o `build_apk_test` pegou. A constante agora vem de `dart.vm.product`/`dart.vm.profile`, a mesma definição do Flutter. Consequência da regra de `https`: verificação em profile contra o edge de dev em `http` deixa de funcionar — usar debug.
 
+
+#### 5.20 Medição do Hugging Face (plano B, 2026-11-12)
+
+**Para que serve.** A Revisão 2026-11-12 do ADR-004 deixa o modelo no Hugging Face até um gatilho de saída (Q-B3). Esta medição calibra o gatilho e o tratamento do 429 no app (`lib/sync/resumable_downloader.dart`, `parseRetryAfter`).
+
+**Limite oficial** ([huggingface.co/docs/hub/rate-limits](https://huggingface.co/docs/hub/rate-limits), consultado em 2026-11-12, tabela "em setembro de 2025"): usuário anônimo tem **3.000 requisições de *resolver* por IP em janela fixa de 5 minutos**. A página avisa que o limite de anônimos e de usuários gratuitos "muda com o tempo conforme a saúde da plataforma". Ao estourar, o Hub devolve **429** com os cabeçalhos do rascunho IETF `ratelimit-headers`.
+
+**Medido** em 2026-11-12, por volta das 23:28 UTC, a partir de uma rede fixa residencial no Brasil, com a URL da exceção (`huggingFaceExceptionUrl`):
+
+| Medida | Resultado |
+|---|---|
+| `HEAD -L`, 3 vezes | `302` → `200`, `content-length: 806058240`, `x-linked-size: 806058240` |
+| Cabeçalhos | `ratelimit: "resolvers";r=2999;t=154` e `ratelimit-policy: "fixed window";"resolvers";q=3000;w=300` |
+| Cota | `r` cai 1 por requisição: 2999, 2998, 2997, e 2992 depois de 3 downloads completos e mais 4 requisições. Uma retomada por `Range` é uma requisição a mais |
+| `Range: bytes=0-9` | `206`, 10 bytes |
+| Download completo, 3 vezes | 21,4 s, 21,4 s e 25,0 s (cerca de 37 MB/s), com 1 redirecionamento; sha256 `8ccc5cd1…a135`, igual ao do catálogo |
+| 429 | nenhum |
+
+**Duas coisas que a medição mostrou:**
+- **O `302` leva a outro host**, `us.aws.cdn.hf.co` (caminho `xet-bridge-us/…`): os bytes vêm de uma CDN nos EUA. O cliente HTTP do app segue o redirecionamento. A regra de origem da Task 4 vale para a URL que o app pede (`huggingface.co`), não para o destino do `302`. Isso já era assim desde a exceção do ADR-004 e é o que o `docs/dados-do-usuario.md` §3 chama de "Hugging Face".
+- **O formato do `RateLimit` é o que o `parseRetryAfter` lê** (`t=<segundos>`). Um 429 passa a ser "tente depois", e não "arquivo inválido".
+
+**Limite da medição.** Três downloads de uma máquina não medem uma frota. O risco real é o **CGNAT das operadoras móveis**, com muitos aparelhos atrás de um IP somando a mesma cota. Por isso o gatilho da Q-B3 também conta os relatos de QA. **Pendente:** a medição a partir de uma rede móvel brasileira (aparelho compartilhando dados), com pelo menos um download completo e três `HEAD`, registrada aqui com a data.
+
 ### Fase 3.5 — Interface de operação (pré-requisito de release pública) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅

@@ -527,6 +527,22 @@ Custos aceitos:
 
 **Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** O "estudo com participantes externos" dos gatilhos passa a ser o **estudo de impacto**, e "crescer além do piloto" lê-se "promover para produção na Google Play ou iniciar o estudo de impacto"; "builds de piloto" lê-se "builds do lançamento". O parecer jurídico e o responsável (F-11) continuam como condição da promoção para produção. O CEP passa a ser condição só do estudo de impacto (ADR-010, Decisão 4). "Aparelho do estudo piloto" lê-se "aparelho do dogfooding ou do estudo de impacto". A taxa de falha de download é observada pela loja e pelos relatos de QA, nunca por telemetria (ADR-010, Decisão 5).
 
+
+**Revisão 2026-11-12 (plano B) — a URL do modelo sai do APK para o manifest assinado; gatilho e teto da saída do Hugging Face.** Cumpre as condições 1, 3 e 4 da Revisão 2026-11-02.
+- **Q-B2, o que o manifest carrega:** `model: {url, sha256}`, opcional e assinado (`contract/src/manifest.ts`, `app/lib/sync/pack_manifest.dart`). O app (`app/lib/sync/model_source.dart`, `resolveModelUri`) só usa a URL se:
+  - o `sha256` for o do modelo que ele compilou;
+  - a URL resolvida (a relativa resolve contra o manifest) for `https` fora do debug;
+  - ela ficar **na origem do manifest ou no host do `MODEL_URL` embarcado**.
+
+  Senão, vale o `MODEL_URL` compilado. Trocar de **host** vira uma edição assinada; trocar de **modelo** continua exigindo release, porque o sha, o tamanho e o nome em disco moram em `model_catalog.dart`. A regra de origem impede que um manifest assinado mande o IP do usuário a um terceiro host, e é ela que torna verdadeira a promessa do `docs/dados-do-usuario.md` §3. O artefato efetivo é calculado uma vez por processo, então a troca vale **na abertura seguinte** do app ou no disparo seguinte do worker. Um download pela metade continua por `Range` contra o host novo, porque o sha confere no fim.
+- **Q-B3, gatilho de saída:** qualquer um destes:
+  - um **429** na medição ou em teste;
+  - **dois relatos** de QA ou do dogfooding de download do modelo que falhou na mesma semana;
+  - o espelho sumir.
+
+  **Ação:** `npm run content:publish -- --model <arquivo.gguf>` e um manifest com `model.url = ../models/gemma-3-1b-it-Q4_K_M-<sha>.gguf` e o mesmo sha, **sem release**. O 429 já é tratado no app como "tente depois", honrando `Retry-After` e o `t=` do `RateLimit` (`parseRetryAfter`). Antes, ele virava rejeição permanente, a tela dizia "falha de integridade" e o worker não reagendava. A calibragem está em [`arquitetura.md`](arquitetura.md) §5.20: 3.000 requisições de *resolver* por IP a cada 5 minutos para anônimos, sujeito a mudança; o risco real é o CGNAT das operadoras.
+- **Teto de custo da saída:** servir o modelo pela VPS custa cerca de **0,806 GB de egress por instalação**. A saída só é uma simples edição do manifest enquanto `instalações/mês × 0,806 GB ≤ 50 % da franquia mensal de egress da VPS`, isto é, **até `0,5 × franquia (GB) ÷ 0,806` instalações por mês**. A franquia vem do registro operacional (F-1): **pendente**, o mantenedor informa o número e ele entra aqui. Acima do teto, o modelo fica no Hugging Face ou ganha um segundo espelho, e isso é decisão nova, registrada aqui. O egress mensal é conferido no painel da VPS junto do monitoramento ([`implantacao.md`](implantacao.md) §3.6).
+
 ### ADR-005 — Enquadramento institucional: projeto educativo aberto, sem vínculo com unidades de saúde: **ACEITO** (2026-11-02)
 
 **Aprovação.** Contexto institucional e decisões de implantação definidos pelo dono do projeto em 2026-11-02. O nome do app foi decidido na mesma data. O plano de execução está em [`docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md`](../docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md).
