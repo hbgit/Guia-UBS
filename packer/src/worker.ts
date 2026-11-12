@@ -51,6 +51,7 @@ import { buildPack, readRuleModel } from './build-pack.js';
 import { extrairConteudo, lerAtestadosDoBanco, lerGoldenDoBanco } from './extract.js';
 import {
   buildManifest,
+  carregarChavePrivada,
   conferirChaveRegistrada,
   modeloDoManifest,
   publish,
@@ -341,7 +342,10 @@ export async function processar(
     // A guarda de chave vem ANTES do build: descobrir no fim que a chave nao esta
     // registrada desperdicaria o build inteiro, e o erro apareceria depois dos
     // portoes verdes, onde ninguem o procura.
-    conferirChaveRegistrada(keyId, keyPath, await chavesRegistradas(client));
+    // Uma leitura so da chave (pipe do cofre nao reabre): a guarda e a
+    // assinatura usam o mesmo KeyObject.
+    const chave = carregarChavePrivada(keyPath);
+    conferirChaveRegistrada(keyId, chave, await chavesRegistradas(client));
 
     const dados = await extrairConteudo({ client, municipalityId: release.municipalityId });
     const built = buildPack({
@@ -387,6 +391,7 @@ export async function processar(
       minAppBuild: Number(process.env.MIN_APP_BUILD ?? 1),
       keyId,
       privateKeyPath: keyPath,
+      privateKey: chave,
       // Plano B: mesmas envs do CLI. Lidas a cada release, nao no boot do
       // worker: trocar o host do modelo nao deve exigir reiniciar o job.
       ...modeloOpcional(),

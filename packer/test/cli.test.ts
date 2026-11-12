@@ -12,15 +12,28 @@
  * o proprio outDir.
  */
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { createHash, generateKeyPairSync, verify as edVerify } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
-import { avaliarRegistro, avaliarRevisao, conferirContraRegistro } from '@guia-ubs/contract';
+import {
+  avaliarRegistro,
+  avaliarRevisao,
+  canonicalPayload,
+  conferirContraRegistro,
+  type Manifest,
+} from '@guia-ubs/contract';
 
-import { ErroDeUso, executarCli, modoDoComando, type AmbienteCli } from '../src/cli.js';
+import {
+  ErroDeUso,
+  executarCli,
+  modoDoComando,
+  resolveFromRepo,
+  type AmbienteCli,
+} from '../src/cli.js';
 import { lerAtestadosDoYaml, lerGoldenDoYaml } from '../src/validate.js';
 import { REG, REV_CRM, semRevisao } from './support/revisao.js';
 
@@ -239,4 +252,73 @@ test('build com --model-url e --model-sha256 assina o model', async () => {
   assert.equal(r.estado, 'assinado', JSON.stringify(r.problemas));
   const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8'));
   assert.deepEqual(manifest.model, { url: '../models/m.gguf', sha256: sha });
+});
+
+// ---------------------------------------------------------------------------
+// Plano B, Task 6: as verificacoes do §J e a arvore publicavel em out/
+// ---------------------------------------------------------------------------
+
+const sha256De = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+test('pack:check e pack:build geram o mesmo content.db', async () => {
+  // O procedimento provisorio da Revisao do ADR-001 depende disto: o
+  // mantenedor B reconstroi SEM a chave e publica o hash; o A assina e confere
+  // que e o mesmo. Se a assinatura tocasse o content.db, o hash de B nunca
+  // bateria.
+  const check = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  const build = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  assert.equal((await executarCli(['build', '--dry-run'], check)).estado, 'verificado');
+  assert.equal((await executarCli(['build'], build)).estado, 'assinado');
+  assert.equal(sha256De(join(check.outDir, 'content.db')), sha256De(join(build.outDir, 'content.db')));
+});
+
+test('resolveFromRepo aceita /dev/fd/3', () => {
+  assert.equal(resolveFromRepo('/repo', '/dev/fd/3'), '/dev/fd/3');
+  assert.equal(resolveFromRepo('/repo', 'contract/keys/k.pem'), '/repo/contract/keys/k.pem');
+});
+
+test('build le a chave uma vez so', { timeout: 60_000 }, async () => {
+  // `PACK_SIGNING_KEY_PATH=/dev/fd/3 ... 3< <(cofre)`: um pipe se le UMA vez.
+  // Um FIFO reproduz isso: o escritor entrega a chave a um leitor e sai; uma
+  // segunda leitura bloquearia para sempre (ou leria vazio).
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const pem = join(diretorio, 'fifo-src.pem');
+  writeFileSync(pem, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string);
+  const fifo = join(diretorio, 'chave.fifo');
+  await new Promise<void>((ok, erro) =>
+    spawn('mkfifo', [fifo]).on('exit', (c) => (c === 0 ? ok() : erro(new Error(`mkfifo ${c}`)))),
+  );
+  const escritor = spawn('sh', ['-c', `cat "${pem}" > "${fifo}"`]);
+  const anterior = process.env.PACK_SIGNING_KEY_PATH;
+  process.env.PACK_SIGNING_KEY_PATH = fifo;
+  try {
+    const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+    const r = await executarCli(['build'], amb);
+    assert.equal(r.estado, 'assinado', JSON.stringify(r.problemas));
+    const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8')) as Manifest;
+    assert.equal(
+      edVerify(
+        null,
+        Buffer.from(canonicalPayload(manifest), 'utf8'),
+        publicKey,
+        Buffer.from(manifest.signature.value, 'base64'),
+      ),
+      true,
+    );
+  } finally {
+    process.env.PACK_SIGNING_KEY_PATH = anterior;
+    escritor.kill();
+  }
+});
+
+test('build deixa o pack em out/<pack.url> e os assets em out/<asset.url>', async () => {
+  // `out/` espelha o diretorio da edicao no host: o `content:publish` envia
+  // a arvore sem saber nada do packer.
+  const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  assert.equal((await executarCli(['build'], amb)).estado, 'assinado');
+  const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8')) as Manifest;
+  assert.equal(sha256De(join(amb.outDir, manifest.pack.url)), manifest.pack.sha256);
+  for (const a of manifest.assets) {
+    assert.equal(sha256De(join(amb.outDir, a.url)), a.sha256, a.url);
+  }
 });

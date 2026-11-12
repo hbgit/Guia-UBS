@@ -10,6 +10,7 @@ import {
   createHmac,
   createPrivateKey,
   createPublicKey,
+  type KeyObject,
   sign as edSign,
 } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -25,7 +26,14 @@ export interface ManifestInput {
   assets: { ref: string; path: string; sha256: string; bytes: number }[];
   minAppBuild: number;
   keyId: string;
+  /** Caminho do PEM, ou a chave ja carregada (`carregarChavePrivada`). */
   privateKeyPath: string;
+  /**
+   * Chave ja lida. Quando presente, [privateKeyPath] so aparece em mensagens:
+   * com `/dev/fd/3` (pipe do cofre) uma segunda leitura bloquearia ou leria
+   * vazio, entao quem precisa da chave duas vezes carrega uma e passa esta.
+   */
+  privateKey?: KeyObject;
   /** Plano B: URL do modelo SLM no manifest assinado. Ausente => sem a chave. */
   model?: { url: string; sha256: string };
 }
@@ -76,7 +84,7 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
     ...(input.model ? { model: { url: input.model.url, sha256: input.model.sha256 } } : {}),
   };
 
-  const privateKey = createPrivateKey(readFileSync(input.privateKeyPath, 'utf8'));
+  const privateKey = input.privateKey ?? carregarChavePrivada(input.privateKeyPath);
   const payload = canonicalPayload({ ...unsigned, signature: SIGNATURE_PLACEHOLDER } as Manifest);
   const signature = edSign(null, Buffer.from(payload, 'utf8'), privateKey).toString('base64');
 
@@ -92,8 +100,17 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
  * Chave publica derivada da privada, em base64 (SPKI/DER) — o formato que
  * `signing_key.public_key` guarda.
  */
-export function chavePublicaDe(privateKeyPath: string): string {
-  const privada = createPrivateKey(readFileSync(privateKeyPath, 'utf8'));
+/**
+ * Le a chave privada UMA vez. `PACK_SIGNING_KEY_PATH=/dev/fd/3` (Revisao do
+ * ADR-001) e um pipe: reabrir falha. Quem precisa da chave mais de uma vez
+ * (guarda de registro + assinatura) carrega aqui e passa o `KeyObject`.
+ */
+export function carregarChavePrivada(path: string): KeyObject {
+  return createPrivateKey(readFileSync(path, 'utf8'));
+}
+
+export function chavePublicaDe(chave: string | KeyObject): string {
+  const privada = typeof chave === 'string' ? carregarChavePrivada(chave) : chave;
   return createPublicKey(privada).export({ type: 'spki', format: 'der' }).toString('base64');
 }
 
@@ -111,7 +128,7 @@ export function chavePublicaDe(privateKeyPath: string): string {
  */
 export function conferirChaveRegistrada(
   keyId: string,
-  privateKeyPath: string,
+  privateKeyPath: string | KeyObject,
   registradas: readonly { keyId: string; publicKey: string; retiredAt: string | null }[],
 ): void {
   const registro = registradas.find((k) => k.keyId === keyId);
@@ -127,7 +144,7 @@ export function conferirChaveRegistrada(
   const derivada = chavePublicaDe(privateKeyPath);
   if (derivada !== registro.publicKey) {
     throw new Error(
-      `A chave privada em ${privateKeyPath} nao corresponde a publica registrada para ` +
+      `A chave privada${typeof privateKeyPath === 'string' ? ` em ${privateKeyPath}` : ''} nao corresponde a publica registrada para ` +
         `"${keyId}". Assinar assim produziria um pack que a frota rejeita.`,
     );
   }

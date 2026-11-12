@@ -13,7 +13,7 @@
  * nunca de uma flag propria: "avisar em vez de bloquear" so existe onde nada
  * sera assinado.
  */
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { avaliarRegistro, PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
@@ -97,7 +97,7 @@ function requireEnv(name: string): string {
  * Caminhos relativos sao resolvidos contra a raiz do repositorio, nao contra o
  * cwd: rodar via `npm --workspace` muda o cwd e quebraria o caminho da chave.
  */
-function resolveFromRepo(repoRoot: string, path: string): string {
+export function resolveFromRepo(repoRoot: string, path: string): string {
   return isAbsolute(path) ? path : resolve(repoRoot, path);
 }
 
@@ -196,15 +196,24 @@ export async function executarCli(
   const manifestPath = writeManifest(outDir, manifest);
   console.log(`  ok    manifest assinado (${packUrl})`);
 
+  // Arvore publicavel: `out/` espelha o diretorio da edicao no host (plano B).
+  // O `content:publish` envia packs/ e assets/ e por ultimo o manifest, sem
+  // saber nada do packer.
+  const staged = join(outDir, packUrl);
+  mkdirSync(dirname(staged), { recursive: true });
+  copyFileSync(built.dbPath, staged);
+  for (const a of built.assets) {
+    const destino = join(outDir, a.path);
+    mkdirSync(dirname(destino), { recursive: true });
+    writeFileSync(destino, a.content);
+  }
+
   if (args.command !== 'publish') {
     console.log(`\nArtefatos em ${outDir}. Use "publish" para enviar ao storage.`);
     return { estado: 'assinado', problemas: [] };
   }
 
   // 4. Publicacao — artefatos por hash primeiro, manifest por ultimo
-  const staged = join(outDir, packUrl);
-  mkdirSync(dirname(staged), { recursive: true });
-  copyFileSync(built.dbPath, staged);
 
   const target: S3Target = {
     endpoint: process.env.S3_ENDPOINT ?? 'http://127.0.0.1:9000',
