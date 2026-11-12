@@ -277,6 +277,34 @@ void main() {
     );
   });
 
+  // Plano B (Q-B2): o host do modelo pode mudar por edição assinada do
+  // manifest. O parcial é por ARQUIVO, não por URL — os bytes são os mesmos e
+  // o sha confere no fim —, então a retomada continua contra o host novo.
+  test('retoma o parcial contra outro host com os mesmos bytes', () async {
+    origin.cutAfterBytes = 4096;
+    final first = await downloader.fetch(
+      url: origin.url,
+      destination: dest(),
+      expectedSha256: goodHash,
+    );
+    final saved = (first as DownloadInterrupted).bytesSoFar;
+    expect(saved, greaterThan(0));
+
+    final novoHost = _FakeOrigin(payload);
+    await novoHost.start();
+    addTearDown(novoHost.stop);
+
+    final second = await downloader.fetch(
+      url: novoHost.url,
+      destination: dest(),
+      expectedSha256: goodHash,
+    );
+
+    expect(second, isA<DownloadCompleted>());
+    expect(dest().readAsBytesSync(), payload);
+    expect(novoHost.lastRange, 'bytes=$saved-');
+  });
+
   test('servidor que IGNORA Range não produz arquivo duplicado', () async {
     // Proxies e CDNs mal configurados respondem 200 com o corpo inteiro mesmo
     // com Range pedido. Anexar cegamente geraria um arquivo com prefixo

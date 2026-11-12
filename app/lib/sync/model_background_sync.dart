@@ -23,7 +23,10 @@ import '../prefs/user_database_connection.dart';
 import '../triage/engine/llama_bindings.dart';
 import 'model_catalog.dart';
 import 'model_downloader.dart';
+import 'model_source.dart';
 import 'model_sync_scheduler.dart';
+import 'pack_background_sync.dart' show packManifestUri;
+import 'pack_store.dart';
 import 'resumable_downloader.dart';
 
 /// Executa a tarefa de download do modelo.
@@ -37,6 +40,7 @@ Future<bool> runModelSyncTask({
   bool Function()? runtimeSupported,
   Future<bool> Function()? termsAccepted,
   Future<Directory> Function()? modelsDir,
+  Future<ModelArtifact> Function()? resolveArtifact,
 }) async {
   // ADR-009: o APK `armeabi-v7a` não traz o shim. O primeiro plano não agenda
   // este job ali, mas um job herdado (ou qualquer caminho que escape) chega
@@ -52,9 +56,12 @@ Future<bool> runModelSyncTask({
   if (!await (termsAccepted ?? _termsAcceptedOnDisk)()) return true;
 
   final dir = await (modelsDir ?? modelsDirectory)();
+  // Plano B: mesma regra do primeiro plano — URL do manifest assinado, presa
+  // ao sha e à origem, com fallback no MODEL_URL. Lida a cada disparo.
+  final artifact = await (resolveArtifact ?? _effectiveFromDisk)();
   final downloader = ModelDownloader(
-    artifact: activeModel,
-    destination: File('${dir.path}/${activeModel.fileName}'),
+    artifact: artifact,
+    destination: File('${dir.path}/${artifact.fileName}'),
     downloader: ResumableDownloader(writerLabel: 'worker', trace: debugPrint),
   );
 
@@ -130,5 +137,16 @@ Future<bool> _termsAcceptedOnDisk() async {
     }
   } on Object {
     return false;
+  }
+}
+
+Future<ModelArtifact> _effectiveFromDisk() async {
+  try {
+    return await effectiveModel(
+      store: PackStore(await packsDirectory()),
+      manifestUrl: packManifestUri,
+    );
+  } on Object {
+    return activeModel; // diretório inacessível: segue como antes (INV-8)
   }
 }

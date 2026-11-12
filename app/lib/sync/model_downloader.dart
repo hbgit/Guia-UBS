@@ -97,6 +97,15 @@ class ModelArtifact {
 
   Uri get uri => parseEndpoint(url);
 
+  /// O mesmo modelo servido de outro lugar (plano B): sha, tamanho e nome em
+  /// disco ficam — um modelo já instalado não é baixado de novo por isso.
+  ModelArtifact withUrl(String url) => ModelArtifact(
+        url: url,
+        sha256: sha256,
+        sizeBytes: sizeBytes,
+        fileName: fileName,
+      );
+
   /// `true` quando [url] é uma origem utilizável neste build: absoluta, com
   /// host e, fora do debug, `https` (`endpoint_config.dart`, #45).
   bool get isConfigured => isUsableEndpoint(uri);

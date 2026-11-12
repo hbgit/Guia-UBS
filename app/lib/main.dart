@@ -29,8 +29,8 @@ import 'sync/pack_store.dart';
 import 'sync/background_sync.dart';
 import 'sync/model_background_sync.dart';
 import 'sync/pack_sync_scheduler.dart';
-import 'sync/model_catalog.dart';
 import 'sync/model_provisioning.dart';
+import 'sync/model_source.dart';
 import 'sync/model_sync_scheduler.dart';
 import 'sync/pack_background_sync.dart';
 import 'sync/resumable_downloader.dart';
@@ -75,15 +75,21 @@ Future<void> main() async {
 
   // Pack de conteúdo. Abrir aqui, e não na primeira tela, faz um pack
   // corrompido virar "conteúdo indisponível" antes de qualquer navegação.
-  final content = ActiveContent(PackStore(await packsDirectory()));
+  final packStore = PackStore(await packsDirectory());
+  final content = ActiveContent(packStore);
   await content.reload();
+
+  // Plano B: o host do modelo pode vir do manifest assinado, preso ao sha do
+  // catálogo e à origem do manifest. Calculado aqui, uma vez: um manifest
+  // novo só muda o host na próxima abertura. Nunca lança (INV-8).
+  final model = await effectiveModel(store: packStore, manifestUrl: packManifestUri);
 
   // Override de dados móveis: decisão do administrador do posto, tomada uma
   // vez e válida até ser desfeita. Antes do `user.db` ela se perdia a cada
   // fechamento do app — e um posto sem Wi-Fi voltava a recusar o download.
   final stored = await preferences.readAll();
   final provisioning = ModelProvisioning(
-    artifact: activeModel,
+    artifact: model,
     destinationDirectory: modelsDirectory,
     networkClass: currentNetworkClass,
     downloader: ResumableDownloader(
