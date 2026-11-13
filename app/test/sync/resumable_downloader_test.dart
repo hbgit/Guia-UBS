@@ -30,6 +30,9 @@ class _FakeOrigin {
   /// Status a devolver em vez do normal.
   int? forceStatus;
 
+  /// Cabeçalhos a mais na resposta de [forceStatus].
+  Map<String, String> extraHeaders = {};
+
   /// Corta a conexão após N bytes, simulando janela que fecha.
   int? cutAfterBytes;
 
@@ -94,6 +97,7 @@ class _FakeOrigin {
         cutAfterBytes != null && (!cutFirstRequestOnly || requestCount == 1);
     if (forceStatus != null) {
       request.response.statusCode = forceStatus!;
+      extraHeaders.forEach(request.response.headers.set);
       await request.response.close();
       return;
     }
@@ -277,6 +281,34 @@ void main() {
     );
   });
 
+  // Plano B (Q-B2): o host do modelo pode mudar por edição assinada do
+  // manifest. O parcial é por ARQUIVO, não por URL — os bytes são os mesmos e
+  // o sha confere no fim —, então a retomada continua contra o host novo.
+  test('retoma o parcial contra outro host com os mesmos bytes', () async {
+    origin.cutAfterBytes = 4096;
+    final first = await downloader.fetch(
+      url: origin.url,
+      destination: dest(),
+      expectedSha256: goodHash,
+    );
+    final saved = (first as DownloadInterrupted).bytesSoFar;
+    expect(saved, greaterThan(0));
+
+    final novoHost = _FakeOrigin(payload);
+    await novoHost.start();
+    addTearDown(novoHost.stop);
+
+    final second = await downloader.fetch(
+      url: novoHost.url,
+      destination: dest(),
+      expectedSha256: goodHash,
+    );
+
+    expect(second, isA<DownloadCompleted>());
+    expect(dest().readAsBytesSync(), payload);
+    expect(novoHost.lastRange, 'bytes=$saved-');
+  });
+
   test('servidor que IGNORA Range não produz arquivo duplicado', () async {
     // Proxies e CDNs mal configurados respondem 200 com o corpo inteiro mesmo
     // com Range pedido. Anexar cegamente geraria um arquivo com prefixo
@@ -341,6 +373,105 @@ void main() {
       isA<DownloadInterrupted>(),
       reason: 'gateway ruim volta ao normal sozinho',
     );
+  });
+
+  // Plano B, Task 5: limite de taxa (429) e indisponível (503) são "tente
+  // depois". Antes, o 429 caía no ramo 4xx: rejeição permanente, a tela dizia
+  // "falha de integridade" e o worker não reagendava.
+  group('429 e 503', () {
+    test('429 é interrupção, não rejeição', () async {
+      origin.forceStatus = HttpStatus.tooManyRequests;
+      final outcome = await downloader.fetch(
+        url: origin.url,
+        destination: dest(),
+        expectedSha256: goodHash,
+      );
+      expect(outcome, isA<DownloadInterrupted>());
+    });
+
+    test('preserva o parcial no 429', () async {
+      partial().writeAsBytesSync(payload.sublist(0, 100));
+      origin.forceStatus = HttpStatus.tooManyRequests;
+      final outcome = await downloader.fetch(
+        url: origin.url,
+        destination: dest(),
+        expectedSha256: goodHash,
+      );
+      expect((outcome as DownloadInterrupted).bytesSoFar, 100);
+      expect(partial().lengthSync(), 100);
+    });
+
+    test('429 carrega o Retry-After', () async {
+      origin.forceStatus = HttpStatus.tooManyRequests;
+      origin.extraHeaders = {'retry-after': '120'};
+      final outcome = await downloader.fetch(
+        url: origin.url,
+        destination: dest(),
+        expectedSha256: goodHash,
+      );
+      expect((outcome as DownloadInterrupted).retryAfter,
+          const Duration(seconds: 120));
+    });
+
+    test('503 é interrupção', () async {
+      origin.forceStatus = HttpStatus.serviceUnavailable;
+      final outcome = await downloader.fetch(
+        url: origin.url,
+        destination: dest(),
+        expectedSha256: goodHash,
+      );
+      expect(outcome, isA<DownloadInterrupted>());
+    });
+
+    test('404 continua rejeição permanente', () async {
+      origin.forceStatus = HttpStatus.notFound;
+      final outcome = await downloader.fetch(
+        url: origin.url,
+        destination: dest(),
+        expectedSha256: goodHash,
+      );
+      expect((outcome as DownloadRejected).kind,
+          DownloadRejectionKind.permanentHttpError);
+    });
+  });
+
+  group('parseRetryAfter', () {
+    final now = DateTime.utc(2026, 11, 12, 12);
+    Duration? parse(Map<String, String> h) => parseRetryAfter(h, now);
+
+    test('lê Retry-After em segundos', () {
+      expect(parse({'retry-after': '120'}), const Duration(seconds: 120));
+    });
+
+    test('lê Retry-After como data HTTP', () {
+      expect(parse({'retry-after': 'Thu, 12 Nov 2026 12:05:00 GMT'}),
+          const Duration(minutes: 5));
+    });
+
+    test('lê t= do RateLimit', () {
+      expect(parse({'ratelimit': '"anon";r=0;t=180'}),
+          const Duration(seconds: 180));
+    });
+
+    test('Retry-After vence o RateLimit', () {
+      expect(parse({'retry-after': '10', 'ratelimit': '"anon";r=0;t=180'}),
+          const Duration(seconds: 10));
+    });
+
+    test('limita a 24 h', () {
+      expect(parse({'retry-after': '999999'}), const Duration(hours: 24));
+    });
+
+    test('inválido dá null', () {
+      expect(parse({'retry-after': 'amanhã'}), isNull);
+      expect(parse({'ratelimit': 'lixo'}), isNull);
+      expect(parse({}), isNull);
+    });
+
+    test('data no passado dá zero', () {
+      expect(parse({'retry-after': 'Thu, 12 Nov 2026 11:00:00 GMT'}),
+          Duration.zero);
+    });
   });
 
   test('arquivo já presente e íntegro não gera requisição', () async {

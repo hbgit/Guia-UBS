@@ -59,10 +59,53 @@ final class DownloadCompleted extends DownloadOutcome {
 /// defeito: a próxima tentativa continua de [bytesSoFar].
 @immutable
 final class DownloadInterrupted extends DownloadOutcome {
-  const DownloadInterrupted({required this.bytesSoFar, required this.reason});
+  const DownloadInterrupted({
+    required this.bytesSoFar,
+    required this.reason,
+    this.retryAfter,
+  });
 
   final int bytesSoFar;
   final String reason;
+
+  /// Quanto o servidor pediu para esperar (429/503, `Retry-After` ou o `t=`
+  /// do `RateLimit`). `null` quando ele não disse.
+  final Duration? retryAfter;
+}
+
+/// Teto do [parseRetryAfter]: um servidor que pede uma semana não decide
+/// sozinho que o aparelho fica uma semana sem modelo.
+const Duration maxRetryAfter = Duration(hours: 24);
+
+/// Quanto esperar antes de tentar de novo, lido dos cabeçalhos de uma
+/// resposta 429/503. [headers] tem nomes em minúscula.
+///
+/// Ordem: `Retry-After` em segundos; `Retry-After` como data HTTP (menos
+/// [now]); o parâmetro `t=<segundos>` do `RateLimit` (formato do Hugging
+/// Face: `"<política>";r=<n>;t=<s>`). Limitado a `[0, 24 h]`; inválido = null.
+Duration? parseRetryAfter(Map<String, String> headers, DateTime now) {
+  Duration clamp(Duration d) => d.isNegative
+      ? Duration.zero
+      : (d > maxRetryAfter ? maxRetryAfter : d);
+
+  final retry = headers['retry-after']?.trim();
+  if (retry != null && retry.isNotEmpty) {
+    final seconds = int.tryParse(retry);
+    if (seconds != null) return clamp(Duration(seconds: seconds));
+    try {
+      return clamp(HttpDate.parse(retry).difference(now));
+    } on FormatException {
+      // segue para o RateLimit
+    } on HttpException {
+      // idem
+    }
+  }
+  final rateLimit = headers['ratelimit'];
+  if (rateLimit != null) {
+    final t = RegExp(r'(?:^|;)\s*t=(\d+)').firstMatch(rateLimit);
+    if (t != null) return clamp(Duration(seconds: int.parse(t.group(1)!)));
+  }
+  return null;
 }
 
 /// Por que um download foi recusado em definitivo.
@@ -389,6 +432,23 @@ class ResumableDownloader {
         return const DownloadInterrupted(
           bytesSoFar: 0,
           reason: 'servidor rejeitou o Range (416); parcial descartado',
+        );
+      case HttpStatus.tooManyRequests:
+      case HttpStatus.serviceUnavailable:
+        // Limite de taxa ou servidor ocupado: "tente depois", com o parcial
+        // intacto (INV-8). No Hugging Face, um CGNAT de operadora põe muitos
+        // aparelhos atrás de um IP, e cada retomada conta como requisição.
+        final headers = <String, String>{};
+        response.headers.forEach((name, values) {
+          headers[name.toLowerCase()] = values.join(', ');
+        });
+        await response.drain<void>();
+        final wait = parseRetryAfter(headers, DateTime.now().toUtc());
+        _t('limite HTTP ${response.statusCode} retryAfter=${wait?.inSeconds ?? '-'}s');
+        return DownloadInterrupted(
+          bytesSoFar: resumeFrom,
+          reason: 'HTTP ${response.statusCode}',
+          retryAfter: wait,
         );
       default:
         await response.drain<void>();

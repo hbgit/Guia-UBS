@@ -9,7 +9,8 @@
     "publish:pack": "tsx src/index.ts publish",
     "test": "node --import tsx --test test/*.test.ts",
     "build:pack:dry": "tsx src/index.ts build --dry-run",
-    "worker": "tsx src/worker.ts"
+    "worker": "tsx src/worker.ts",
+    "key:probe": "tsx src/key-probe.ts"
   },
   "dependencies": {
     "@guia-ubs/contract": "*",

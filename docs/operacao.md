@@ -300,6 +300,96 @@ mudo de frota inteira numa falha de build com nome.
 
 ---
 
+### 2.7b Publicar um pack pela assinatura provisória (dois mantenedores)
+
+Enquanto a VPS completa (item 27) não existe, o pack é assinado na máquina do
+**mantenedor A** (custódia da chave) e conferido pelo **mantenedor B** (sem a
+chave), e vai para o **host só de conteúdo** (`infra/compose.content.yaml`):
+um Caddy servindo um diretório, sem MinIO e sem CMS. O porquê está na Revisão
+2026-11-12 do ADR-001 e do ADR-007 ([`spec/stack.md`](../spec/stack.md)). A
+chave privada **nunca** vai para CI nem para disco persistente.
+
+Os dois partem do **mesmo commit** (tag), com o mesmo `SOURCE_DATE_EPOCH` e a
+mesma versão de pack.
+
+```sh
+# 1. B (sem a chave): reconstrói, sem assinar, e publica o hash como
+#    comentário na PR da release de conteúdo.
+SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> npm run pack:check
+sha256sum packer/out/content.db
+
+# 2. A (custódia): primeiro confere que o pipe do cofre chega ao packer e que
+#    a pública é a registrada; depois assina, com a chave lida UMA vez —
+#    nada em disco persistente. Confere que o sha do content.db é o de B; se
+#    divergir, NADA é enviado.
+#    Pipe em `/dev/stdin`, e NÃO `3< <(...)` nem `<(...)`: o `npm run` não
+#    repassa o fd 3 ao filho, e no zsh o `<(...)` vira /proc/self/fd/11, que o
+#    filho do npm não abre (EACCES). Há teste disso (packer/test/cli.test.ts).
+comando-do-cofre | PACK_SIGNING_KEY_PATH=/dev/stdin npm run pack:key
+comando-do-cofre | SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> \
+  PACK_SIGNING_KEY_PATH=/dev/stdin npm run pack:build
+sha256sum packer/out/content.db
+
+# 3. A: publica. O script confere o manifest com a pública (mesmo código do
+#    app) e o sha de cada arquivo antes da rede, envia packs/ e assets/ sem
+#    sobrescrever nada, aborta se o destino tiver o mesmo nome com bytes
+#    diferentes, e só então envia o manifest.json.
+PACK_PUBKEY_HEX=<publica-hex> CONTENT_TARGET=publisher@<host>: \
+  npm run content:publish -- packer/out 0000000
+
+# 4. B: confere o que foi PUBLICADO, pela rede: assinatura, sha e tamanho do
+#    pack, Cache-Control e, se houver, a origem e o tamanho do modelo.
+cd app && dart run tool/verify_published.dart \
+  https://<dominio-de-conteudo>/content-packs/0000000/manifest.json <publica-hex>
+
+# 5. A: registro fora da VPS — backup e evidência do que foi assinado.
+gh release create conteudo-0000000-p<n> packer/out/manifest.json packer/out/packs/pack-*.db \
+  --latest=false --title "Conteúdo 0000000 p<n>" \
+  --notes "<hash publicado por B; saída do verify_published>"
+```
+
+- **Ordem:** packs e assets antes, `manifest.json` por último. Nada em
+  `packs/`, `assets/` ou `models/` é sobrescrito: o `Cache-Control` deles é
+  `immutable`, e os nomes já carregam o sha.
+- **O `publisher` escreve e não apaga** (`rrsync -no-del` no servidor). Apagar
+  um prefixo de ensaio ou um pack retirado é do administrador da VPS, pela
+  conta dele.
+- **A release `conteudo-…`** não casa com o `v*` do `app-release.yml` nem com
+  o ruleset de tags, e o `--latest=false` impede que ela tome o lugar da
+  release do APK.
+- **Trocar o host do modelo** (sair do Hugging Face, Revisão do ADR-004):
+  `npm run content:publish -- --model <arquivo.gguf>` e um manifest novo com
+  `PACK_MODEL_URL=../models/gemma-3-1b-it-Q4_K_M-<sha>.gguf` e
+  `PACK_MODEL_SHA256=<sha do catálogo>`. Sem release do app; vale na abertura
+  seguinte de cada aparelho. **Limite:** numa instalação nova ainda não há
+  pack ativo, então o primeiro download do onboarding vai ao `MODEL_URL`
+  embarcado (Hugging Face); só o worker ou a abertura seguinte usam o host do
+  manifest. Uma saída por 429 do HF não socorre a instalação nova até o
+  primeiro pack chegar.
+- **Teste local do host:** `npm run content:test` sobe o
+  `compose.content.yaml` com `localhost` e confere 405, ausência de listagem,
+  cache, ETag/304, Range e a recusa de pack divergente.
+
+### Implantar o host só de conteúdo (administrador da VPS)
+
+Os dados da VPS ficam no registro operacional.
+
+1. DNS: `A`/`AAAA` do domínio de conteúdo para a VPS. Firewall: 22, 80 e 443.
+2. Diretório `CONTENT_ROOT` (sugestão `/srv/guia-ubs/conteudo`), do usuário
+   Unix `publisher`, `0755`.
+3. Usuário `publisher` sem senha e sem shell interativo; no `authorized_keys`,
+   só a chave SSH do mantenedor A, assim:
+   `command="rrsync -no-del /srv/guia-ubs/conteudo",restrict ssh-ed25519 …`
+   (`-no-del` exige rsync ≥ 3.2.4: `rsync --version`).
+4. `infra/.env` com permissão 600: `CONTENT_DOMAIN`, `ACME_EMAIL`,
+   `CONTENT_ROOT`.
+5. `docker compose -f compose.content.yaml up -d` — **sempre com `-f`**.
+
+**Pronto quando** o manifest responde com TLS válido (404 antes do 1º pack),
+um `PUT` responde 405, e `docker compose -f compose.content.yaml up -d
+--force-recreate edge` **não** pede certificado novo (os volumes `caddydata` e
+`caddyconfig` guardam o estado do ACME).
+
 ### 2.8 Construir a interface
 
 ```sh

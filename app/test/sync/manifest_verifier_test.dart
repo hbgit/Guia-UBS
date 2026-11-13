@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guia_ubs/sync/manifest_verifier.dart';
+import 'package:guia_ubs/sync/model_catalog.dart';
 import 'package:guia_ubs/sync/pack_signing_keys.dart';
 
 import '../support/manifest_signing.dart';
@@ -181,6 +182,74 @@ void main() {
 
       expect(outcome, isA<ManifestAccepted>());
       expect((outcome as ManifestAccepted).manifest.isSchemaSupported, isFalse);
+    });
+  });
+
+  // Plano B: a URL do modelo vem no manifest ASSINADO.
+  group('model no manifest (plano B)', () {
+    test('aceita manifest-v3-model e expõe model', () async {
+      final outcome = await verifier.verify(_fixture('manifest-v3-model.json'));
+
+      expect(outcome, isA<ManifestAccepted>(),
+          reason: 'canonicalPayload com model divergiu entre Node e Dart');
+      final model = (outcome as ManifestAccepted).manifest.model;
+      expect(model, isNotNull);
+      expect(model!.url, endsWith('.gguf'));
+      expect(model.sha256, activeModel.sha256);
+    });
+
+    test('manifest-v1 continua aceito, com model nulo', () async {
+      final outcome = await verifier.verify(_fixture('manifest-v1.json'));
+
+      expect((outcome as ManifestAccepted).manifest.model, isNull);
+    });
+
+    test('campo extra não assinado em model é recusado', () async {
+      final json = jsonDecode(utf8.decode(_fixture('manifest-v3-model.json')))
+          as Map<String, Object?>;
+      (json['model']! as Map<String, Object?>)['extra'] = 'https://outro.invalido/m.gguf';
+
+      final outcome = await verifier.verify(utf8.encode(jsonEncode(json)));
+
+      expect((outcome as ManifestRejected).reason, ManifestRejection.badSignature);
+    });
+
+    group('formato, com assinatura válida', () {
+      late TestSigner signer;
+      late ManifestVerifier own;
+      setUp(() async {
+        signer = await TestSigner.generate();
+        own = ManifestVerifier(keys: {'k1': signer.publicKeyHex});
+      });
+
+      Future<ManifestOutcome> comModel(Object? model) async =>
+          own.verify(await signer.sign({...manifestTemplate(), 'model': model}));
+
+      test('model com campo extra assinado é recusado', () async {
+        final outcome = await comModel(
+            {'url': 'm.gguf', 'sha256': activeModel.sha256, 'bytes': 1});
+        expect((outcome as ManifestRejected).reason, ManifestRejection.schemaViolation);
+      });
+
+      test('model.sha256 fora de hex64 é recusado', () async {
+        final outcome = await comModel({'url': 'm.gguf', 'sha256': 'NAO'});
+        expect((outcome as ManifestRejected).reason, ManifestRejection.schemaViolation);
+      });
+
+      test('model.url vazia é recusada', () async {
+        final outcome = await comModel({'url': '', 'sha256': activeModel.sha256});
+        expect((outcome as ManifestRejected).reason, ManifestRejection.schemaViolation);
+      });
+
+      test('model null é recusado, como no Zod', () async {
+        final outcome = await comModel(null);
+        expect((outcome as ManifestRejected).reason, ManifestRejection.schemaViolation);
+      });
+
+      test('model que não é objeto é recusado', () async {
+        final outcome = await comModel('https://h/m.gguf');
+        expect((outcome as ManifestRejected).reason, ManifestRejection.schemaViolation);
+      });
     });
   });
 }

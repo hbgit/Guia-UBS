@@ -347,12 +347,20 @@ folga confortável.
 - **Procedimento de dois mantenedores.** O dual review do compose garantia que ninguém assina sozinho; o packer reprodutível (`SOURCE_DATE_EPOCH`) permite manter isso com um comando.
   1. Os dois mantenedores partem do **mesmo commit** (tag), com o mesmo `SOURCE_DATE_EPOCH` e o mesmo `PACK_VERSION`.
   2. **Mantenedor B** (sem a chave) roda `npm run pack:check` (`--dry-run`: portões verdes, sem assinatura) e o `sha256sum` do `content.db` gerado, e publica o hash por um canal que fique registrado (comentário no PR da release de conteúdo).
-  3. **Mantenedor A** (custódia) traz a chave do cofre **sem tocar disco persistente**: arquivo em `tmpfs` (`/dev/shm`, `umask 077`, com swap desligado ou cifrado, porque página de tmpfs pode ir para o swap) ou um descritor (`PACK_SIGNING_KEY_PATH=/dev/fd/3 … 3< <(comando-do-cofre)`). Roda `npm run pack:build` e remove o arquivo do tmpfs no fim, em `trap`, mesmo se falhar.
+  3. **Mantenedor A** (custódia) traz a chave do cofre **sem tocar disco persistente**: arquivo em `tmpfs` (`/dev/shm`, `umask 077`, com swap desligado ou cifrado, porque página de tmpfs pode ir para o swap) ou um pipe (`comando-do-cofre | PACK_SIGNING_KEY_PATH=/dev/stdin npm run pack:build`; não `3< <(…)`, porque o `npm run` não repassa o fd 3, nem `<(…)`, que no zsh o filho do npm não abre — Revisão 2026-11-12). Roda `npm run pack:build` e remove o arquivo do tmpfs no fim, em `trap`, mesmo se falhar.
   4. **A** confere que o hash do `content.db` assinado (e o `packHash` do `manifest.json`) é **igual** ao publicado por **B**. Se diferir, nada é enviado.
   5. **A** envia ao host estático. **B** baixa o manifest publicado e confere a assinatura com a chave pública embarcada e o hash (a mesma verificação do job `interop`).
 - **Antes do 1º pack por este caminho**, verifica-se que `pack:check` deixa o `content.db` no mesmo caminho e com o mesmo hash que `pack:build` (isto é, que a assinatura só toca o manifest) e que `resolveFromRepo` aceita um caminho absoluto como `/dev/fd/3`. Se qualquer um falhar, o procedimento é ajustado antes.
 - **Saída.** A exceção **sai** quando o item 27 entrar e o job `packer` do compose passar a assinar na VPS. Ela não volta a citar CI em lugar nenhum, inclusive em `infra/.env.example`.
 - **Custo aceito:** a chave passa, durante a exceção, pela máquina de uma pessoa, e não por um container sem porta. A mitigação é o procedimento acima, a segunda posição de chave que o binário já aceita (`app/lib/sync/pack_signing_keys.dart`, para rotação) e o runbook de revogação.
+
+**Revisão 2026-11-12 (plano B) — o procedimento provisório ficou executável.** O runbook está em [`docs/operacao.md`](../docs/operacao.md) §2.7b.
+- **As duas verificações exigidas acima passaram** (`packer/test/cli.test.ts`): `pack:check` e `pack:build` produzem o mesmo `content.db`, ou seja, a assinatura só toca o manifest; e `resolveFromRepo` aceita um caminho absoluto como `/dev/fd/N`. **Mas o `3< <(…)` do passo 3 não funciona:** o `npm run` não repassa o fd 3 ao processo filho. O comando passa a ser `PACK_SIGNING_KEY_PATH=<(comando-do-cofre) npm run …`, cujo `/dev/fd/N` atravessa o npm, e `npm run pack:key` imprime a pública lida para A conferir antes do build. Um teste passa pelo `npm run` de verdade nos dois sentidos. A revisão achou também um defeito ao lado: o **worker** lia a chave duas vezes (guarda de registro e assinatura), o que um pipe do cofre não suporta. Agora ela é lida uma vez (`carregarChavePrivada`).
+- **O passo 5 ("A envia ao host estático") tem forma:** `npm run content:publish` por `rsync` via SSH, com o usuário `publisher` preso ao diretório (`rrsync -no-del`: escreve e não apaga). Antes da rede, o manifest é conferido com a pública pelo mesmo código do app. Packs e assets vão sem sobrescrever, um destino com o mesmo nome e bytes diferentes aborta tudo, e o `manifest.json` vai por último.
+- **A conferência de B** é `app/tool/verify_published.dart`: o mesmo `ManifestVerifier` do app, aplicado ao que foi publicado. Ele confere a assinatura, o sha e o tamanho do pack, o `Cache-Control` e, havendo `model`, a regra de origem do app (Revisão 2026-11-12 do ADR-004).
+- **Registro fora da VPS:** cada publicação vira uma GitHub Release `conteudo-<edição>-p<versão>` com o `manifest.json` e o pack, com `--latest=false`. É o backup grátis e a evidência do que A assinou; os packs são reconstruíveis, a assinatura não.
+- **O APK de release não aceita mais a chave de desenvolvimento.** Sem `PACK_SIGNING_KEY_K1`, o binário embarcava a chave de dev, que é pública no repositório, e aceitaria pack assinado por qualquer pessoa. A guarda de build (`app/tool/model_url_check.dart`) agora reprova o release sem a chave ou com a de dev, inclusive no AAB, que não passa pelo `build_apk.sh`.
+- **Ensaio no host real:** pendente da implantação da VPS (§2.7b). Quando feito, com chave descartável e um manifest sintético na edição `ensaio-plano-b`, a data e o resultado entram aqui.
 
 ### ADR-002 — Fronteira com o llama.cpp: **shim C de 4 funções** (2026-08-13)
 
@@ -519,6 +527,22 @@ Custos aceitos:
 
 **Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** O "estudo com participantes externos" dos gatilhos passa a ser o **estudo de impacto**, e "crescer além do piloto" lê-se "promover para produção na Google Play ou iniciar o estudo de impacto"; "builds de piloto" lê-se "builds do lançamento". O parecer jurídico e o responsável (F-11) continuam como condição da promoção para produção. O CEP passa a ser condição só do estudo de impacto (ADR-010, Decisão 4). "Aparelho do estudo piloto" lê-se "aparelho do dogfooding ou do estudo de impacto". A taxa de falha de download é observada pela loja e pelos relatos de QA, nunca por telemetria (ADR-010, Decisão 5).
 
+
+**Revisão 2026-11-12 (plano B) — a URL do modelo sai do APK para o manifest assinado; gatilho e teto da saída do Hugging Face.** Cumpre as condições 1, 3 e 4 da Revisão 2026-11-02.
+- **Q-B2, o que o manifest carrega:** `model: {url, sha256}`, opcional e assinado (`contract/src/manifest.ts`, `app/lib/sync/pack_manifest.dart`). O app (`app/lib/sync/model_source.dart`, `resolveModelUri`) só usa a URL se:
+  - o `sha256` for o do modelo que ele compilou;
+  - a URL resolvida (a relativa resolve contra o manifest) for `https` fora do debug;
+  - ela ficar **na origem do manifest ou no host do `MODEL_URL` embarcado**.
+
+  Senão, vale o `MODEL_URL` compilado. Trocar de **host** vira uma edição assinada; trocar de **modelo** continua exigindo release, porque o sha, o tamanho e o nome em disco moram em `model_catalog.dart`. A regra de origem impede que um manifest assinado mande o IP do usuário a um terceiro host, e é ela que torna verdadeira a promessa do `docs/dados-do-usuario.md` §3. O artefato efetivo é calculado uma vez por processo, então a troca vale **na abertura seguinte** do app ou no disparo seguinte do worker. **Limite:** numa instalação nova não há pack ativo, e o primeiro download do onboarding vai ao `MODEL_URL` embarcado; uma saída do HF por 429 só alcança a instalação nova depois do primeiro pack. Um download pela metade continua por `Range` contra o host novo, porque o sha confere no fim.
+- **Q-B3, gatilho de saída:** qualquer um destes:
+  - um **429** na medição ou em teste;
+  - **dois relatos** de QA ou do dogfooding de download do modelo que falhou na mesma semana;
+  - o espelho sumir.
+
+  **Ação:** `npm run content:publish -- --model <arquivo.gguf>` e um manifest com `model.url = ../models/gemma-3-1b-it-Q4_K_M-<sha>.gguf` e o mesmo sha, **sem release**. O 429 já é tratado no app como "tente depois", honrando `Retry-After` e o `t=` do `RateLimit` (`parseRetryAfter`). Antes, ele virava rejeição permanente, a tela dizia "falha de integridade" e o worker não reagendava. A calibragem está em [`arquitetura.md`](arquitetura.md) §5.20: 3.000 requisições de *resolver* por IP a cada 5 minutos para anônimos, sujeito a mudança; o risco real é o CGNAT das operadoras.
+- **Teto de custo da saída:** servir o modelo pela VPS custa cerca de **0,806 GB de egress por instalação**. A saída só é uma simples edição do manifest enquanto `instalações/mês × 0,806 GB ≤ 50 % da franquia mensal de egress da VPS`, isto é, **até `0,5 × franquia (GB) ÷ 0,806` instalações por mês**. A franquia vem do registro operacional (F-1): **pendente**, o mantenedor informa o número e ele entra aqui. Acima do teto, o modelo fica no Hugging Face ou ganha um segundo espelho, e isso é decisão nova, registrada aqui. O egress mensal é conferido no painel da VPS junto do monitoramento ([`implantacao.md`](implantacao.md) §3.6).
+
 ### ADR-005 — Enquadramento institucional: projeto educativo aberto, sem vínculo com unidades de saúde: **ACEITO** (2026-11-02)
 
 **Aprovação.** Contexto institucional e decisões de implantação definidos pelo dono do projeto em 2026-11-02. O nome do app foi decidido na mesma data. O plano de execução está em [`docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md`](../docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md).
@@ -680,6 +704,18 @@ Nenhuma dessas premissas corresponde ao projeto real. O [ADR-004](#10-registro-d
   - **mitigação:** renovação automática, alerta de expiração no monitoramento (`implantacao.md` §3.6), titular e plano de transferência no registro operacional fora do repositório (F-2).
 
 **Revisão 2026-11-09 ([ADR-010](#10-registro-de-decisões-arquiteturais-adr)).** "Quando o estudo piloto atingir o critério de saída da Decisão 7 do ADR-005" lê-se "quando o lançamento for promovido para produção" (ADR-010, Decisão 3g).
+
+**Revisão 2026-11-12 (plano B) — host de conteúdo provisório sem MinIO; o object store do item 27 fica em aberto.**
+- **Até o item 27, o conteúdo sai de um host só de conteúdo nesta VPS** (`infra/compose.content.yaml`): um único serviço, o `edge`, um Caddy `file_server` sobre um diretório (`infra/Caddyfile.content`). Ele serve só GET/HEAD, não lista diretórios (#46) e mantém os mesmos `Cache-Control` do `infra/Caddyfile`. A publicação é por `rsync` via SSH (Revisão 2026-11-12 do ADR-001). O nome e a URL embarcada (`/content-packs/<edição>/manifest.json`) são os da Decisão 4, então o item 27 troca o backend sem release do app.
+- **Por que sem MinIO.** Conferido em 2026-11-12:
+  - o repositório [`minio/minio`](https://github.com/minio/minio) foi **arquivado em 2026-04-25** e diz "THIS REPOSITORY IS NO LONGER MAINTAINED". A edição community passou a sair **só como código-fonte**, sem binário nem imagem oficial;
+  - a correção da [CVE-2025-62506](https://github.com/minio/minio/security/advisories/GHSA-jjjj-jwhf-8rgr) (CVSS 8.1, escalada de privilégio em contas de serviço e STS; corrigida em `RELEASE.2025-10-15T17-29-55Z`) só existe como código-fonte;
+  - o Docker Hub **não serve mais** `minio/minio`, nem a tag fixada no `infra/compose.yaml` (`pull access denied`; ela só existe onde já estava em cache).
+
+  Para um host que só responde GET/HEAD de arquivos assinados, um object store sem patch é superfície sem ganho.
+- **Imagem do edge** fixada por digest (`caddy:2.10.2-alpine@sha256:4c6e91c6…`, índice multi-arquitetura com `linux/arm64`), com volumes `caddydata`/`caddyconfig` para o estado do ACME. Sem eles, cada recriação pede certificado novo.
+- **Pendência do item 27.** O CMS e o worker publicam por S3 (`packer/src/release.ts`, `S3Target`), e a imagem do `storage` do `compose.yaml` já não é baixável. O item 27 escolhe o object store (Garage, SeaweedFS ou outro) ou registra aqui a decisão de manter o MinIO, com imagem construída da fonte, fixada por digest, e a aceitação explícita de que não há patch. Isto **não** se reabre para a 1ª tag.
+- O item 7 (backup) não muda para este host: os packs são reconstruíveis, e a GitHub Release de cada publicação guarda o manifest assinado.
 
 ### ADR-008 — Escopo de conteúdo: de "município" para "edição": **ACEITO** (2026-11-02)
 

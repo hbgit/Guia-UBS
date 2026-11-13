@@ -113,6 +113,8 @@ jobs:
           # O override tambem: ate o item 24 ele nunca era validado, e um erro
           # ali so aparece na maquina de quem esta desenvolvendo.
           docker compose -f compose.yaml -f compose.override.yaml config --quiet
+          # Host so de conteudo do plano B.
+          docker compose -f compose.content.yaml config --quiet
 
       # O Caddyfile nunca foi conferido em lugar nenhum ate o item 24. Erro de
       # sintaxe ali so aparece quando o `edge` reinicia — em producao, com o
@@ -128,3 +130,7 @@ jobs:
             -v "$PWD:/w:ro" caddy:2.9-alpine caddy validate --config /w/Caddyfile
           docker run --rm -v "$PWD:/w:ro" caddy:2.9-alpine \
             caddy validate --config /w/Caddyfile.dev
+          # Plano B: a MESMA imagem fixada do compose.content.yaml.
+          img=$(sed -n 's/^ *image: \(caddy:.*\)$/\1/p' compose.content.yaml)
+          docker run --rm -e CONTENT_DOMAIN -e ACME_EMAIL \
+            -v "$PWD:/w:ro" "$img" caddy validate --config /w/Caddyfile.content

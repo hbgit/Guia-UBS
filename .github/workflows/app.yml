@@ -87,6 +87,12 @@ jobs:
             --key "$RUNNER_TEMP/ci-key.pem" --out "$RUNNER_TEMP/interop"
           cd app && dart run tool/verify_manifest.dart "$RUNNER_TEMP/interop/manifest.json" "$pub"
 
+      # Plano B: o host so de conteudo de verdade (Caddy fixado por digest) e
+      # o content:publish por rsync. Aqui, e nao no job `infra`, porque a
+      # publicacao confere o manifest com o verificador Dart do app.
+      - name: Host de conteudo e publicacao (content:test)
+        run: npm run content:test
+
   # Guarda da fronteira nativa (stack.md ADR-002).
   #
   # O Dart nao verifica assinaturas do llama.cpp — o compilador C verifica. Sem

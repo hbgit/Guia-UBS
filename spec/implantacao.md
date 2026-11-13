@@ -82,7 +82,8 @@
   4. ruleset que restringe a criação de tags `v*` aos mantenedores;
   5. conferência do certificado contra `vars.RELEASE_CERT_SHA256`.
 - **Se o keystore vazar:** a Play troca a chave de upload, mas no GitHub ele é a chave de distribuição, e todo aparelho instalado por lá precisa desinstalar (ADR-009, Custo aceito 5). Isso entra no runbook de incidente (item 28).
-- **O `config/defines.release.json` é versionado, não segredo.** O conteúdo (`MODEL_URL`, `PACK_MANIFEST_URL`) vai embarcado num APK público. Versionado, ele passa por PR, e o log do job imprime o que cada release embarcou.
+- **O `config/defines.release.json` é versionado, não segredo.** O conteúdo (`MODEL_URL`, `PACK_MANIFEST_URL` e `PACK_SIGNING_KEY_K1`, a chave **pública** de produção do pack) vai embarcado num APK público. Versionado, ele passa por PR, e o log do job imprime o que cada release embarcou.
+- **Sem `PACK_SIGNING_KEY_K1`, o release embarcaria a chave de desenvolvimento**, que é pública no repositório, e aceitaria pack assinado por qualquer pessoa. A guarda de build (`app/tool/model_url_check.dart`) reprova o release sem a chave ou com a de dev (Revisão 2026-11-12 do ADR-001).
 - **Play App Signing com chave gerada pela Google.** Consequência: o APK do GitHub e o da Play **não se atualizam um sobre o outro**. O aviso de canal (§2.8) é obrigatório na nota de release e na página do projeto.
 - O keystore é uma chave **diferente** da Ed25519 do pack. A Ed25519 continua fora de CI (§3.7).
 
@@ -100,8 +101,8 @@ Deriva do [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr) e do [A
 2. **Tag anotada `vX.Y.Z`** em `main`. O `app-release.yml` dispara e roda no *environment* `release`, que exige aprovação de um **segundo mantenedor** (diferente de quem criou a tag).
 3. **Guarda de versão.** O job calcula o `versionCode` pela fórmula da §2.2, confere os limites e **reprova** se ele for ≤ o maior `versionCode` já publicado.
 4. **Build**, com o `config/defines.release.json` versionado (impresso no log):
-   - `tool/build_apk.sh release` para cada ABI (guardas de `MODEL_URL` e `PACK_MANIFEST_URL` por `model_url_check.dart`);
-   - `flutter build appbundle --release` com as mesmas guardas;
+   - `tool/build_apk.sh release` para cada ABI (guardas de `MODEL_URL`, `PACK_MANIFEST_URL` e `PACK_SIGNING_KEY_K1` por `model_url_check.dart`);
+   - `flutter build appbundle --release` com as mesmas guardas, num passo próprio antes do AAB, porque o `flutter build appbundle` não passa pelo `build_apk.sh`;
    - `dart run tool/check_release_permissions.dart` sobre o build.
 5. **Artefatos:** um APK por ABI, `SHA256SUMS` e a impressão SHA-256 do certificado. **O job falha sem `SHA256SUMS`** (RF-17). O AAB **não** é anexado ao GitHub.
 6. **Release no GitHub** criada como ***pre-release***, com a nota-modelo da §2.8 preenchida.
@@ -210,7 +211,7 @@ Origem: [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr), salvo on
 ### 3.2 Domínio e TLS (ADR-007, Decisão 4)
 
 - Domínio próprio do PRISM, fora de `ufrr.br`, com os dois administradores da §3.1: o nome, o registro e a consequência de perdê-lo estão no [ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr) (Decisão 4 e Revisão). É o mesmo domínio que dá o prefixo do `applicationId` (ADR-009, item 1). Os subdomínios são dois, **separados de propósito** (ADR-007, Decisão 4):
-  - **`guiasaude.conteudo.prismrr.com.br`**: só `manifest.json` e packs, como arquivos estáticos. É o nome embarcado no APK, e não muda;
+  - **`guiasaude.conteudo.prismrr.com.br`**: só `manifest.json`, packs e o modelo, como arquivos estáticos. É o nome embarcado no APK, e não muda. Até o item 27, sai de um host só de conteúdo, um Caddy `file_server` sem MinIO, publicado por `rsync` (`infra/compose.content.yaml`; Revisão 2026-11-12 do ADR-007);
   - **`guiasaude.cms.prismrr.com.br`**: o CMS, atrás de VPN ou de autenticação. Pode mudar de endereço sem que o de conteúdo mude.
 - **Renovação do domínio é obrigação permanente** (ADR-009, Custos aceitos): renovação automática ligada e alerta de expiração no mesmo monitoramento da §3.6.
 - **Titularidade e cobrança do domínio (F-19).** O titular e os contatos ficam no registro operacional, fora do repositório; as regras abaixo são públicas, para que o próximo mantenedor saiba que existem:

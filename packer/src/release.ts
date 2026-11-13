@@ -10,6 +10,7 @@ import {
   createHmac,
   createPrivateKey,
   createPublicKey,
+  type KeyObject,
   sign as edSign,
 } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -25,7 +26,16 @@ export interface ManifestInput {
   assets: { ref: string; path: string; sha256: string; bytes: number }[];
   minAppBuild: number;
   keyId: string;
+  /** Caminho do PEM, ou a chave ja carregada (`carregarChavePrivada`). */
   privateKeyPath: string;
+  /**
+   * Chave ja lida. Quando presente, [privateKeyPath] so aparece em mensagens:
+   * com `/dev/fd/3` (pipe do cofre) uma segunda leitura bloquearia ou leria
+   * vazio, entao quem precisa da chave duas vezes carrega uma e passa esta.
+   */
+  privateKey?: KeyObject;
+  /** Plano B: URL do modelo SLM no manifest assinado. Ausente => sem a chave. */
+  model?: { url: string; sha256: string };
 }
 
 function sha256File(path: string): { sha256: string; bytes: number } {
@@ -47,6 +57,18 @@ function buildDate(): string {
 }
 
 /**
+ * URL publicada de um asset: o caminho de autoria com o hash no nome
+ * (`assets/icon.head.svg` -> `assets/<sha12>-icon.head.svg`). A borda serve
+ * `assets/` como `immutable` e o `content:publish` nunca sobrescreve, entao o
+ * nome PRECISA mudar quando o conteudo muda (stack.md 4.2) — senao trocar um
+ * icone travaria a edicao inteira. O caminho dentro do pack nao muda.
+ */
+export function urlDoAsset(path: string, sha256: string): string {
+  const i = path.lastIndexOf('/');
+  return `${path.slice(0, i + 1)}${sha256.slice(0, 12)}-${path.slice(i + 1)}`;
+}
+
+/**
  * Nomeia o pack pelo hash do conteudo. E isso que permite `immutable` no cache
  * da borda: dois conteudos diferentes nunca compartilham URL (stack.md 4.2).
  */
@@ -61,7 +83,7 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
     pack: { url: packUrl, sha256: pack.sha256, bytes: pack.bytes },
     assets: input.assets.map((a) => ({
       ref: a.ref,
-      url: a.path,
+      url: urlDoAsset(a.path, a.sha256),
       sha256: a.sha256,
       bytes: a.bytes,
     })),
@@ -69,9 +91,12 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
     // Mesma convencao do `built_at` do pack: `SOURCE_DATE_EPOCH` torna o
     // manifest — e portanto a assinatura — reproduzivel byte a byte.
     publishedAt: buildDate(),
+    // So emitida quando definida: um manifest sem modelo fica byte a byte
+    // igual ao de antes, e o app que nao conhece `model` continua aceitando.
+    ...(input.model ? { model: { url: input.model.url, sha256: input.model.sha256 } } : {}),
   };
 
-  const privateKey = createPrivateKey(readFileSync(input.privateKeyPath, 'utf8'));
+  const privateKey = input.privateKey ?? carregarChavePrivada(input.privateKeyPath);
   const payload = canonicalPayload({ ...unsigned, signature: SIGNATURE_PLACEHOLDER } as Manifest);
   const signature = edSign(null, Buffer.from(payload, 'utf8'), privateKey).toString('base64');
 
@@ -87,8 +112,17 @@ export function buildManifest(input: ManifestInput): { manifest: Manifest; packU
  * Chave publica derivada da privada, em base64 (SPKI/DER) — o formato que
  * `signing_key.public_key` guarda.
  */
-export function chavePublicaDe(privateKeyPath: string): string {
-  const privada = createPrivateKey(readFileSync(privateKeyPath, 'utf8'));
+/**
+ * Le a chave privada UMA vez. `PACK_SIGNING_KEY_PATH=/dev/fd/3` (Revisao do
+ * ADR-001) e um pipe: reabrir falha. Quem precisa da chave mais de uma vez
+ * (guarda de registro + assinatura) carrega aqui e passa o `KeyObject`.
+ */
+export function carregarChavePrivada(path: string): KeyObject {
+  return createPrivateKey(readFileSync(path, 'utf8'));
+}
+
+export function chavePublicaDe(chave: string | KeyObject): string {
+  const privada = typeof chave === 'string' ? carregarChavePrivada(chave) : chave;
   return createPublicKey(privada).export({ type: 'spki', format: 'der' }).toString('base64');
 }
 
@@ -106,7 +140,7 @@ export function chavePublicaDe(privateKeyPath: string): string {
  */
 export function conferirChaveRegistrada(
   keyId: string,
-  privateKeyPath: string,
+  privateKeyPath: string | KeyObject,
   registradas: readonly { keyId: string; publicKey: string; retiredAt: string | null }[],
 ): void {
   const registro = registradas.find((k) => k.keyId === keyId);
@@ -122,7 +156,7 @@ export function conferirChaveRegistrada(
   const derivada = chavePublicaDe(privateKeyPath);
   if (derivada !== registro.publicKey) {
     throw new Error(
-      `A chave privada em ${privateKeyPath} nao corresponde a publica registrada para ` +
+      `A chave privada${typeof privateKeyPath === 'string' ? ` em ${privateKeyPath}` : ''} nao corresponde a publica registrada para ` +
         `"${keyId}". Assinar assim produziria um pack que a frota rejeita.`,
     );
   }
@@ -239,4 +273,25 @@ export async function publish(
   published.push(manifestKey);
 
   return published;
+}
+
+/**
+ * `model` do manifest a partir das flags/envs (`--model-url`/`PACK_MODEL_URL`
+ * e `--model-sha256`/`PACK_MODEL_SHA256`). Os dois juntos ou nenhum: so a URL
+ * apontaria o app para um arquivo cujo digest ninguem declarou.
+ */
+export function modeloDoManifest(
+  url: string | undefined,
+  sha256: string | undefined,
+): { url: string; sha256: string } | undefined {
+  const u = url?.trim() || undefined;
+  const s = sha256?.trim() || undefined;
+  if (!u && !s) return undefined;
+  if (!u || !s) throw new ErroDeUso('--model-url e --model-sha256 vão juntos');
+  return { url: u, sha256: s };
+}
+
+/** Erro de uso da linha de comando: o ponto de entrada sai com 64 (EX_USAGE). */
+export class ErroDeUso extends Error {
+  override name = 'ErroDeUso';
 }

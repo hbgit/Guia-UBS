@@ -30,6 +30,30 @@ test('manifest valido e aceito', () => {
   assert.equal(manifestSchema.safeParse(validManifest()).success, true);
 });
 
+// Plano B: `model` e opcional e estrito — campo extra nao assinado seria um
+// canal para o servidor dizer ao app algo que ninguem assinou.
+const MODEL = { url: '../models/m-x.gguf', sha256: 'c'.repeat(64) };
+
+test('aceita manifest com model', () => {
+  const parsed = manifestSchema.parse({ ...validManifest(), model: MODEL });
+  assert.deepEqual(parsed.model, MODEL);
+});
+
+test('aceita manifest sem model', () => {
+  const parsed = manifestSchema.parse(validManifest());
+  assert.equal('model' in parsed, false);
+});
+
+test('recusa model com campo extra', () => {
+  const r = manifestSchema.safeParse({ ...validManifest(), model: { ...MODEL, bytes: 1 } });
+  assert.equal(r.success, false);
+});
+
+test('recusa model.sha256 fora de hex64', () => {
+  const r = manifestSchema.safeParse({ ...validManifest(), model: { ...MODEL, sha256: 'C'.repeat(64) } });
+  assert.equal(r.success, false);
+});
+
 test('manifest com packVersion zero e rejeitado (versao e monotonica e positiva)', () => {
   const result = manifestSchema.safeParse(validManifest({ packVersion: 0 }));
   assert.equal(result.success, false);

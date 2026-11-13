@@ -13,13 +13,23 @@
  * nunca de uma flag propria: "avisar em vez de bloquear" so existe onde nada
  * sera assinado.
  */
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { avaliarRegistro, PACK_SCHEMA_VERSION } from '@guia-ubs/contract';
 
 import { buildPack, readRuleModel } from './build-pack.js';
-import { buildManifest, publish, writeManifest, type S3Target } from './release.js';
+import {
+  buildManifest,
+  ErroDeUso,
+  modeloDoManifest,
+  publish,
+  urlDoAsset,
+  writeManifest,
+  type S3Target,
+} from './release.js';
+
+export { ErroDeUso };
 import {
   lerAtestadosDoYaml,
   lerGoldenDoYaml,
@@ -49,6 +59,7 @@ interface Args {
   packVersion: number;
   municipality: string;
   minAppBuild: number;
+  model?: { url: string; sha256: string };
 }
 
 function parseArgs(argv: string[]): Args {
@@ -62,6 +73,10 @@ function parseArgs(argv: string[]): Args {
     packVersion: Number(flag('pack-version') ?? process.env.PACK_VERSION ?? 1),
     municipality: flag('municipality') ?? process.env.MUNICIPALITY ?? '0000000',
     minAppBuild: Number(flag('min-app-build') ?? 1),
+    model: modeloDoManifest(
+      flag('model-url') ?? process.env.PACK_MODEL_URL,
+      flag('model-sha256') ?? process.env.PACK_MODEL_SHA256,
+    ),
   };
 }
 
@@ -83,7 +98,7 @@ function requireEnv(name: string): string {
  * Caminhos relativos sao resolvidos contra a raiz do repositorio, nao contra o
  * cwd: rodar via `npm --workspace` muda o cwd e quebraria o caminho da chave.
  */
-function resolveFromRepo(repoRoot: string, path: string): string {
+export function resolveFromRepo(repoRoot: string, path: string): string {
   return isAbsolute(path) ? path : resolve(repoRoot, path);
 }
 
@@ -177,9 +192,22 @@ export async function executarCli(
     minAppBuild: args.minAppBuild,
     keyId: process.env.PACK_SIGNING_KEY_ID ?? 'k1',
     privateKeyPath: resolveFromRepo(repoRoot, requireEnv('PACK_SIGNING_KEY_PATH')),
+    ...(args.model ? { model: args.model } : {}),
   });
   const manifestPath = writeManifest(outDir, manifest);
   console.log(`  ok    manifest assinado (${packUrl})`);
+
+  // Arvore publicavel: `out/` espelha o diretorio da edicao no host (plano B).
+  // O `content:publish` envia packs/ e assets/ e por ultimo o manifest, sem
+  // saber nada do packer.
+  const staged = join(outDir, packUrl);
+  mkdirSync(dirname(staged), { recursive: true });
+  copyFileSync(built.dbPath, staged);
+  for (const a of built.assets) {
+    const destino = join(outDir, urlDoAsset(a.path, a.sha256));
+    mkdirSync(dirname(destino), { recursive: true });
+    writeFileSync(destino, a.content);
+  }
 
   if (args.command !== 'publish') {
     console.log(`\nArtefatos em ${outDir}. Use "publish" para enviar ao storage.`);
@@ -187,9 +215,6 @@ export async function executarCli(
   }
 
   // 4. Publicacao — artefatos por hash primeiro, manifest por ultimo
-  const staged = join(outDir, packUrl);
-  mkdirSync(dirname(staged), { recursive: true });
-  copyFileSync(built.dbPath, staged);
 
   const target: S3Target = {
     endpoint: process.env.S3_ENDPOINT ?? 'http://127.0.0.1:9000',
@@ -200,7 +225,10 @@ export async function executarCli(
 
   const files = [
     { key: packUrl, path: staged },
-    ...built.assets.map((a) => ({ key: a.path, path: join(repoRoot, 'seed', a.path) })),
+    ...built.assets.map((a) => ({
+      key: urlDoAsset(a.path, a.sha256),
+      path: join(outDir, urlDoAsset(a.path, a.sha256)),
+    })),
   ];
 
   const published = await publish(target, args.municipality, files, manifestPath);

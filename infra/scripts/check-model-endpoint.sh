@@ -53,12 +53,18 @@ c="$(curl -sS -o /dev/null -w '%{http_code}' -H "Range: bytes=$BYTES-" "$URL")"
 c="$(curl -sS -o /dev/null -w '%{http_code}' -X PUT --data-binary x "$URL")"
 case "$c" in 403|405) ok "escrita anonima recusada ($c)" ;; *) nok "escrita anonima" "status $c" ;; esac
 
-c="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE?list-type=2&prefix=models")"
-[ "$c" = 403 ] && ok "listagem anonima de models/ recusada" || nok "listagem anonima" "status $c"
+# MinIO recusa a listagem com 403; o host so de conteudo do plano B (Caddy
+# `file_server` sem `browse`) responde 404 — os dois fecham a listagem.
+lista="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE?list-type=2&prefix=models")"
+case "$lista" in 403|404) ok "listagem anonima de models/ recusada ($lista)" ;; *) nok "listagem anonima" "status $lista" ;; esac
 
-# Com a politica certa (models/*), chave vizinha e 403; com `models*`, seria 404.
-c="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/models-x/nao-existe")"
-[ "$c" = 403 ] && ok "chave vizinha (models-x/) fechada" || nok "chave vizinha models-x/" "status $c"
+# So no MinIO (listagem 403): com a politica certa (models/*), chave vizinha e
+# 403; com `models*`, seria 404. Num diretorio servido nao ha politica de
+# prefixo, e inexistente e 404 por construcao.
+if [ "$lista" = 403 ]; then
+  c="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE/models-x/nao-existe")"
+  [ "$c" = 403 ] && ok "chave vizinha (models-x/) fechada" || nok "chave vizinha models-x/" "status $c"
+fi
 
 if [ -n "$MANIFEST" ]; then
   c="$(curl -sS -o /dev/null -w '%{http_code}' "$MANIFEST")"

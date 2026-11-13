@@ -51,8 +51,11 @@ import { buildPack, readRuleModel } from './build-pack.js';
 import { extrairConteudo, lerAtestadosDoBanco, lerGoldenDoBanco } from './extract.js';
 import {
   buildManifest,
+  carregarChavePrivada,
   conferirChaveRegistrada,
+  modeloDoManifest,
   publish,
+  urlDoAsset,
   writeManifest,
   type S3Target,
 } from './release.js';
@@ -340,7 +343,10 @@ export async function processar(
     // A guarda de chave vem ANTES do build: descobrir no fim que a chave nao esta
     // registrada desperdicaria o build inteiro, e o erro apareceria depois dos
     // portoes verdes, onde ninguem o procura.
-    conferirChaveRegistrada(keyId, keyPath, await chavesRegistradas(client));
+    // Uma leitura so da chave (pipe do cofre nao reabre): a guarda e a
+    // assinatura usam o mesmo KeyObject.
+    const chave = carregarChavePrivada(keyPath);
+    conferirChaveRegistrada(keyId, chave, await chavesRegistradas(client));
 
     const dados = await extrairConteudo({ client, municipalityId: release.municipalityId });
     const built = buildPack({
@@ -386,6 +392,10 @@ export async function processar(
       minAppBuild: Number(process.env.MIN_APP_BUILD ?? 1),
       keyId,
       privateKeyPath: keyPath,
+      privateKey: chave,
+      // Plano B: mesmas envs do CLI. Lidas a cada release, nao no boot do
+      // worker: trocar o host do modelo nao deve exigir reiniciar o job.
+      ...modeloOpcional(),
     });
     const manifestPath = writeManifest(OUT_DIR, manifest);
 
@@ -412,7 +422,10 @@ export async function processar(
       release.municipalityCode,
       [
         { key: packUrl, path: staged },
-        ...built.assets.map((a) => ({ key: a.path, path: join(REPO_ROOT, 'seed', a.path) })),
+        ...built.assets.map((a) => ({
+          key: urlDoAsset(a.path, a.sha256),
+          path: join(REPO_ROOT, 'seed', a.path),
+        })),
       ],
       manifestPath,
     );
@@ -487,4 +500,9 @@ if (import.meta.filename === process.argv[1]) {
       await new Promise((ok) => setTimeout(ok, intervalo));
     }
   }
+}
+
+function modeloOpcional(): { model?: { url: string; sha256: string } } {
+  const model = modeloDoManifest(process.env.PACK_MODEL_URL, process.env.PACK_MODEL_SHA256);
+  return model ? { model } : {};
 }

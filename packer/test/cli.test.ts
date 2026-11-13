@@ -12,15 +12,28 @@
  * o proprio outDir.
  */
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createHash, generateKeyPairSync, verify as edVerify } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
-import { avaliarRegistro, avaliarRevisao, conferirContraRegistro } from '@guia-ubs/contract';
+import {
+  avaliarRegistro,
+  avaliarRevisao,
+  canonicalPayload,
+  conferirContraRegistro,
+  type Manifest,
+} from '@guia-ubs/contract';
 
-import { executarCli, modoDoComando, type AmbienteCli } from '../src/cli.js';
+import {
+  ErroDeUso,
+  executarCli,
+  modoDoComando,
+  resolveFromRepo,
+  type AmbienteCli,
+} from '../src/cli.js';
 import { lerAtestadosDoYaml, lerGoldenDoYaml } from '../src/validate.js';
 import { REG, REV_CRM, semRevisao } from './support/revisao.js';
 
@@ -31,7 +44,14 @@ const CASO_REVISADO = { ...CASO_SEM_REVISOR, reviewed_by: [REV_CRM] };
 
 let diretorio: string;
 const salvo: Record<string, string | undefined> = {};
-const CHAVES = ['PACK_SIGNING_KEY_PATH', 'PACK_SIGNING_KEY_ID', 'SOURCE_DATE_EPOCH', 'MINIO_ROOT_USER'];
+const CHAVES = [
+  'PACK_SIGNING_KEY_PATH',
+  'PACK_SIGNING_KEY_ID',
+  'SOURCE_DATE_EPOCH',
+  'MINIO_ROOT_USER',
+  'PACK_MODEL_URL',
+  'PACK_MODEL_SHA256',
+];
 
 before(() => {
   for (const k of CHAVES) salvo[k] = process.env[k];
@@ -43,6 +63,8 @@ before(() => {
   delete process.env.PACK_SIGNING_KEY_ID;
   process.env.SOURCE_DATE_EPOCH = '1787097600';
   delete process.env.MINIO_ROOT_USER;
+  delete process.env.PACK_MODEL_URL;
+  delete process.env.PACK_MODEL_SHA256;
 });
 
 after(() => {
@@ -205,4 +227,130 @@ test('os YAMLs reais nao tem revisao invalida', () => {
       assert.deepEqual(conferirContraRegistro(revisao.revisores, registro.entradas), [], caso.id);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// Plano B: model {url, sha256} no manifest
+// ---------------------------------------------------------------------------
+
+test('model-url sem model-sha256 e erro de uso', async () => {
+  const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  await assert.rejects(
+    executarCli(['build', '--model-url', '../models/m.gguf'], amb),
+    (e: Error) => e instanceof ErroDeUso && /vão juntos/.test(e.message),
+  );
+  assert.ok(!assinou(amb.outDir));
+});
+
+test('build com --model-url e --model-sha256 assina o model', async () => {
+  const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  const sha = 'c'.repeat(64);
+  const r = await executarCli(
+    ['build', '--model-url', '../models/m.gguf', '--model-sha256', sha],
+    amb,
+  );
+  assert.equal(r.estado, 'assinado', JSON.stringify(r.problemas));
+  const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8'));
+  assert.deepEqual(manifest.model, { url: '../models/m.gguf', sha256: sha });
+});
+
+// ---------------------------------------------------------------------------
+// Plano B, Task 6: as verificacoes do §J e a arvore publicavel em out/
+// ---------------------------------------------------------------------------
+
+const sha256De = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+test('pack:check e pack:build geram o mesmo content.db', async () => {
+  // O procedimento provisorio da Revisao do ADR-001 depende disto: o
+  // mantenedor B reconstroi SEM a chave e publica o hash; o A assina e confere
+  // que e o mesmo. Se a assinatura tocasse o content.db, o hash de B nunca
+  // bateria.
+  const check = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  const build = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  assert.equal((await executarCli(['build', '--dry-run'], check)).estado, 'verificado');
+  assert.equal((await executarCli(['build'], build)).estado, 'assinado');
+  assert.equal(sha256De(join(check.outDir, 'content.db')), sha256De(join(build.outDir, 'content.db')));
+});
+
+test('resolveFromRepo aceita /dev/fd/3', () => {
+  assert.equal(resolveFromRepo('/repo', '/dev/fd/3'), '/dev/fd/3');
+  assert.equal(resolveFromRepo('/repo', 'contract/keys/k.pem'), '/repo/contract/keys/k.pem');
+});
+
+test('build le a chave uma vez so', { timeout: 60_000 }, async () => {
+  // `PACK_SIGNING_KEY_PATH=/dev/fd/3 ... 3< <(cofre)`: um pipe se le UMA vez.
+  // Um FIFO reproduz isso: o escritor entrega a chave a um leitor e sai; uma
+  // segunda leitura bloquearia para sempre (ou leria vazio).
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const pem = join(diretorio, 'fifo-src.pem');
+  writeFileSync(pem, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string);
+  const fifo = join(diretorio, 'chave.fifo');
+  await new Promise<void>((ok, erro) =>
+    spawn('mkfifo', [fifo]).on('exit', (c) => (c === 0 ? ok() : erro(new Error(`mkfifo ${c}`)))),
+  );
+  const escritor = spawn('sh', ['-c', `cat "${pem}" > "${fifo}"`]);
+  const anterior = process.env.PACK_SIGNING_KEY_PATH;
+  process.env.PACK_SIGNING_KEY_PATH = fifo;
+  try {
+    const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+    const r = await executarCli(['build'], amb);
+    assert.equal(r.estado, 'assinado', JSON.stringify(r.problemas));
+    const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8')) as Manifest;
+    assert.equal(
+      edVerify(
+        null,
+        Buffer.from(canonicalPayload(manifest), 'utf8'),
+        publicKey,
+        Buffer.from(manifest.signature.value, 'base64'),
+      ),
+      true,
+    );
+  } finally {
+    process.env.PACK_SIGNING_KEY_PATH = anterior;
+    escritor.kill();
+  }
+});
+
+test('build deixa o pack em out/<pack.url> e os assets em out/<asset.url>', async () => {
+  // `out/` espelha o diretorio da edicao no host: o `content:publish` envia
+  // a arvore sem saber nada do packer.
+  const amb = ambiente({ casos: [CASO_REVISADO], atestados: REG });
+  assert.equal((await executarCli(['build'], amb)).estado, 'assinado');
+  const manifest = JSON.parse(readFileSync(join(amb.outDir, 'manifest.json'), 'utf8')) as Manifest;
+  assert.equal(sha256De(join(amb.outDir, manifest.pack.url)), manifest.pack.sha256);
+  for (const a of manifest.assets) {
+    assert.equal(sha256De(join(amb.outDir, a.url)), a.sha256, a.url);
+  }
+});
+
+test('a chave chega ao script por npm run via pipe em /dev/stdin, em qualquer shell', { timeout: 120_000 }, async () => {
+  // O runbook (operacao.md 2.7b) roda o packer por `npm run`, que NAO repassa
+  // o fd 3 ao processo filho. `<(...)` funciona no bash (/dev/fd/63), mas no
+  // zsh o caminho e /proc/self/fd/11 e o filho do npm recebe EACCES — e o zsh
+  // e o shell padrao de mantenedor. `cofre | PACK_SIGNING_KEY_PATH=/dev/stdin`
+  // usa o fd 0, que o npm herda em qualquer shell. Este teste passa pelo npm DE
+  // VERDADE; chamar executarCli direto nao pegaria o defeito.
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const pem = join(diretorio, 'npm-fd.pem');
+  writeFileSync(pem, privateKey.export({ type: 'pkcs8', format: 'pem' }) as string);
+  const esperado = (publicKey.export({ type: 'spki', format: 'der' }) as Buffer)
+    .subarray(-32)
+    .toString('hex');
+  const rodar = (shell: string, comando: string) =>
+    new Promise<{ codigo: number | null; saida: string }>((ok) => {
+      const p = spawn(shell, ['-c', comando], { cwd: REPO_ROOT, env: { ...process.env, PEM: pem } });
+      let saida = '';
+      p.stdout.on('data', (d) => (saida += d));
+      p.stderr.on('data', (d) => (saida += d));
+      p.on('exit', (codigo) => ok({ codigo, saida }));
+    });
+
+  for (const shell of ['bash', 'sh']) {
+    const viaStdin = await rodar(shell, 'cat "$PEM" | PACK_SIGNING_KEY_PATH=/dev/stdin npm run --silent pack:key');
+    assert.equal(viaStdin.codigo, 0, `${shell}: ${viaStdin.saida}`);
+    assert.match(viaStdin.saida, new RegExp(esperado), shell);
+  }
+
+  const viaFd3 = await rodar('bash', 'PACK_SIGNING_KEY_PATH=/dev/fd/3 npm run --silent pack:key 3< "$PEM"');
+  assert.notEqual(viaFd3.codigo, 0, 'se o npm passar a repassar o fd 3, o runbook pode voltar a usa-lo');
 });

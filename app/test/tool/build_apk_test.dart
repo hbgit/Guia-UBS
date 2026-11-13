@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/model_url_check.dart';
 
 void main() {
+  // Fictícia e NÃO a de desenvolvimento: a guarda recusa a de dev (plano B).
+  final chaveFicticia = 'a' * 64;
   late Directory tmp;
   late File marcador;
   late File flutterFalso;
@@ -36,6 +38,7 @@ void main() {
       'MODEL_URL': huggingFaceExceptionUrl,
       'PACK_MANIFEST_URL': 'https://edge.dominio-do-projeto-a-definir.org/'
           'content-packs/0000000/manifest.json',
+      'PACK_SIGNING_KEY_K1': chaveFicticia,
     }));
 
   test('release com o defines de exemplo sai com erro antes do flutter build',
@@ -55,6 +58,7 @@ void main() {
         'MODEL_URL': huggingFaceExceptionUrl,
         'PACK_MANIFEST_URL': 'https://edge.dominio-do-projeto-a-definir.org/'
             'content-packs/0000000/manifest.json',
+        'PACK_SIGNING_KEY_K1': chaveFicticia,
       }));
 
     final r = build(config.path);

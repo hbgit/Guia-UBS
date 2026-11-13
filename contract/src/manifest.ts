@@ -44,6 +44,16 @@ export const manifestSchema = z.object({
   /** Build minimo do app capaz de ler este pack. */
   minAppBuild: z.number().int().nonnegative(),
   publishedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'publishedAt deve ser YYYY-MM-DD'),
+  /**
+   * De onde baixar o modelo SLM (plano B; Revisao do ADR-004). Opcional: o app
+   * usa a URL so se `sha256` for o do modelo que ELE compilou, e so na origem
+   * do manifest ou no host do `MODEL_URL` embarcado. Trocar de host vira uma
+   * edicao assinada; trocar de modelo continua exigindo release.
+   */
+  model: z
+    .object({ url: z.string().min(1), sha256 })
+    .strict()
+    .optional(),
   signature: signatureSchema,
 });
 

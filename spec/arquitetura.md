@@ -1309,6 +1309,30 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 **Achados.** O `endpoint_config.dart` importava `package:flutter/foundation` só pelo `kDebugMode`, e o guarda de build, que roda por `dart run`, não compilava; o `build_apk_test` pegou. A constante agora vem de `dart.vm.product`/`dart.vm.profile`, a mesma definição do Flutter. Consequência da regra de `https`: verificação em profile contra o edge de dev em `http` deixa de funcionar — usar debug.
 
+
+#### 5.20 Medição do Hugging Face (plano B, 2026-11-12)
+
+**Para que serve.** A Revisão 2026-11-12 do ADR-004 deixa o modelo no Hugging Face até um gatilho de saída (Q-B3). Esta medição calibra o gatilho e o tratamento do 429 no app (`lib/sync/resumable_downloader.dart`, `parseRetryAfter`).
+
+**Limite oficial** ([huggingface.co/docs/hub/rate-limits](https://huggingface.co/docs/hub/rate-limits), consultado em 2026-11-12, tabela "em setembro de 2025"): usuário anônimo tem **3.000 requisições de *resolver* por IP em janela fixa de 5 minutos**. A página avisa que o limite de anônimos e de usuários gratuitos "muda com o tempo conforme a saúde da plataforma". Ao estourar, o Hub devolve **429** com os cabeçalhos do rascunho IETF `ratelimit-headers`.
+
+**Medido** em 2026-11-12, por volta das 23:28 UTC, a partir de uma rede fixa residencial no Brasil, com a URL da exceção (`huggingFaceExceptionUrl`):
+
+| Medida | Resultado |
+|---|---|
+| `HEAD -L`, 3 vezes | `302` → `200`, `content-length: 806058240`, `x-linked-size: 806058240` |
+| Cabeçalhos | `ratelimit: "resolvers";r=2999;t=154` e `ratelimit-policy: "fixed window";"resolvers";q=3000;w=300` |
+| Cota | `r` cai 1 por requisição: 2999, 2998, 2997, e 2992 depois de 3 downloads completos e mais 4 requisições. Uma retomada por `Range` é uma requisição a mais |
+| `Range: bytes=0-9` | `206`, 10 bytes |
+| Download completo, 3 vezes | 21,4 s, 21,4 s e 25,0 s (cerca de 37 MB/s), com 1 redirecionamento; sha256 `8ccc5cd1…a135`, igual ao do catálogo |
+| 429 | nenhum |
+
+**Duas coisas que a medição mostrou:**
+- **O `302` leva a outro host**, `us.aws.cdn.hf.co` (caminho `xet-bridge-us/…`): os bytes vêm de uma CDN nos EUA. O cliente HTTP do app segue o redirecionamento. A regra de origem da Task 4 vale para a URL que o app pede (`huggingface.co`), não para o destino do `302`. Isso já era assim desde a exceção do ADR-004 e é o que o `docs/dados-do-usuario.md` §3 chama de "Hugging Face".
+- **O formato do `RateLimit` é o que o `parseRetryAfter` lê** (`t=<segundos>`). Um 429 passa a ser "tente depois", e não "arquivo inválido".
+
+**Limite da medição.** Três downloads de uma máquina não medem uma frota. O risco real é o **CGNAT das operadoras móveis**, com muitos aparelhos atrás de um IP somando a mesma cota. Por isso o gatilho da Q-B3 também conta os relatos de QA. **Pendente:** a medição a partir de uma rede móvel brasileira (aparelho compartilhando dados), com pelo menos um download completo e três `HEAD`, registrada aqui com a data.
+
 ### Fase 3.5 — Interface de operação (pré-requisito de release pública) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅
@@ -1328,9 +1352,19 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 Itens novos do realinhamento institucional (2026-11-02), cada um com plano próprio. As diretrizes de cada um estão em [implantacao.md](implantacao.md); as perguntas F-n são as do plano de realinhamento (`docs/superpowers/plans/2026-11-02-realinhamento-institucional-implantacao.md`, §F). O item 26 já existe (§5.15), por isso o workflow de release é o 31.
 
 25. **Identidade, assinatura e ABIs do app** ([ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)). `applicationId` definitivo (sufixo `guiasaude`, prefixo do domínio do PRISM), com os nomes de tarefa do WorkManager e `app/tool/release_permissions.dart` mudando junto; `signingConfig` de release a partir de `key.properties` fora do repositório (keystore em cofre com duas custódias); `arm64-v8a` e `armeabi-v7a`, `minSdk 26`, **um build por ABI, sem `--split-per-abi`**. Em `armeabi-v7a` o APK sai **sem o shim** e o app **não oferece nem inicia o download do modelo** (triagem pelo `RuleOnlyEngine`, INV-8), com teste. Guarda de `minAppBuild` contra o `versionCode` único, com teste (hoje nenhum código a compara). **Depende de:** F-3, F-6; provisória F-17. [implantacao.md](implantacao.md).
-27. **Playbook Ansible da VPS** ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr)), que cumpre a promessa de `infra/ansible/` (§3): usuário de deploy com SSH só por chave, firewall 22/80/443, `unattended-upgrades`, Docker pinado, LUKS se o provedor permitir, `compose.yaml` sem override sob systemd, `infra/.env` com permissão 600. Ao entrar, encerra o procedimento provisório de assinatura por dois mantenedores (Revisão do ADR-001). **Depende de:** F-1, F-2, F-7. [implantacao.md](implantacao.md).
+27. **Playbook Ansible da VPS** ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr)), que cumpre a promessa de `infra/ansible/` (§3): usuário de deploy com SSH só por chave, firewall 22/80/443, `unattended-upgrades`, Docker pinado, LUKS se o provedor permitir, `compose.yaml` sem override sob systemd, `infra/.env` com permissão 600. Ao entrar, encerra o procedimento provisório de assinatura por dois mantenedores (Revisão do ADR-001) e substitui o host só de conteúdo do plano B (`compose.content.yaml`) sem mudar a URL embarcada. **Escolhe o object store do CMS/worker**: a imagem `minio/minio` fixada no `compose.yaml` não é mais baixável e o MinIO community foi arquivado (Revisão 2026-11-12 do ADR-007). **Depende de:** F-1, F-2, F-7. [implantacao.md](implantacao.md).
 28. **Backup, restauração e monitoramento externo** (RNF-11, ADR-007 itens 7 e 8): backup diário cifrado fora do host (`sqld`, fontes primárias do MinIO, `caddydata`, `.env`), restauração testada a cada trimestre; monitor de `manifest.json` e do CMS, alertas de TLS e disco. **Depende de:** item 27, F-8 (provisória), F-1. [implantacao.md](implantacao.md).
 29. *Reservado: aceite do Termo de Uso do CMS, plano à parte.*
+
+    **Plano B (2026-11-12)** — `docs/superpowers/plans/2026-11-12-plano-b-conteudo-e-modelo.md`. Entregue no código:
+    - a guarda de build contra a chave de desenvolvimento, no APK e no AAB;
+    - `model: {url, sha256}` no manifest assinado, com a regra de sha e de origem no app;
+    - 429 e 503 como "tente depois";
+    - as verificações do §J, com a chave lida uma vez e o `verify_published`;
+    - o host só de conteúdo (`compose.content.yaml`, `content:publish`, `content:test`; fecha a #46);
+    - o runbook (`docs/operacao.md` §2.7b) e a medição do HF (§5.20).
+
+    **Pendente fora do código:** a implantação na VPS, o ensaio no host real, a medição em rede móvel, a franquia de egress (o teto do ADR-004) e o `defines.release.json` real, que depende da chave pública de produção e da escolha final do nome do domínio de conteúdo.
 30. **Modelo SLM como download opcional/sob demanda.** Avaliar se o modelo de ~806 MB deixa de ser baixado automaticamente no 1º acesso, com os módulos educativos funcionando sem ele. **Depende de:** F-18; reabre o [ADR-003](stack.md#10-registro-de-decisões-arquiteturais-adr) se adotado. [implantacao.md](implantacao.md).
 31. **`app-release.yml`** (RNF-10, RF-17, [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)): tag `vX.Y.Z` em `main` → APK por ABI + AAB assinados, `SHA256SUMS` (o job falha sem ele), impressão do certificado e nota de release; release no GitHub nasce *pre-release*, AAB vai para a faixa de teste da Play; guardas `build_apk.sh`/`model_url_check` e `check_release_permissions` no job; `versionCode` ≤ o publicado reprova. **Depende de:** item 25, F-4, F-7. [implantacao.md](implantacao.md).
 

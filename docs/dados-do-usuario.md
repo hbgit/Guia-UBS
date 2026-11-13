@@ -40,8 +40,10 @@ São duas chamadas de rede, feitas em segundo plano: o manifest e o pack de cont
 - os cabeçalhos `Range` (para retomar o download) e `If-None-Match` (o ETag do manifest), que são técnicos e não identificam ninguém.
 
 Quem recebe essas chamadas:
-- **o Hugging Face**, no download do modelo;
-- **o host de conteúdo do PRISM**, no download do pack, depois do plano B. Os logs de acesso desse servidor são uma questão de operação da VPS, não do app.
+- **o Hugging Face**, no download do modelo, enquanto ele estiver lá. O endereço do Hugging Face redireciona para a CDN dele, hoje nos EUA ([`spec/arquitetura.md`](../spec/arquitetura.md) §5.20);
+- **o host de conteúdo do PRISM**, numa VPS no Brasil, no download do pack, e também no do modelo se ele sair do Hugging Face. Os logs de acesso desse servidor são uma questão de operação da VPS, não do app.
+
+**De onde o modelo vem pode mudar sem atualizar o app**, por uma edição assinada do manifest (Revisão 2026-11-12 do ADR-004). O código só aceita a URL nova se ela for do mesmo modelo (mesmo SHA-256) e ficar **no host do manifest ou no host do Hugging Face já embarcado**. Um manifest, mesmo assinado, não consegue mandar o aparelho a um terceiro servidor (`app/lib/sync/model_source.dart`). A mudança vale na abertura seguinte do app.
 
 O site `guiasaude.prismrr.com.br` é hospedado pelo GitHub Pages. O GitHub também registra os IPs de quem o acessa, mas o site não tem nenhum script.
 

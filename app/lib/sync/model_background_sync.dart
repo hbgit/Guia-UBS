@@ -23,7 +23,10 @@ import '../prefs/user_database_connection.dart';
 import '../triage/engine/llama_bindings.dart';
 import 'model_catalog.dart';
 import 'model_downloader.dart';
+import 'model_source.dart';
 import 'model_sync_scheduler.dart';
+import 'pack_background_sync.dart' show packManifestUri;
+import 'pack_store.dart';
 import 'resumable_downloader.dart';
 
 /// Executa a tarefa de download do modelo.
@@ -37,6 +40,7 @@ Future<bool> runModelSyncTask({
   bool Function()? runtimeSupported,
   Future<bool> Function()? termsAccepted,
   Future<Directory> Function()? modelsDir,
+  Future<ModelArtifact> Function()? resolveArtifact,
 }) async {
   // ADR-009: o APK `armeabi-v7a` não traz o shim. O primeiro plano não agenda
   // este job ali, mas um job herdado (ou qualquer caminho que escape) chega
@@ -52,26 +56,18 @@ Future<bool> runModelSyncTask({
   if (!await (termsAccepted ?? _termsAcceptedOnDisk)()) return true;
 
   final dir = await (modelsDir ?? modelsDirectory)();
+  // Plano B: mesma regra do primeiro plano — URL do manifest assinado, presa
+  // ao sha e à origem, com fallback no MODEL_URL. Lida a cada disparo.
+  final artifact = await (resolveArtifact ?? _effectiveFromDisk)();
   final downloader = ModelDownloader(
-    artifact: activeModel,
-    destination: File('${dir.path}/${activeModel.fileName}'),
+    artifact: artifact,
+    destination: File('${dir.path}/${artifact.fileName}'),
     downloader: ResumableDownloader(writerLabel: 'worker', trace: debugPrint),
   );
 
   try {
     final result = await downloader.ensureAvailable();
-    return switch (result) {
-      // Pronto: o trabalho cumpriu seu papel e não precisa voltar.
-      ModelReady() => true,
-      // `false` pede REAGENDAMENTO com backoff. É o desfecho normal de uma
-      // janela que fechou no meio — o parcial ficou salvo e a próxima
-      // execução continua dele.
-      ModelUnavailable(reason: ModelUnavailableReason.interrupted) => false,
-      // Sem disco ou arquivo inválido: repetir agora não resolve. Devolver
-      // `true` evita queimar bateria numa tentativa que já sabemos inútil;
-      // a próxima janela periódica tenta de novo.
-      ModelUnavailable() => true,
-    };
+    return modelTaskDone(result, backoff: const ModelSyncPolicy().backoff);
   } finally {
     downloader.close();
   }
@@ -130,5 +126,41 @@ Future<bool> _termsAcceptedOnDisk() async {
     }
   } on Object {
     return false;
+  }
+}
+
+/// `true` = o WorkManager NÃO reagenda com backoff (a próxima janela
+/// periódica tenta); `false` = reagenda com [backoff].
+bool modelTaskDone(ModelFetchResult result, {required Duration backoff}) =>
+    switch (result) {
+      // Pronto: o trabalho cumpriu seu papel e não precisa voltar.
+      ModelReady() => true,
+      // O servidor pediu para esperar mais que o backoff (429/503): um
+      // reagendamento curto desrespeitaria o pedido e, atrás de um CGNAT,
+      // gastaria a cota de todo mundo. Espera a próxima janela periódica.
+      ModelUnavailable(
+        reason: ModelUnavailableReason.interrupted,
+        :final retryAfter?,
+      )
+          when retryAfter > backoff =>
+        true,
+      // `false` pede REAGENDAMENTO com backoff. É o desfecho normal de uma
+      // janela que fechou no meio — o parcial ficou salvo e a próxima
+      // execução continua dele.
+      ModelUnavailable(reason: ModelUnavailableReason.interrupted) => false,
+      // Sem disco ou arquivo inválido: repetir agora não resolve. Devolver
+      // `true` evita queimar bateria numa tentativa que já sabemos inútil;
+      // a próxima janela periódica tenta de novo.
+      ModelUnavailable() => true,
+    };
+
+Future<ModelArtifact> _effectiveFromDisk() async {
+  try {
+    return await effectiveModel(
+      store: PackStore(await packsDirectory()),
+      manifestUrl: packManifestUri,
+    );
+  } on Object {
+    return activeModel; // diretório inacessível: segue como antes (INV-8)
   }
 }

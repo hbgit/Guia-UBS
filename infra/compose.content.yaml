@@ -1,0 +1,33 @@
+# Host SO de conteudo (plano B; Revisao do ADR-007). Um servico: o `edge`,
+# Caddy servindo um diretorio do host. Sem MinIO, sem CMS, sem packer.
+#
+#   docker compose -f compose.content.yaml up -d      # SEMPRE com -f
+#
+# O item 27 substitui isto pelo `compose.yaml` completo sem mudar o nome nem a
+# URL embarcada (`/content-packs/<edicao>/manifest.json`).
+services:
+  edge:
+    # Fixada por digest (indice multi-arquitetura; inclui linux/arm64, F-1).
+    # Atualizar = trocar tag E digest no mesmo commit, conferindo com
+    # `docker buildx imagetools inspect`.
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    ports:
+      - "${CONTENT_HTTP_PORT:-80}:80"
+      - "${CONTENT_HTTPS_PORT:-443}:443"
+    environment:
+      CONTENT_DOMAIN: ${CONTENT_DOMAIN:?defina em infra/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?defina em infra/.env}
+    volumes:
+      - ./Caddyfile.content:/etc/caddy/Caddyfile:ro
+      - ${CONTENT_ROOT:?defina em infra/.env}:/srv/conteudo:ro
+      # Certificados e estado do ACME. Sem volume, cada recriacao do container
+      # pede certificado novo e esbarra no limite de duplicados do Let's Encrypt.
+      - caddydata:/data
+      - caddyconfig:/config
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddydata:
+  caddyconfig:
