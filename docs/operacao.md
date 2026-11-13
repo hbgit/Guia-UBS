@@ -322,11 +322,12 @@ sha256sum packer/out/content.db
 #    a pública é a registrada; depois assina, com a chave lida UMA vez —
 #    nada em disco persistente. Confere que o sha do content.db é o de B; se
 #    divergir, NADA é enviado.
-#    `<(...)` e NÃO `3< <(...)`: o `npm run` não repassa o fd 3 ao filho, e
-#    há teste disso (packer/test/cli.test.ts).
-PACK_SIGNING_KEY_PATH=<(comando-do-cofre) npm run pack:key
-SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> \
-  PACK_SIGNING_KEY_PATH=<(comando-do-cofre) npm run pack:build
+#    Pipe em `/dev/stdin`, e NÃO `3< <(...)` nem `<(...)`: o `npm run` não
+#    repassa o fd 3 ao filho, e no zsh o `<(...)` vira /proc/self/fd/11, que o
+#    filho do npm não abre (EACCES). Há teste disso (packer/test/cli.test.ts).
+comando-do-cofre | PACK_SIGNING_KEY_PATH=/dev/stdin npm run pack:key
+comando-do-cofre | SOURCE_DATE_EPOCH=1787097600 PACK_VERSION=<n> \
+  PACK_SIGNING_KEY_PATH=/dev/stdin npm run pack:build
 sha256sum packer/out/content.db
 
 # 3. A: publica. O script confere o manifest com a pública (mesmo código do

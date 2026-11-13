@@ -323,10 +323,12 @@ test('build deixa o pack em out/<pack.url> e os assets em out/<asset.url>', asyn
   }
 });
 
-test('a chave chega ao script por npm run via <(cofre), e nao via 3<', { timeout: 120_000 }, async () => {
+test('a chave chega ao script por npm run via pipe em /dev/stdin, em qualquer shell', { timeout: 120_000 }, async () => {
   // O runbook (operacao.md 2.7b) roda o packer por `npm run`, que NAO repassa
-  // o fd 3 ao processo filho. Substituicao de processo (`<(...)`) entrega um
-  // caminho /dev/fd/N que sobrevive ao npm. Este teste passa pelo npm DE
+  // o fd 3 ao processo filho. `<(...)` funciona no bash (/dev/fd/63), mas no
+  // zsh o caminho e /proc/self/fd/11 e o filho do npm recebe EACCES — e o zsh
+  // e o shell padrao de mantenedor. `cofre | PACK_SIGNING_KEY_PATH=/dev/stdin`
+  // usa o fd 0, que o npm herda em qualquer shell. Este teste passa pelo npm DE
   // VERDADE; chamar executarCli direto nao pegaria o defeito.
   const { privateKey, publicKey } = generateKeyPairSync('ed25519');
   const pem = join(diretorio, 'npm-fd.pem');
@@ -334,19 +336,21 @@ test('a chave chega ao script por npm run via <(cofre), e nao via 3<', { timeout
   const esperado = (publicKey.export({ type: 'spki', format: 'der' }) as Buffer)
     .subarray(-32)
     .toString('hex');
-  const rodar = (comando: string) =>
+  const rodar = (shell: string, comando: string) =>
     new Promise<{ codigo: number | null; saida: string }>((ok) => {
-      const p = spawn('bash', ['-c', comando], { cwd: REPO_ROOT, env: { ...process.env, PEM: pem } });
+      const p = spawn(shell, ['-c', comando], { cwd: REPO_ROOT, env: { ...process.env, PEM: pem } });
       let saida = '';
       p.stdout.on('data', (d) => (saida += d));
       p.stderr.on('data', (d) => (saida += d));
       p.on('exit', (codigo) => ok({ codigo, saida }));
     });
 
-  const viaProcSub = await rodar('PACK_SIGNING_KEY_PATH=<(cat "$PEM") npm run --silent pack:key');
-  assert.equal(viaProcSub.codigo, 0, viaProcSub.saida);
-  assert.match(viaProcSub.saida, new RegExp(esperado));
+  for (const shell of ['bash', 'sh']) {
+    const viaStdin = await rodar(shell, 'cat "$PEM" | PACK_SIGNING_KEY_PATH=/dev/stdin npm run --silent pack:key');
+    assert.equal(viaStdin.codigo, 0, `${shell}: ${viaStdin.saida}`);
+    assert.match(viaStdin.saida, new RegExp(esperado), shell);
+  }
 
-  const viaFd3 = await rodar('PACK_SIGNING_KEY_PATH=/dev/fd/3 npm run --silent pack:key 3< "$PEM"');
+  const viaFd3 = await rodar('bash', 'PACK_SIGNING_KEY_PATH=/dev/fd/3 npm run --silent pack:key 3< "$PEM"');
   assert.notEqual(viaFd3.codigo, 0, 'se o npm passar a repassar o fd 3, o runbook pode voltar a usa-lo');
 });

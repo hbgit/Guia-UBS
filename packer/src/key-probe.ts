@@ -7,9 +7,10 @@
  * conferir, antes do build, que o pipe do cofre chega ao packer e que a chave e
  * a registrada:
  *
- *   PACK_SIGNING_KEY_PATH=<(comando-do-cofre) npm run pack:key
+ *   comando-do-cofre | PACK_SIGNING_KEY_PATH=/dev/stdin npm run pack:key
  *
- * `<(...)`, e nao `3< <(...)`: o `npm run` nao repassa o fd 3 ao filho.
+ * Pipe no fd 0, e nao `3< <(...)` (o `npm run` nao repassa o fd 3) nem
+ * `<(...)` (no zsh vira /proc/self/fd/11, que o filho do npm nao abre).
  * Nada e escrito em disco; a privada nunca e impressa.
  */
 import { createPublicKey } from 'node:crypto';
