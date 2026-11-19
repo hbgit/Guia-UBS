@@ -8,6 +8,11 @@
 # Passou a ser necessario com `cms/web/`: sem ele, o `COPY cms/ ./cms/` arrastaria
 # o `node_modules` da maquina de quem constroi para dentro da imagem, POR CIMA da
 # arvore icada pelo npm no estagio `deps`.
+#
+# Efeito colateral: `**/node_modules` tambem tira do contexto as dependencias
+# que o npm deixa ANINHADAS num workspace (hoje, `better-auth` em
+# `cms/node_modules`). Elas chegam a imagem por `COPY --from=deps`, nunca pelo
+# contexto — dependencia nova aninhada exige essa linha no Dockerfile (§5.20).
 
 .git
 .github
