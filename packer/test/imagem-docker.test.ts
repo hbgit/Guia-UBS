@@ -74,6 +74,7 @@ test('a imagem do packer contem o que o worker le', () => {
     'package.json',
     'packer/package.json',
     'packer/src/worker.ts',
+    'contract/package.json', // main e "type": "module" de @guia-ubs/contract
     'contract/ddl', // readDdl
     'contract/src/index.ts', // @guia-ubs/contract (main)
     'seed/golden/atestados.yaml', // lerAtestadosDoYaml

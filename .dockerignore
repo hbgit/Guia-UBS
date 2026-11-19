@@ -32,11 +32,11 @@ app/.dart_tool
 build/
 
 # Bancos locais e segredos.
-*.db
-*.db-journal
-*.db-wal
-.env
-.env.local
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/.env
+**/.env.local
 infra/.env
 
 # Chave privada nunca entra em imagem: a do pack e montada como segredo no

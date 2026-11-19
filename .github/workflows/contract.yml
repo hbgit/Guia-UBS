@@ -136,6 +136,8 @@ jobs:
       # seed/assets/ e coberta por packer/test/imagem-docker.test.ts.
       - name: Packer sobe dentro do container
         working-directory: infra
+        # `bash` explicito liga o pipefail: sem ele o `| tee` engole a saida do worker.
+        shell: bash
         run: |
           docker compose -f compose.yaml build packer cms
           # So o db: com a fila vazia o worker nao toca o storage, e subir o

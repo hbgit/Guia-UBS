@@ -297,6 +297,10 @@ job morre com *"A chave k1 não está em signing_key"*.
 roda como `node` (uid 1000). Uma chave `root:root 0600` no host passa na
 implantação e morre com `EACCES` na hora de assinar. Deixe o arquivo com dono
 uid 1000 (`chown 1000 <chave>`, `0600`) ou com um grupo legível em `0640`.
+No host, o uid 1000 costuma ser o usuário de login: com `chown 1000`, ele passa
+a ler a chave. Se esse usuário não deve lê-la, prefira o grupo dedicado ao uid
+(a alternativa, um uid próprio fixado no Dockerfile e no `user:` do compose,
+ainda não foi implementada).
 
 **Por que a guarda existe:** assinar com chave desconhecida produz um pack que
 **toda a frota rejeita em silêncio** — o sync tenta, a assinatura não confere, o
