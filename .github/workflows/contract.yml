@@ -138,8 +138,11 @@ jobs:
         working-directory: infra
         run: |
           docker compose -f compose.yaml build packer cms
-          docker compose -f compose.yaml run --rm -T cms node --import tsx cms/scripts/migrate.ts
-          docker compose -f compose.yaml run --rm -T packer \
+          # So o db: com a fila vazia o worker nao toca o storage, e subir o
+          # storage aqui amarraria o passo a imagem do MinIO.
+          docker compose -f compose.yaml up -d --wait db
+          docker compose -f compose.yaml run --rm -T --no-deps cms node --import tsx cms/scripts/migrate.ts
+          docker compose -f compose.yaml run --rm -T --no-deps packer \
             node --import tsx packer/src/worker.ts --once | tee /tmp/packer-once.log
           grep -q 'fila vazia' /tmp/packer-once.log
           docker compose -f compose.yaml run --rm -T --no-deps packer test -w packer/out
@@ -148,7 +151,7 @@ jobs:
             "import('/app/packer/src/validate.ts').then(m => { if (!Array.isArray(m.lerAtestadosDoYaml('/app'))) process.exit(1) })"
           # O CMS tambem precisa SUBIR, nao so migrar: better-auth, aninhado em
           # cms/node_modules, ja faltou na imagem sem que nada acusasse (§5.20).
-          docker compose -f compose.yaml up -d --wait --wait-timeout 120 cms
+          docker compose -f compose.yaml up -d --wait --wait-timeout 120 --no-deps cms
 
       - name: Derruba o compose
         if: always()
