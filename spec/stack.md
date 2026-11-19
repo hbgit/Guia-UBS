@@ -176,7 +176,7 @@ services:
     healthcheck: { test: ["CMD", "mc", "ready", "local"] }
 
   cms:                                  # plano de controle: auth com 2FA, RBAC, trilha
-    build: { context: .., dockerfile: cms/Dockerfile }
+    build: { context: .., dockerfile: cms/Dockerfile, target: production }
     restart: unless-stopped
     environment:
       CMS_DATABASE_URL: http://db:8080
@@ -190,9 +190,8 @@ services:
     security_opt: [no-new-privileges:true]
 
   packer:                               # job: constrói, valida, assina e publica releases aprovadas
-    build: { context: .., dockerfile: cms/Dockerfile }
+    build: { context: .., dockerfile: cms/Dockerfile, target: packer }   # imagem própria, sem cms/; o comando é o CMD dela
     restart: unless-stopped
-    command: ["node", "--import", "tsx", "packer/src/worker.ts", "--interval", "60"]
     environment:
       CMS_DATABASE_URL: http://db:8080
       S3_ENDPOINT: http://storage:9000
@@ -208,7 +207,6 @@ services:
     depends_on:
       db: { condition: service_healthy }
       storage: { condition: service_healthy }
-      cms: { condition: service_healthy }
     security_opt: [no-new-privileges:true]
 
   edge:                                 # borda pública: TLS automático e política de cache

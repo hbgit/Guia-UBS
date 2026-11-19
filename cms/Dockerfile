@@ -36,14 +36,39 @@ COPY contract/ ./contract/
 COPY cms/ ./cms/
 RUN npm --workspace @guia-ubs/cms-web run build
 
-FROM node:22-bookworm-slim AS production
+# Base comum dos dois alvos: dependencias e o contrato, que cms e packer importam.
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY contract/ ./contract/
+
+# Job de empacotamento (servico `packer` do compose, `target: packer`). Leva so o
+# que o worker le — `packer/test/imagem-docker.test.ts` confere estes COPY contra
+# os caminhos usados. NAO leva `cms/`: o codigo que atende HTTP fica fora da
+# imagem que le a chave. A chave em si e montada como segredo, nunca copiada.
+FROM runtime AS packer
+COPY packer/package.json packer/
+COPY packer/src/ ./packer/src/
+# O worker ainda le o binario de asset daqui, nao do banco (lacuna da §5.20).
+COPY seed/assets/ ./seed/assets/
+# Registro PUBLICO de atestados: trocar o arquivo exige rebuild e redeploy (§5.17).
+COPY seed/golden/atestados.yaml ./seed/golden/
+# `packer/out` fica fora do contexto (.dockerignore) e /app e do root: sem isto o
+# build do pack morre com EACCES rodando como `node`.
+RUN mkdir -p packer/out && chown node:node packer/out
+USER node
+CMD ["node", "--import", "tsx", "packer/src/worker.ts", "--interval", "60"]
+
+# CMS. Fica por ULTIMO: `docker build` sem `--target` entrega este estagio.
+FROM runtime AS production
 COPY cms/ ./cms/
+# better-auth e companhia ficam ANINHADOS em cms/node_modules (o npm nao os ica),
+# e o `.dockerignore` tira todo node_modules do contexto: sem esta linha o CMS
+# morre no boot com ERR_MODULE_NOT_FOUND 'better-auth'.
+COPY --from=deps /app/cms/node_modules ./cms/node_modules
 # DEPOIS do `COPY cms/` de proposito: um `cms/web/dist` velho na maquina de quem
 # constroi nunca vence o que o estagio `web` acabou de compilar. (O `.dockerignore`
 # ja exclui `**/dist` do contexto; esta ordem e a segunda barreira, para o caso de

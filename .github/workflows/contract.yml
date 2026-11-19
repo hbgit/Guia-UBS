@@ -128,3 +128,34 @@ jobs:
             -v "$PWD:/w:ro" caddy:2.9-alpine caddy validate --config /w/Caddyfile
           docker run --rm -v "$PWD:/w:ro" caddy:2.9-alpine \
             caddy validate --config /w/Caddyfile.dev
+
+      # A #44 viveu dois meses porque nada subia o packer em container. Prova que
+      # o worker carrega todos os modulos, alcanca o sqld migrado, le o registro
+      # de atestados e tem onde escrever o pack, e que o cms fica healthy. NAO prova build, assinatura nem
+      # publicacao: isso exige a chave, que nunca vai para CI. A presenca de
+      # seed/assets/ e coberta por packer/test/imagem-docker.test.ts.
+      - name: Packer sobe dentro do container
+        working-directory: infra
+        # `bash` explicito liga o pipefail: sem ele o `| tee` engole a saida do worker.
+        shell: bash
+        run: |
+          docker compose -f compose.yaml build packer cms
+          # So o db: com a fila vazia o worker nao toca o storage, e subir o
+          # storage aqui amarraria o passo a imagem do MinIO.
+          docker compose -f compose.yaml up -d --wait db
+          docker compose -f compose.yaml run --rm -T --no-deps cms node --import tsx cms/scripts/migrate.ts
+          docker compose -f compose.yaml run --rm -T --no-deps packer \
+            node --import tsx packer/src/worker.ts --once | tee /tmp/packer-once.log
+          grep -q 'fila vazia' /tmp/packer-once.log
+          docker compose -f compose.yaml run --rm -T --no-deps packer test -w packer/out
+          docker compose -f compose.yaml run --rm -T --no-deps packer test -r seed/golden/atestados.yaml
+          docker compose -f compose.yaml run --rm -T --no-deps packer node --import tsx -e \
+            "import('/app/packer/src/validate.ts').then(m => { if (!Array.isArray(m.lerAtestadosDoYaml('/app'))) process.exit(1) })"
+          # O CMS tambem precisa SUBIR, nao so migrar: better-auth, aninhado em
+          # cms/node_modules, ja faltou na imagem sem que nada acusasse (§5.20).
+          docker compose -f compose.yaml up -d --wait --wait-timeout 120 --no-deps cms
+
+      - name: Derruba o compose
+        if: always()
+        working-directory: infra
+        run: docker compose -f compose.yaml down -v

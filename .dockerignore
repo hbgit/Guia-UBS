@@ -1,13 +1,18 @@
 # Contexto de build das imagens do plano de controle.
 #
 # O contexto e a RAIZ do repositorio (`infra/compose.yaml` usa `context: ..`), e
-# o mesmo `cms/Dockerfile` constroi os servicos `cms` E `packer`. Mudanca aqui
-# alcanca os dois — verifique com `docker compose build packer`, nao so com
-# `npm run infra:validate`.
+# o mesmo `cms/Dockerfile` constroi os servicos `cms` E `packer`, cada um do seu
+# alvo (`production` e `packer`). Mudanca aqui alcanca os dois — verifique com
+# `docker compose build cms packer`, nao so com `npm run infra:validate`.
 #
 # Passou a ser necessario com `cms/web/`: sem ele, o `COPY cms/ ./cms/` arrastaria
 # o `node_modules` da maquina de quem constroi para dentro da imagem, POR CIMA da
 # arvore icada pelo npm no estagio `deps`.
+#
+# Efeito colateral: `**/node_modules` tambem tira do contexto as dependencias
+# que o npm deixa ANINHADAS num workspace (hoje, `better-auth` em
+# `cms/node_modules`). Elas chegam a imagem por `COPY --from=deps`, nunca pelo
+# contexto — dependencia nova aninhada exige essa linha no Dockerfile (§5.20).
 
 .git
 .github
@@ -27,9 +32,14 @@ app/.dart_tool
 build/
 
 # Bancos locais e segredos.
-*.db
-*.db-journal
-*.db-wal
-.env
-.env.local
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/.env
+**/.env.local
 infra/.env
+
+# Chave privada nunca entra em imagem: a do pack e montada como segredo no
+# `packer`. Sem esta linha, `contract/keys/dev-k1.pem` da maquina de quem
+# constroi iria para as DUAS imagens, inclusive a do CMS, que atende HTTP.
+**/*.pem
