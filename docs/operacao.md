@@ -293,6 +293,11 @@ repetido.
 **Pule este passo e a implantação parece pronta até o último comando**, onde o
 job morre com *"A chave k1 não está em signing_key"*.
 
+**A chave montada precisa ser legível pelo usuário do container.** O `packer`
+roda como `node` (uid 1000). Uma chave `root:root 0600` no host passa na
+implantação e morre com `EACCES` na hora de assinar. Deixe o arquivo com dono
+uid 1000 (`chown 1000 <chave>`, `0600`) ou com um grupo legível em `0640`.
+
 **Por que a guarda existe:** assinar com chave desconhecida produz um pack que
 **toda a frota rejeita em silêncio** — o sync tenta, a assinatura não confere, o
 pack é descartado, e nada no servidor acusa. A guarda transforma um incidente
