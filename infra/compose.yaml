@@ -57,6 +57,7 @@ services:
     build:
       context: ..
       dockerfile: cms/Dockerfile
+      target: production
     restart: unless-stopped
     environment:
       CMS_DATABASE_URL: http://db:8080
@@ -93,12 +94,14 @@ services:
   # atende HTTP. Juntar os dois faria uma falha de execucao remota no servico web
   # virar conteudo clinico assinado chegando a aparelhos offline — que e o que a
   # INV-4 existe para impedir. A topologia E a garantia.
+  #
+  # Imagem propria (`target: packer`), sem `cms/`: o comando e o `CMD` dela.
   packer:
     build:
       context: ..
       dockerfile: cms/Dockerfile
+      target: packer
     restart: unless-stopped
-    command: ["node", "--import", "tsx", "packer/src/worker.ts", "--interval", "60"]
     environment:
       CMS_DATABASE_URL: http://db:8080
       S3_ENDPOINT: http://storage:9000
@@ -115,10 +118,6 @@ services:
       db:
         condition: service_healthy
       storage:
-        condition: service_healthy
-      # O edge agora proxia o CMS tambem. Sem esta dependencia ele sobe apontando
-      # para o vazio, e o primeiro acesso vira 502 — que parece defeito da borda.
-      cms:
         condition: service_healthy
     security_opt:
       - no-new-privileges:true
