@@ -131,7 +131,7 @@ jobs:
 
       # A #44 viveu dois meses porque nada subia o packer em container. Prova que
       # o worker carrega todos os modulos, alcanca o sqld migrado, le o registro
-      # de atestados e tem onde escrever o pack. NAO prova build, assinatura nem
+      # de atestados e tem onde escrever o pack, e que o cms fica healthy. NAO prova build, assinatura nem
       # publicacao: isso exige a chave, que nunca vai para CI. A presenca de
       # seed/assets/ e coberta por packer/test/imagem-docker.test.ts.
       - name: Packer sobe dentro do container
@@ -146,6 +146,9 @@ jobs:
           docker compose -f compose.yaml run --rm -T --no-deps packer test -r seed/golden/atestados.yaml
           docker compose -f compose.yaml run --rm -T --no-deps packer node --import tsx -e \
             "import('/app/packer/src/validate.ts').then(m => { if (!Array.isArray(m.lerAtestadosDoYaml('/app'))) process.exit(1) })"
+          # O CMS tambem precisa SUBIR, nao so migrar: better-auth, aninhado em
+          # cms/node_modules, ja faltou na imagem sem que nada acusasse (§5.20).
+          docker compose -f compose.yaml up -d --wait --wait-timeout 120 cms
 
       - name: Derruba o compose
         if: always()

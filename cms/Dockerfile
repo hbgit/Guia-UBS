@@ -65,6 +65,10 @@ CMD ["node", "--import", "tsx", "packer/src/worker.ts", "--interval", "60"]
 # CMS. Fica por ULTIMO: `docker build` sem `--target` entrega este estagio.
 FROM runtime AS production
 COPY cms/ ./cms/
+# better-auth e companhia ficam ANINHADOS em cms/node_modules (o npm nao os ica),
+# e o `.dockerignore` tira todo node_modules do contexto: sem esta linha o CMS
+# morre no boot com ERR_MODULE_NOT_FOUND 'better-auth'.
+COPY --from=deps /app/cms/node_modules ./cms/node_modules
 # DEPOIS do `COPY cms/` de proposito: um `cms/web/dist` velho na maquina de quem
 # constroi nunca vence o que o estagio `web` acabou de compilar. (O `.dockerignore`
 # ja exclui `**/dist` do contexto; esta ordem e a segunda barreira, para o caso de
