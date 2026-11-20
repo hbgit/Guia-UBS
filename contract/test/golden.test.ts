@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 
 import {
@@ -12,6 +14,7 @@ import {
   avaliarRegistro,
   avaliarRevisao,
   conferirContraRegistro,
+  hashConteudoGolden,
   type EntradaRegistro,
 } from '../src/golden.js';
 
@@ -250,4 +253,19 @@ test('avaliarDataRevisao aceita hoje e recusa futuro, calendario invalido e nao-
   assert.match(avaliarDataRevisao('2026-02-30', agora).join(), /calendario/);
   assert.match(avaliarDataRevisao(20260824, agora).join(), /texto/);
   assert.notEqual(avaliarDataRevisao(undefined, agora).length, 0);
+});
+
+test('hashConteudoGolden e estavel, hex de 64 e sensivel a tokens, ordem e desfecho', async () => {
+  const h = await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY');
+  assert.match(h, /^[0-9a-f]{64}$/);
+  assert.equal(h, await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY'));
+  assert.notEqual(h, await hashConteudoGolden(['pain', 'chest'], 'EMERGENCY'));
+  assert.notEqual(h, await hashConteudoGolden(['chest', 'pain'], 'ROUTINE_UBS'));
+  // fronteira: concatenacao ingenua confundiria estes dois
+  assert.notEqual(await hashConteudoGolden(['a', 'b'], 'c'), await hashConteudoGolden(['a'], 'bc'));
+});
+
+test('contract/src nao importa node:crypto (cms/web consome o contrato no navegador)', () => {
+  const src = join(import.meta.dirname, '..', 'src');
+  for (const f of readdirSync(src)) assert.doesNotMatch(readFileSync(join(src, f), 'utf8'), /node:crypto/);
 });

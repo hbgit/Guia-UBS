@@ -15,6 +15,8 @@ import { randomUUID } from 'node:crypto';
 
 import {
   MIN_REVISORES,
+  SQL_REVISAO_NAO_REVOGADA,
+  hashConteudoGolden,
   avaliarRegistro,
   avaliarRevisao,
   conferirContraRegistro,
@@ -23,7 +25,7 @@ import {
 } from '@guia-ubs/contract';
 import type { Client, InStatement } from '@libsql/client';
 
-import { recordAudit } from './audit.js';
+import { comandoDeAuditoria } from './audit.js';
 
 export interface CasoGoldenYaml {
   id: string;
@@ -46,6 +48,7 @@ interface Plano {
   caso: CasoGoldenYaml;
   existe: boolean;
   acrescentar: RevisorYaml[];
+  hash: string;
 }
 
 export async function importarGolden(
@@ -83,6 +86,7 @@ export async function importarGolden(
 
   const planos: Plano[] = [];
   for (const caso of entrada.casos) {
+    const hash = await hashConteudoGolden(caso.tokens, caso.expect);
     const revisao = avaliarRevisao(caso, opcoes.agora);
     if (revisao.estado === 'ausente') {
       rel.recusados.push({
@@ -136,7 +140,7 @@ export async function importarGolden(
       await client.execute({ sql: 'SELECT * FROM golden_case WHERE id = ?', args: [caso.id] })
     ).rows[0];
     if (!existente) {
-      planos.push({ caso, existe: false, acrescentar: revisao.revisores });
+      planos.push({ caso, existe: false, acrescentar: revisao.revisores, hash });
       continue;
     }
     if (
@@ -149,28 +153,48 @@ export async function importarGolden(
       });
       continue;
     }
-    const atuais = new Map<string, string>();
-    for (const l of (
-      await client.execute({
-        sql: 'SELECT attestation_id, reviewed_at FROM golden_case_review WHERE case_id = ?',
-        args: [caso.id],
-      })
-    ).rows) {
-      atuais.set(String(l.attestation_id), String(l.reviewed_at));
-    }
-    const trocas = revisao.revisores.filter(
-      (r) => atuais.has(r.atestado) && atuais.get(r.atestado) !== r.reviewed_at,
-    );
-    if (trocas.length > 0) {
+    if (existente.deactivated_at != null) {
       rel.conflitos.push({
         id: caso.id,
-        motivo: `revisao existente com data diferente (${trocas.map((r) => r.atestado).join(', ')}); revisao nao se troca`,
+        motivo: 'caso desativado no CMS; retire-o do YAML por PR (docs/revisao-golden.md §4)',
       });
       continue;
     }
-    const faltam = revisao.revisores.filter((r) => !atuais.has(r.atestado));
+    const linhas = (
+      await client.execute({
+        sql: `SELECT r.attestation_id, r.reviewed_at, r.reviewed_hash,
+                     ${SQL_REVISAO_NAO_REVOGADA} AS viva
+              FROM golden_case_review r WHERE r.case_id = ?`,
+        args: [caso.id],
+      })
+    ).rows;
+    const motivos: string[] = [];
+    const faltam: RevisorYaml[] = [];
+    for (const rev of revisao.revisores) {
+      const minhas = linhas.filter((l) => l.attestation_id === rev.atestado);
+      const viva = minhas.find((l) => Number(l.viva) === 1);
+      if (viva) {
+        if (viva.reviewed_at !== rev.reviewed_at) {
+          motivos.push(
+            `revisao existente com data diferente (${rev.atestado}); revisao nao se troca`,
+          );
+        } else if (viva.reviewed_hash !== hash) {
+          motivos.push(
+            `${rev.atestado}: revisao no CMS sem vinculo ao conteudo atual; revogue no CMS e importe de novo`,
+          );
+        }
+      } else if (minhas.some((l) => l.reviewed_at === rev.reviewed_at)) {
+        motivos.push(`${rev.atestado}: revisao revogada no CMS; corrija o YAML`);
+      } else {
+        faltam.push(rev);
+      }
+    }
+    if (motivos.length > 0) {
+      rel.conflitos.push({ id: caso.id, motivo: motivos.join('; ') });
+      continue;
+    }
     if (faltam.length === 0) rel.mantidos.push(caso.id);
-    else planos.push({ caso, existe: true, acrescentar: faltam });
+    else planos.push({ caso, existe: true, acrescentar: faltam, hash });
   }
 
   // D8: um recusado ou conflito e a importacao inteira que nao acontece.
@@ -178,7 +202,7 @@ export async function importarGolden(
 
   const agora = opcoes.agora.toISOString();
   const comandos: InStatement[] = [];
-  for (const { caso, existe, acrescentar } of planos) {
+  for (const { caso, existe, acrescentar, hash } of planos) {
     if (!existe) {
       // Nasce inativo e so a ultima instrucao o ativa, como na rota.
       comandos.push({
@@ -197,17 +221,28 @@ export async function importarGolden(
     for (const rev of acrescentar) {
       comandos.push({
         sql: `INSERT INTO golden_case_review
-                (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [randomUUID(), caso.id, rev.atestado, rev.reviewed_at, opcoes.autor, agora],
+                (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at, reviewed_hash)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        args: [randomUUID(), caso.id, rev.atestado, rev.reviewed_at, opcoes.autor, agora, hash],
       });
     }
     comandos.push({
       sql: `UPDATE golden_case SET active = 1
-            WHERE id = ?
-              AND (SELECT COUNT(*) FROM golden_case_review WHERE case_id = ?) >= ?`,
-      args: [caso.id, caso.id, MIN_REVISORES],
+            WHERE id = ? AND deactivated_at IS NULL
+              AND (SELECT COUNT(DISTINCT r.attestation_id) FROM golden_case_review r
+                    WHERE r.case_id = ? AND r.reviewed_hash = ? AND ${SQL_REVISAO_NAO_REVOGADA}) >= ?`,
+      args: [caso.id, caso.id, hash, MIN_REVISORES],
     });
+    // D8 vale tambem para a trilha: ela entra no mesmo batch.
+    comandos.push(
+      comandoDeAuditoria(salt, {
+        actorId: opcoes.autor,
+        action: existe ? 'golden_case_review' : 'golden_case_import',
+        entityType: 'golden_case',
+        entityId: caso.id,
+        after: { atestados: acrescentar.map((r) => r.atestado), active: 1 },
+      }),
+    );
   }
   await client.batch(comandos, 'write');
 
@@ -215,13 +250,6 @@ export async function importarGolden(
     const atestados = acrescentar.map((r) => r.atestado);
     if (existe) rel.revisoresAcrescentados.push({ id: caso.id, atestados });
     else rel.inseridos.push(caso.id);
-    await recordAudit(client, salt, {
-      actorId: opcoes.autor,
-      action: existe ? 'golden_case_review' : 'golden_case_import',
-      entityType: 'golden_case',
-      entityId: caso.id,
-      after: { atestados, active: 1 },
-    });
   }
   return rel;
 }

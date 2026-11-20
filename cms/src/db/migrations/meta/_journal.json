@@ -71,6 +71,13 @@
       "when": 1793237200497,
       "tag": "0009_golden_revisao",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795206949195,
+      "tag": "0010_golden_revogacao",
+      "breakpoints": true
     }
   ]
 }

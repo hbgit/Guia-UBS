@@ -85,6 +85,22 @@ BEGIN
   SELECT RAISE(ABORT, 'golden_case_review e append-only (PRD R5 / P0-2)');
 END;
 --> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_revocation_no_update`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_revocation_no_update`
+BEFORE UPDATE ON `golden_case_review_revocation`
+BEGIN
+  SELECT RAISE(ABORT, 'golden_case_review_revocation e append-only (#43)');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_revocation_no_delete`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_revocation_no_delete`
+BEFORE DELETE ON `golden_case_review_revocation`
+BEGIN
+  SELECT RAISE(ABORT, 'golden_case_review_revocation e append-only (#43)');
+END;
+--> statement-breakpoint
 DROP TRIGGER IF EXISTS `municipality_version_monotonic`;
 --> statement-breakpoint
 CREATE TRIGGER `municipality_version_monotonic`
@@ -265,4 +281,51 @@ WHEN NEW.`approver_id` = (
 )
 BEGIN
   SELECT RAISE(ABORT, 'quem cria a release nao aprova a propria release (LGPD-RF11)');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_one_live`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_one_live`
+BEFORE INSERT ON `golden_case_review`
+WHEN EXISTS (
+  SELECT 1 FROM golden_case_review r
+  WHERE r.case_id = NEW.case_id AND r.attestation_id = NEW.attestation_id AND NOT EXISTS (SELECT 1 FROM golden_case_review_revocation v WHERE v.review_id = r.id)
+)
+BEGIN
+  SELECT RAISE(ABORT, 'UNIQUE constraint failed: golden_case_review revisao nao revogada do mesmo atestado');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_deactivation_final`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_deactivation_final`
+BEFORE UPDATE ON `golden_case`
+WHEN OLD.deactivated_at IS NOT NULL AND (NEW.active <> 0 OR NEW.deactivated_at IS NOT OLD.deactivated_at)
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case desativado e definitivo');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_no_deactivate_red_flag`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_no_deactivate_red_flag`
+BEFORE UPDATE ON `golden_case`
+WHEN OLD.deactivated_at IS NULL AND NEW.deactivated_at IS NOT NULL AND (NOT COALESCE(
+  (SELECT severity_level FROM routing_outcome WHERE id = OLD.expected_outcome_id)
+    < (SELECT MAX(severity_level) FROM routing_outcome),
+  0
+) OR NOT COALESCE(
+  (SELECT severity_level FROM routing_outcome WHERE id = NEW.expected_outcome_id)
+    < (SELECT MAX(severity_level) FROM routing_outcome),
+  0
+))
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case red flag nao se desativa');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_no_deactivated_case`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_no_deactivated_case`
+BEFORE INSERT ON `golden_case_review`
+WHEN (SELECT deactivated_at FROM golden_case WHERE id = NEW.case_id) IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case_review em caso desativado');
 END;

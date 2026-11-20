@@ -137,6 +137,8 @@ export interface GoldenCase {
    */
   reviewed_by?: unknown;
   reviewed_at?: unknown;
+  /** So do banco, e so quando alguma revisao foi descartada (#43): diz por que falta revisor. */
+  descartadas?: { revogadas: number; conteudoMudou: number };
 }
 
 /**
@@ -227,7 +229,11 @@ export function validateGolden(
       if (opcoes.modo === 'assinatura') {
         issues.push({
           kind: 'golden_sem_revisor',
-          message: `Caso "${testCase.id}" sem revisao clinica`,
+          message:
+            `Caso "${testCase.id}" sem revisao clinica` +
+            (testCase.descartadas
+              ? ` (${testCase.descartadas.revogadas} revogada(s), ${testCase.descartadas.conteudoMudou} de conteudo anterior ou sem vinculo; registre nova revisao)`
+              : ''),
         });
       }
     } else {

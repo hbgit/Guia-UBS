@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, beforeEach, test } from 'node:test';
 
-import { avaliarRegistro, avaliarRevisao } from '@guia-ubs/contract';
+import { avaliarRegistro, avaliarRevisao, hashConteudoGolden } from '@guia-ubs/contract';
 import { parse as parseYaml } from 'yaml';
 
 import { importarGolden, type CasoGoldenYaml } from '../src/services/golden-import.js';
@@ -64,7 +64,9 @@ after(async () => f.close());
 beforeEach(async () => {
   // Trilha e revisao sao append-only: limpa-se so o que o gatilho permite.
   await f.client.execute('PRAGMA foreign_keys = OFF');
-  for (const t of ['golden_case_review_no_delete']) await f.client.execute(`DROP TRIGGER IF EXISTS ${t}`);
+  for (const t of ['golden_case_review_no_delete', 'golden_case_review_revocation_no_delete'])
+    await f.client.execute(`DROP TRIGGER IF EXISTS ${t}`);
+  await f.client.execute('DELETE FROM golden_case_review_revocation');
   await f.client.execute('DELETE FROM golden_case_review');
   await f.client.execute('DELETE FROM golden_case');
   await f.client.execute('DELETE FROM golden_attestation');
@@ -229,4 +231,97 @@ test('todo caso do YAML real com revisao valida e aceito', async () => {
   const r = await importarGolden(f.client, TEST_ENV.hashSalt, { casos: revisados, registro }, { autor, agora: hoje });
   assert.equal(r.recusados.length, 0, JSON.stringify(r.recusados));
   assert.equal(r.conflitos.length, 0, JSON.stringify(r.conflitos));
+});
+
+// ---- #43: revogacao, hash e desativacao ----
+async function semear(id: string, hash: string | null, revisores = [REV1], expect = 'EMERGENCY') {
+  await f.client.execute({
+    sql: `INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
+          VALUES (?, ?, ?, 'x', ?, 0)`,
+    args: [id, JSON.stringify(['chest', 'pain']), expect, autor],
+  });
+  for (const r of revisores) {
+    await f.client.execute({
+      sql: `INSERT INTO golden_case_review (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at, reviewed_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [`rv-${id}-${r.atestado}`, id, r.atestado, r.reviewed_at, autor, AGORA.toISOString(), hash],
+    });
+  }
+}
+const revogar = (id: string, atestado: string) =>
+  f.client.execute({
+    sql: `INSERT INTO golden_case_review_revocation (id, review_id, reason, revoked_by, revoked_at)
+          VALUES (?, ?, 'motivo de teste valido', ?, ?)`,
+    args: [`rg-${id}-${atestado}`, `rv-${id}-${atestado}`, autor, AGORA.toISOString()],
+  });
+
+test('importar grava reviewed_hash igual a hashConteudoGolden', async () => {
+  await registrarCms();
+  await importar([caso('a')]);
+  const h = await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY');
+  assert.equal((await q('SELECT reviewed_hash AS h FROM golden_case_review WHERE case_id = ?', ['a']))[0]!.h, h);
+});
+
+test('revisao revogada no CMS e YAML com a MESMA data: conflito, nada escrito', async () => {
+  await registrarCms();
+  await semear('a', await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY'));
+  await revogar('a', 'AT-9201');
+  const r = await importar([caso('a')]);
+  assert.equal(r.conflitos[0]!.motivo, 'AT-9201: revisao revogada no CMS; corrija o YAML');
+  assert.equal(await contagem('golden_case_review'), 1);
+  assert.equal(Number((await q('SELECT active AS a FROM golden_case'))[0]!.a), 0);
+});
+
+test('revisao revogada no CMS e YAML com outra data: acrescenta a nova', async () => {
+  await registrarCms();
+  await semear('a', await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY'));
+  await revogar('a', 'AT-9201');
+  const r = await importar([caso('a', { reviewed_by: [{ ...REV1, reviewed_at: '2026-10-05' }] })]);
+  assert.equal(r.conflitos.length, 0, JSON.stringify(r.conflitos));
+  assert.equal(await contagem('golden_case_review'), 2);
+});
+
+test('revisao legada sem hash no CMS: conflito, nunca mantidos', async () => {
+  await registrarCms();
+  await semear('a', null);
+  const r = await importar([caso('a')]);
+  assert.equal(
+    r.conflitos[0]!.motivo,
+    'AT-9201: revisao no CMS sem vinculo ao conteudo atual; revogue no CMS e importe de novo',
+  );
+  assert.deepEqual(r.mantidos, []);
+});
+
+test('caso desativado no CMS ainda no YAML: conflito, nada escrito, caso segue inativo', async () => {
+  await registrarCms();
+  // Desfecho nao maximo: o gatilho proibe desativar red flag. Sem FKs, so os dois desfechos.
+  await f.client.execute('PRAGMA foreign_keys = OFF');
+  for (const [id, sev] of [['ROUTINE_UBS', 10], ['EMERGENCY', 100]] as const) {
+    await f.client.execute({
+      sql: `INSERT INTO routing_outcome (id, severity_level, card_id, venue_id, updated_by, updated_at)
+            VALUES (?, ?, 'c', 'v', ?, ?)`,
+      args: [id, sev, autor, AGORA.toISOString()],
+    });
+  }
+  await f.client.execute('PRAGMA foreign_keys = ON');
+  await semear('a', await hashConteudoGolden(['chest', 'pain'], 'ROUTINE_UBS'), [REV1], 'ROUTINE_UBS');
+  await f.client.execute("UPDATE golden_case SET deactivated_at = '2026-10-10T00:00:00.000Z' WHERE id = 'a'");
+  const r = await importar([caso('a', { expect: 'ROUTINE_UBS' }), caso('b')]);
+  assert.equal(r.conflitos[0]!.motivo, 'caso desativado no CMS; retire-o do YAML por PR (docs/revisao-golden.md §4)');
+  assert.equal(await contagem('golden_case'), 1);
+  assert.equal(Number((await q('SELECT active AS a FROM golden_case'))[0]!.a), 0);
+});
+
+test('falha ao gravar a trilha na importacao reverte a importacao inteira', async () => {
+  await registrarCms();
+  await f.client.execute(
+    "CREATE TRIGGER falha_trilha BEFORE INSERT ON audit_entry BEGIN SELECT RAISE(ABORT, 'falha simulada'); END",
+  );
+  try {
+    await assert.rejects(importar([caso('a'), caso('b')]));
+  } finally {
+    await f.client.execute('DROP TRIGGER IF EXISTS falha_trilha');
+  }
+  assert.equal(await contagem('golden_case'), 0);
+  assert.equal(await contagem('golden_case_review'), 0);
 });

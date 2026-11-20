@@ -7,7 +7,13 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
-import { auditRows, freshApp, pedido, seedConteudo, sessaoDe, type Fixture } from './support/app.js';
+import { hashConteudoGolden, SQL_REVISAO_NAO_REVOGADA } from '@guia-ubs/contract';
+
+import { lerGoldenDoBanco } from '../../packer/src/extract.js';
+import { validateGolden } from '../../packer/src/validate.js';
+import { classificarViolacao } from '../src/db/errors.js';
+import { comandosDeDesativacao } from '../src/routes/golden.js';
+import { auditRows, freshApp, pedido, seedConteudo, sessaoDe, TEST_ENV, type Fixture } from './support/app.js';
 
 let f: Fixture;
 let editor: { cookie: string; id: string };
@@ -32,13 +38,38 @@ const ATESTADO_2 = {
   registro: '000202',
   termo_sha256: termo('b'),
 };
+const MOTIVO = 'data de revisao lancada errada no formulario';
 const CASO = { id: 'caso-novo', tokens: ['chest', 'pain'], expect: 'EMERGENCY', clinicalSource: 'ficticio' };
+
+async function desfechos(fx: Fixture, cookie: string) {
+  await seedConteudo(fx, cookie);
+  for (const [id, kind] of [['chest', 'body_part'], ['pain', 'symptom'], ['throat', 'body_part']] as const) {
+    await pedido(fx, cookie, 'POST', '/api/content/symptom-tokens', {
+      id, kind, iconRef: 'icon.exemplo', sortOrder: 0, deprecated: 0,
+    });
+  }
+  for (const [id, cor] of [['card.rotina', 'green'], ['card.emerg', 'red']] as const) {
+    await pedido(fx, cookie, 'POST', '/api/content/cards', {
+      id, kind: 'result', iconRef: 'icon.exemplo', colorToken: cor, sortOrder: 0,
+    });
+  }
+  await pedido(fx, cookie, 'POST', '/api/content/venues', {
+    id: 'UBS', iconRef: 'icon.exemplo', colorToken: 'green', sortOrder: 0,
+  });
+  await pedido(fx, cookie, 'POST', '/api/content/routing-outcomes', {
+    id: 'ROUTINE_UBS', severityLevel: 10, cardId: 'card.rotina', venueId: 'UBS',
+  });
+  await pedido(fx, cookie, 'POST', '/api/content/routing-outcomes', {
+    id: 'EMERGENCY', severityLevel: 100, cardId: 'card.emerg', venueId: 'UBS',
+  });
+}
 
 before(async () => {
   f = await freshApp();
   editor = await sessaoDe(f, 'editor');
   revisor = await sessaoDe(f, 'clinical_reviewer');
   revisor2 = await sessaoDe(f, 'clinical_reviewer');
+  await desfechos(f, editor.cookie);
 });
 after(async () => f.close());
 
@@ -261,26 +292,6 @@ test('nao ha PUT nem DELETE de revisao', async () => {
 });
 
 test('a simulacao enxerga o caso recem-ativado', async () => {
-  await seedConteudo(f, editor.cookie);
-  for (const [id, kind] of [['chest', 'body_part'], ['pain', 'symptom'], ['throat', 'body_part']] as const) {
-    await pedido(f, editor.cookie, 'POST', '/api/content/symptom-tokens', {
-      id, kind, iconRef: 'icon.exemplo', sortOrder: 0, deprecated: 0,
-    });
-  }
-  for (const [id, cor] of [['card.rotina', 'green'], ['card.emerg', 'red']] as const) {
-    await pedido(f, editor.cookie, 'POST', '/api/content/cards', {
-      id, kind: 'result', iconRef: 'icon.exemplo', colorToken: cor, sortOrder: 0,
-    });
-  }
-  await pedido(f, editor.cookie, 'POST', '/api/content/venues', {
-    id: 'UBS', iconRef: 'icon.exemplo', colorToken: 'green', sortOrder: 0,
-  });
-  await pedido(f, editor.cookie, 'POST', '/api/content/routing-outcomes', {
-    id: 'ROUTINE_UBS', severityLevel: 10, cardId: 'card.rotina', venueId: 'UBS',
-  });
-  await pedido(f, editor.cookie, 'POST', '/api/content/routing-outcomes', {
-    id: 'EMERGENCY', severityLevel: 100, cardId: 'card.emerg', venueId: 'UBS',
-  });
   const inocua = {
     id: 'rf-inocua', priority: 5, outcomeId: 'ROUTINE_UBS',
     terms: [{ groupNo: 0, tokenId: 'throat', negated: false }],
@@ -291,10 +302,398 @@ test('a simulacao enxerga o caso recem-ativado', async () => {
   };
   // caso-r1 esta ativo (revisado); caso-inativo nao.
   assert.equal(await simular(), 1);
-  await caso('caso-simula');
+  await caso('caso-simula', { expect: 'ROUTINE_UBS' });
   assert.equal(await simular(), 1, 'caso inativo nao entra na simulacao');
   await post(revisor.cookie, '/api/golden-cases/caso-simula/revisores', {
     atestado: 'AT-9101', reviewed_at: '2026-08-20',
   });
   assert.equal(await simular(), 2);
+  // caso desativado sai da simulacao
+  const d = await post(revisor.cookie, '/api/golden-cases/caso-simula/desativar', { motivo: MOTIVO });
+  assert.equal(d.status, 200);
+  assert.equal(await simular(), 1, 'caso desativado nao entra na simulacao');
+});
+
+// --- Revogacao e desativacao (#43) ---
+
+async function revisado(id: string, expect = 'ROUTINE_UBS', atestado = 'AT-9101', cookie = revisor.cookie) {
+  await caso(id, { expect });
+  const r = await post(cookie, `/api/golden-cases/${id}/revisores`, { atestado, reviewed_at: '2026-08-20' });
+  assert.equal(r.status, 201, `revisar ${id} respondeu ${r.status}`);
+}
+const revogar = (id: string, atestado: string, motivo: unknown = MOTIVO, cookie = revisor.cookie) =>
+  post(cookie, `/api/golden-cases/${id}/revisores/${atestado}/revogar`, { motivo });
+const desativar = (id: string, motivo: unknown = MOTIVO, cookie = revisor.cookie) =>
+  post(cookie, `/api/golden-cases/${id}/desativar`, { motivo });
+const contar = async (sql: string, args: (string | number)[] = []) => (await linha(sql, args)).length;
+
+test('revogar sem approval:decide responde 403', async () => {
+  await revisado('caso-rv-403');
+  assert.equal((await revogar('caso-rv-403', 'AT-9101', MOTIVO, editor.cookie)).status, 403);
+});
+
+test('desativar sem approval:decide responde 403', async () => {
+  assert.equal((await desativar('caso-rv-403', MOTIVO, editor.cookie)).status, 403);
+});
+
+test('revogar com motivo curto responde 422', async () => {
+  assert.equal((await revogar('caso-rv-403', 'AT-9101', 'curto')).status, 422);
+  assert.equal((await revogar('caso-rv-403', 'AT-9101', '   curto      ')).status, 422);
+  assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), 0);
+});
+
+test('revogar com motivo contendo nome do profissional (sem acento) ou o registro responde 422 e nada grava', async () => {
+  // Nome com acento no atestado; o motivo o escreve sem acento e em minusculas.
+  await registrar({
+    id: 'AT-9103', nome: 'Revisora Fictícia Três', conselho: 'CRM', uf: 'RR',
+    registro: '000303', termo_sha256: termo('e'),
+  });
+  for (const motivo of [
+    'a revisora ficticia tres pediu correcao',
+    'registro 000303 lancado no lugar errado',
+    'a revisora  ficticia tres pediu correcao',
+    'a revisora ficticia\ntres pediu correcao',
+  ]) {
+    const r = await revogar('caso-rv-403', 'AT-9101', motivo);
+    assert.equal(r.status, 422, motivo);
+  }
+  assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), 0);
+  assert.ok(!(await auditRows(f)).some((a) => a.action === 'golden_review_revoke'));
+});
+
+test('desativar com motivo curto ou com dado pessoal responde 422 e nada muda', async () => {
+  for (const motivo of ['curto', 'pedido de Revisora Ficticia Um', 'conforme 000101 informou']) {
+    assert.equal((await desativar('caso-rv-403', motivo)).status, 422, motivo);
+  }
+  const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-rv-403'");
+  assert.equal(c!.active, 1);
+  assert.equal(c!.deactivated_at, null);
+});
+
+test('revogar atestado sem revisao neste caso responde 404 e nao grava', async () => {
+  // AT-9102 revisou caso-r1, nao caso-rv-403.
+  assert.equal((await revogar('caso-rv-403', 'AT-9102')).status, 404);
+  assert.equal((await revogar('nao-existe', 'AT-9101')).status, 404);
+  assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), 0);
+});
+
+test('revogar registra golden_review_revoke e after_json nao contem nome nem registro', async () => {
+  const r = await revogar('caso-rv-403', 'AT-9101');
+  assert.equal(r.status, 201);
+  assert.deepEqual(await r.json(), { ok: true, caso: 'caso-rv-403', atestado: 'AT-9101', active: 1 });
+  const [v] = await linha(
+    `SELECT v.reason, v.revoked_by FROM golden_case_review_revocation v
+       JOIN golden_case_review r ON r.id = v.review_id WHERE r.case_id = 'caso-rv-403'`,
+  );
+  assert.equal(v!.reason, MOTIVO);
+  assert.equal(v!.revoked_by, revisor.id);
+  const trilha = (await auditRows(f)).find((a) => a.action === 'golden_review_revoke');
+  assert.ok(trilha);
+  assert.equal((trilha as unknown as { entity_type: string }).entity_type, 'golden_case');
+  assert.equal(trilha.entity_id, 'caso-rv-403');
+  assert.deepEqual(JSON.parse(trilha.after_json!), { atestado: 'AT-9101', motivo: MOTIVO });
+  assert.doesNotMatch(trilha.after_json!, /Revisora Ficticia Um|000101/);
+});
+
+test('revogar duas vezes: a segunda responde 404', async () => {
+  assert.equal((await revogar('caso-rv-403', 'AT-9101')).status, 404);
+  assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), 1);
+});
+
+test('motivo que cita o atestado por AT-NNNN passa mesmo se o registro de outro for esses digitos', async () => {
+  await registrar({
+    id: 'AT-9104', nome: 'Revisor Ficticio Quatro', conselho: 'CRM', uf: 'RR',
+    registro: '9102', termo_sha256: termo('f'),
+  });
+  await revisado('caso-rv-at', 'ROUTINE_UBS', 'AT-9102');
+  assert.equal((await revogar('caso-rv-at', 'AT-9102', 'registro 9102 lancado errado')).status, 422);
+  assert.equal((await revogar('caso-rv-at', 'AT-9102', 'revisao de AT-9102 lancada errada')).status, 201);
+});
+
+test('mesmo atestado corrige a data: revoga e registra de novo', async () => {
+  const r = await post(revisor.cookie, '/api/golden-cases/caso-rv-403/revisores', {
+    atestado: 'AT-9101', reviewed_at: '2026-08-25',
+  });
+  assert.equal(r.status, 201);
+  const vivas = await linha(
+    `SELECT r.reviewed_at FROM golden_case_review r
+      WHERE r.case_id = 'caso-rv-403' AND ${SQL_REVISAO_NAO_REVOGADA}`,
+  );
+  assert.deepEqual(vivas.map((x) => x.reviewed_at), ['2026-08-25']);
+});
+
+test('revisao legada sem hash: nova revisao responde 409 mandando revogar; depois de revogar entra', async () => {
+  await caso('caso-legado', { expect: 'ROUTINE_UBS' });
+  await f.client.execute({
+    sql: `INSERT INTO golden_case_review (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
+          VALUES ('rev-legada', 'caso-legado', 'AT-9101', '2026-01-10', ?, '2026-01-10T00:00:00Z')`,
+    args: [revisor.id],
+  });
+  const nova = { atestado: 'AT-9101', reviewed_at: '2026-08-20' };
+  const r = await post(revisor.cookie, '/api/golden-cases/caso-legado/revisores', nova);
+  assert.equal(r.status, 409);
+  assert.equal(
+    ((await r.json()) as { error: string }).error,
+    'este atestado ja tem revisao neste caso; revogue a anterior em POST /api/golden-cases/caso-legado/revisores/AT-9101/revogar',
+  );
+  assert.equal((await revogar('caso-legado', 'AT-9101')).status, 201);
+  const r2 = await post(revisor.cookie, '/api/golden-cases/caso-legado/revisores', nova);
+  assert.equal(r2.status, 201);
+  assert.equal(((await r2.json()) as { active: number }).active, 1);
+});
+
+test('revisao grava reviewed_hash igual a hashConteudoGolden(CASO.tokens, CASO.expect)', async () => {
+  const [rev] = await linha("SELECT reviewed_hash FROM golden_case_review WHERE case_id = 'caso-r1' AND attestation_id = 'AT-9101'");
+  assert.equal(rev!.reviewed_hash, await hashConteudoGolden(CASO.tokens, CASO.expect));
+});
+
+test('desativar caso de rotina: active 0, deactivated_at preenchido, trilha golden_case_deactivate', async () => {
+  await revisado('caso-dv');
+  const r = await desativar('caso-dv');
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, caso: 'caso-dv', active: 0 });
+  const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-dv'");
+  assert.equal(c!.active, 0);
+  assert.ok(c!.deactivated_at);
+  const trilha = (await auditRows(f)).find((a) => a.action === 'golden_case_deactivate' && a.entity_id === 'caso-dv');
+  assert.ok(trilha);
+  assert.equal(trilha.before_json, null);
+  assert.deepEqual(JSON.parse(trilha.after_json!), { active: 0, motivo: MOTIVO });
+});
+
+test('desativar caso EMERGENCY responde 422 (do gatilho) e nada muda', async () => {
+  // A rota nao conhece severidade: o 422 vem do gatilho golden_case_no_deactivate_red_flag.
+  const r = await desativar('caso-r1');
+  assert.equal(r.status, 422);
+  assert.deepEqual(await r.json(), {
+    error: 'caso de severidade maxima (red flag) ou de desfecho desconhecido nao se desativa',
+    next: 'docs/revisao-golden.md §4',
+  });
+  const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-r1'");
+  assert.equal(c!.active, 1);
+  assert.equal(c!.deactivated_at, null);
+  assert.ok(!(await auditRows(f)).some((a) => a.action === 'golden_case_deactivate' && a.entity_id === 'caso-r1'));
+});
+
+test('desativar caso com desfecho inexistente responde 422', async () => {
+  await caso('caso-sem-desfecho', { expect: 'NAO_EXISTE' });
+  assert.equal((await desativar('caso-sem-desfecho')).status, 422);
+});
+
+test('desativar duas vezes responde 409; caso inexistente 404', async () => {
+  assert.equal((await desativar('caso-dv')).status, 409);
+  assert.equal((await desativar('nao-existe')).status, 404);
+});
+
+test('revisao em caso desativado responde 409 e o caso segue inativo', async () => {
+  const r = await post(revisor2.cookie, '/api/golden-cases/caso-dv/revisores', {
+    atestado: 'AT-9102', reviewed_at: '2026-08-20',
+  });
+  assert.equal(r.status, 409);
+  assert.deepEqual(await r.json(), { error: 'caso desativado' });
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE case_id = 'caso-dv'"), 1);
+  const [c] = await linha("SELECT active FROM golden_case WHERE id = 'caso-dv'");
+  assert.equal(c!.active, 0);
+});
+
+test('revogar revisao de caso desativado e permitido e o caso segue inativo', async () => {
+  const r = await revogar('caso-dv', 'AT-9101');
+  assert.equal(r.status, 201);
+  assert.equal(((await r.json()) as { active: number }).active, 0);
+  const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-dv'");
+  assert.equal(c!.active, 0);
+  assert.ok(c!.deactivated_at);
+});
+
+test('desativar pela rota tira o caso da suite do packer; desativar o ultimo da golden_vazia', async () => {
+  // Fixture propria: na compartilhada ha casos EMERGENCY ativos, que nao se desativam.
+  const g = await freshApp();
+  try {
+    const ed = await sessaoDe(g, 'editor');
+    const rv = await sessaoDe(g, 'clinical_reviewer');
+    await desfechos(g, ed.cookie);
+    assert.equal((await pedido(g, rv.cookie, 'POST', '/api/golden-cases/atestados', ATESTADO)).status, 201);
+    for (const id of ['e2e-a', 'e2e-b']) {
+      const c = await pedido(g, ed.cookie, 'POST', '/api/golden-cases', { ...CASO, id, expect: 'ROUTINE_UBS' });
+      assert.equal(c.status, 201);
+      const r = await pedido(g, rv.cookie, 'POST', `/api/golden-cases/${id}/revisores`, {
+        atestado: 'AT-9101', reviewed_at: '2026-08-20',
+      });
+      assert.equal(r.status, 201);
+    }
+    const modelo = {
+      rules: [],
+      outcomes: new Map([
+        ['ROUTINE_UBS', { id: 'ROUTINE_UBS', severityLevel: 10 }],
+        ['EMERGENCY', { id: 'EMERGENCY', severityLevel: 100 }],
+      ]),
+      defaultOutcomeId: 'ROUTINE_UBS',
+      tokenIds: new Set(CASO.tokens),
+    };
+    const rodar = async () =>
+      validateGolden(await lerGoldenDoBanco(g.client), modelo, {
+        modo: 'verificacao', agora: new Date(), registro: [],
+      });
+    assert.equal((await lerGoldenDoBanco(g.client)).length, 2);
+    assert.equal((await rodar()).total, 2);
+
+    for (const [id, restante] of [['e2e-a', 1], ['e2e-b', 0]] as const) {
+      const d = await pedido(g, rv.cookie, 'POST', `/api/golden-cases/${id}/desativar`, { motivo: MOTIVO });
+      assert.equal(d.status, 200);
+      assert.equal((await lerGoldenDoBanco(g.client)).length, restante);
+      assert.equal((await rodar()).total, restante);
+    }
+    assert.ok((await rodar()).issues.some((i) => i.kind === 'golden_vazia'));
+  } finally {
+    await g.close();
+  }
+});
+
+// --- Atomicidade operacao x trilha e corridas (#86) ---
+
+/** Roda `corpo` com a trilha recusando toda insercao; o gatilho sai no fim. */
+async function comTrilhaQuebrada<T>(corpo: () => Promise<T>): Promise<T> {
+  await f.client.execute(
+    "CREATE TRIGGER falha_trilha BEFORE INSERT ON audit_entry BEGIN SELECT RAISE(ABORT, 'falha simulada'); END",
+  );
+  try {
+    return await corpo();
+  } finally {
+    await f.client.execute('DROP TRIGGER IF EXISTS falha_trilha');
+  }
+}
+
+test('falha ao gravar a trilha na revogacao reverte a revogacao', async () => {
+  await revisado('caso-at-rv');
+  const antes = await contar('SELECT 1 FROM golden_case_review_revocation');
+  const r = await comTrilhaQuebrada(() => revogar('caso-at-rv', 'AT-9101'));
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), antes);
+  assert.equal((await revogar('caso-at-rv', 'AT-9101')).status, 201, 'a revisao seguia nao revogada');
+});
+
+test('falha ao gravar a trilha na desativacao reverte a desativacao', async () => {
+  await revisado('caso-at-dv');
+  const r = await comTrilhaQuebrada(() => desativar('caso-at-dv'));
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-at-dv'");
+  assert.equal(c!.active, 1);
+  assert.equal(c!.deactivated_at, null);
+});
+
+test('falha ao gravar a trilha na revisao reverte a revisao', async () => {
+  await caso('caso-at-rev', { expect: 'ROUTINE_UBS' });
+  const r = await comTrilhaQuebrada(() =>
+    post(revisor.cookie, '/api/golden-cases/caso-at-rev/revisores', { atestado: 'AT-9101', reviewed_at: '2026-08-20' }),
+  );
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE case_id = 'caso-at-rev'"), 0);
+  const [c] = await linha("SELECT active FROM golden_case WHERE id = 'caso-at-rev'");
+  assert.equal(c!.active, 0);
+});
+
+test('banco recusa revisao em caso desativado', async () => {
+  // Cenario da corrida: a desativacao entra depois do pre-check da rota.
+  const hash = await hashConteudoGolden(CASO.tokens, CASO.expect);
+  await assert.rejects(
+    f.client.execute({
+      sql: `INSERT INTO golden_case_review
+              (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at, reviewed_hash)
+            VALUES ('rev-corrida', 'caso-dv', 'AT-9102', '2026-08-20', ?, '2026-08-20T00:00:00Z', ?)`,
+      args: [revisor2.id, hash],
+    }),
+    (erro: unknown) => classificarViolacao(erro) === 'dominio',
+  );
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE id = 'rev-corrida'"), 0);
+});
+
+test('desativacao entre o pre-check e o lote: a rota traduz o gatilho em 409 sem nova linha', async () => {
+  // Banco e gatilho reais; so a ORDEM e forcada: o proximo batch desativa o caso antes de rodar.
+  await caso('caso-corrida', { expect: 'ROUTINE_UBS' });
+  const original = f.client.batch.bind(f.client);
+  f.client.batch = (async (...args: Parameters<typeof original>) => {
+    f.client.batch = original;
+    await f.client.execute(
+      "UPDATE golden_case SET active = 0, deactivated_at = '2026-11-20T00:00:00.000Z' WHERE id = 'caso-corrida'",
+    );
+    return original(...args);
+  }) as typeof original;
+  try {
+    const r = await post(revisor.cookie, '/api/golden-cases/caso-corrida/revisores', {
+      atestado: 'AT-9101', reviewed_at: '2026-08-20',
+    });
+    assert.equal(r.status, 409);
+    assert.deepEqual(await r.json(), { error: 'caso desativado' });
+  } finally {
+    f.client.batch = original;
+  }
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE case_id = 'caso-corrida'"), 0);
+  assert.equal(
+    (await auditRows(f)).filter((a) => a.action === 'golden_case_review' && a.entity_id === 'caso-corrida').length,
+    0,
+  );
+});
+
+test('duas desativacoes simultaneas: so uma efetiva', async () => {
+  await revisado('caso-corrida-dv');
+  const rs = await Promise.all([desativar('caso-corrida-dv'), desativar('caso-corrida-dv')]);
+  assert.deepEqual(rs.map((r) => r.status).sort(), [200, 409]);
+  const trilha = (await auditRows(f)).filter(
+    (a) => a.action === 'golden_case_deactivate' && a.entity_id === 'caso-corrida-dv',
+  );
+  assert.equal(trilha.length, 1);
+});
+
+test('duas revogacoes simultaneas: so uma efetiva', async () => {
+  await revisado('caso-corrida-rv');
+  const rs = await Promise.all([revogar('caso-corrida-rv', 'AT-9101'), revogar('caso-corrida-rv', 'AT-9101')]);
+  assert.deepEqual(rs.map((r) => r.status).sort(), [201, 404]);
+  assert.equal(
+    await contar(
+      `SELECT 1 FROM golden_case_review_revocation v JOIN golden_case_review r ON r.id = v.review_id
+        WHERE r.case_id = 'caso-corrida-rv'`,
+    ),
+    1,
+  );
+  const trilha = (await auditRows(f)).filter(
+    (a) => a.action === 'golden_review_revoke' && a.entity_id === 'caso-corrida-rv',
+  );
+  assert.equal(trilha.length, 1);
+});
+
+test('falha ao gravar a trilha ao criar caso reverte a criacao', async () => {
+  const r = await comTrilhaQuebrada(() =>
+    post(editor.cookie, '/api/golden-cases', { ...CASO, id: 'caso-at-criar' }),
+  );
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar("SELECT 1 FROM golden_case WHERE id = 'caso-at-criar'"), 0);
+  assert.equal((await post(editor.cookie, '/api/golden-cases', { ...CASO, id: 'caso-at-criar' })).status, 201);
+});
+
+test('falha ao gravar a trilha ao criar atestado reverte o registro', async () => {
+  const novo = { ...ATESTADO, id: 'AT-9109', nome: 'Revisora Ficticia Nove', registro: '000109', termo_sha256: termo('9') };
+  const r = await comTrilhaQuebrada(() => post(revisor.cookie, '/api/golden-cases/atestados', novo));
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar("SELECT 1 FROM golden_attestation WHERE id = 'AT-9109'"), 0);
+  assert.equal((await post(revisor.cookie, '/api/golden-cases/atestados', novo)).status, 201);
+  const trilha = (await auditRows(f)).find((a) => a.action === 'golden_attestation_create' && a.entity_id === 'AT-9109');
+  assert.ok(trilha);
+  assert.doesNotMatch(trilha.after_json!, /Revisora Ficticia Nove|000109/);
+});
+
+test('duas desativacoes com o MESMO carimbo: uma unica linha na trilha', async () => {
+  // Carimbo em milissegundos colide entre requisicoes concorrentes; a trilha nao pode depender dele.
+  await revisado('caso-mesmo-carimbo');
+  const carimbo = '2026-11-20T12:00:00.000Z';
+  const lote = () =>
+    f.client.batch(
+      comandosDeDesativacao(TEST_ENV.hashSalt, 'caso-mesmo-carimbo', revisor.id, MOTIVO, carimbo),
+      'write',
+    );
+  const [a, b] = await Promise.all([lote(), lote()]);
+  assert.deepEqual([a[0]!.rowsAffected, b[0]!.rowsAffected].sort(), [0, 1]);
+  const trilha = (await auditRows(f)).filter(
+    (x) => x.action === 'golden_case_deactivate' && x.entity_id === 'caso-mesmo-carimbo',
+  );
+  assert.equal(trilha.length, 1);
 });

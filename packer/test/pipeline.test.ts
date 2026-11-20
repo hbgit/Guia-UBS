@@ -20,7 +20,7 @@ import { after, before, test } from 'node:test';
 import { migrationStatements } from '@guia-ubs/cms/src/db/client.js';
 import { createClient, type Client } from '@libsql/client';
 
-import { ACOES_QUE_REABREM, ACOES_QUE_NAO_REABREM } from '@guia-ubs/contract';
+import { ACOES_QUE_REABREM, ACOES_QUE_NAO_REABREM, hashConteudoGolden } from '@guia-ubs/contract';
 
 import { readRuleModel } from '../src/build-pack.js';
 import { extrairConteudo, lerAtestadosDoBanco, lerGoldenDoBanco } from '../src/extract.js';
@@ -123,8 +123,9 @@ async function semear(c: Client): Promise<void> {
     VALUES ('${at.id}', '${at.nome}', '${at.conselho}', '${at.uf}', 'ENF', '${at.registro}',
             '${at.termo_sha256}', 'admin-1', '${AGORA}')`);
   await exec(`INSERT INTO golden_case_review
-      (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
-    VALUES ('rv-0', 'g-toracico', '${at.id}', '2026-08-20', 'admin-1', '${AGORA}')`);
+      (id, case_id, attestation_id, reviewed_at, reviewed_hash, recorded_by, recorded_at)
+    VALUES ('rv-0', 'g-toracico', '${at.id}', '2026-08-20',
+            '${await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY')}', 'admin-1', '${AGORA}')`);
   await exec(`INSERT INTO signing_key (key_id, public_key, activated_at)
     VALUES ('k-teste', '${publicKeyBase64}', '${AGORA}')`);
   await exec(`INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
@@ -511,8 +512,9 @@ test('caso golden vermelho BLOQUEIA e devolve a release para a fila', async () =
      VALUES ('g-impossivel', '["chest"]', 'EMERGENCY', 'ficticio', 'admin-1', 1)`,
   );
   await client.execute(`INSERT INTO golden_case_review
-      (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
-    VALUES ('rv-imp', 'g-impossivel', '${ATESTADO_FICTICIO.id}', '2026-08-21', 'admin-1', '${AGORA}')`);
+      (id, case_id, attestation_id, reviewed_at, reviewed_hash, recorded_by, recorded_at)
+    VALUES ('rv-imp', 'g-impossivel', '${ATESTADO_FICTICIO.id}', '2026-08-21',
+            '${await hashConteudoGolden(['chest'], 'EMERGENCY')}', 'admin-1', '${AGORA}')`);
   await client.execute(
     `INSERT INTO pack_release (id, municipality_id, pack_version, schema_version, status, created_by, created_at)
      VALUES ('rel-2', 'mun-1', 6, '1.0', 'approved', 'admin-1', '2026-08-29T00:00:00Z')`,
@@ -570,10 +572,11 @@ test('lerGoldenDoBanco monta reviewed_by a partir das revisoes', async () => {
       (id, nome, conselho, uf, categoria, registro, termo_sha256, created_by, created_at)
     VALUES ('AT-9001', 'Revisor Ficticio Teste', 'CRM', 'RR', NULL, '000001',
             '${'a'.repeat(64)}', 'admin-1', '${AGORA}')`);
+  const h = await hashConteudoGolden(['chest', 'pain'], 'EMERGENCY');
   await client.execute(`INSERT INTO golden_case_review
-      (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
-    VALUES ('rv-l2', 'g-leitura', 'AT-9002', '2026-08-22', 'admin-1', '${AGORA}'),
-           ('rv-l1', 'g-leitura', 'AT-9001', '2026-08-20', 'admin-1', '${AGORA}')`);
+      (id, case_id, attestation_id, reviewed_at, reviewed_hash, recorded_by, recorded_at)
+    VALUES ('rv-l2', 'g-leitura', 'AT-9002', '2026-08-22', '${h}', 'admin-1', '${AGORA}'),
+           ('rv-l1', 'g-leitura', 'AT-9001', '2026-08-20', '${h}', 'admin-1', '${AGORA}')`);
 
   const caso = (await lerGoldenDoBanco(client)).find((c) => c.id === 'g-leitura');
   assert.deepEqual(caso?.reviewed_by, [
@@ -590,4 +593,107 @@ test('lerGoldenDoBanco monta reviewed_by a partir das revisoes', async () => {
   assert.deepEqual(atestados[1], ATESTADO_FICTICIO);
   assert.ok(!('categoria' in atestados[0]!), 'CRM nao tem categoria');
   assert.ok(!JSON.stringify(caso).includes('Ficticia'), 'nome do revisor vazou para o caso');
+});
+
+// ---------------------------------------------------------------------------
+// #43: so revisao VALIDA conta (nao revogada e do conteudo atual)
+// ---------------------------------------------------------------------------
+
+/** Caso de ROTINA (desativavel) com uma revisao do AT-9002, opcionalmente com hash. */
+async function casoRevisado(id: string, hash: string | null): Promise<void> {
+  await client.execute(
+    `INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
+     VALUES ('${id}', '["pain"]', 'ROUTINE_UBS', 'ficticio', 'admin-1', 1)`,
+  );
+  await client.execute({
+    sql: `INSERT INTO golden_case_review
+            (id, case_id, attestation_id, reviewed_at, reviewed_hash, recorded_by, recorded_at)
+          VALUES (?, ?, 'AT-9002', '2026-11-19', ?, 'admin-1', '${AGORA}')`,
+    args: [`rv-${id}`, id, hash],
+  });
+}
+
+const doBanco = async (id: string) => (await lerGoldenDoBanco(client)).find((c) => c.id === id);
+
+test('revisao revogada nao conta: caso ativo sem outra revisao fica com reviewed_by null e descartadas.revogadas 1', async () => {
+  await casoRevisado('g-revogado', await hashConteudoGolden(['pain'], 'ROUTINE_UBS'));
+  await client.execute(`INSERT INTO golden_case_review_revocation (id, review_id, reason, revoked_by, revoked_at)
+    VALUES ('vg-1', 'rv-g-revogado', 'motivo ficticio de teste', 'admin-1', '${AGORA}')`);
+  const caso = await doBanco('g-revogado');
+  assert.ok(caso, 'o caso continua na suite');
+  assert.equal(caso.reviewed_by, null);
+  assert.deepEqual(caso.descartadas, { revogadas: 1, conteudoMudou: 0 });
+});
+
+test('revisao com reviewed_hash divergente conta como ausente', async () => {
+  await casoRevisado('g-mudou', await hashConteudoGolden(['pain'], 'ROUTINE_UBS'));
+  await client.execute(`UPDATE golden_case SET tokens_json = '["chest"]' WHERE id = 'g-mudou'`);
+  const caso = await doBanco('g-mudou');
+  assert.equal(caso?.reviewed_by, null);
+  assert.deepEqual(caso?.descartadas, { revogadas: 0, conteudoMudou: 1 });
+});
+
+test('revisao legada com reviewed_hash NULL conta como ausente', async () => {
+  await casoRevisado('g-legado', null);
+  const caso = await doBanco('g-legado');
+  assert.equal(caso?.reviewed_by, null);
+  assert.deepEqual(caso?.descartadas, { revogadas: 0, conteudoMudou: 1 });
+});
+
+test('revisao valida continua contando', async () => {
+  await casoRevisado('g-valido', await hashConteudoGolden(['pain'], 'ROUTINE_UBS'));
+  const caso = await doBanco('g-valido');
+  assert.equal((caso?.reviewed_by as unknown[]).length, 1);
+  assert.ok(!('descartadas' in caso!), 'sem descarte, sem campo');
+});
+
+const MODELO_VAZIO = {
+  rules: [],
+  outcomes: new Map(),
+  defaultOutcomeId: 'ROUTINE_UBS',
+  tokenIds: new Set<string>(),
+};
+
+test('golden_sem_revisor diz quantas revisoes foram descartadas e por que', () => {
+  const relatorio = validateGolden(
+    [{ id: 'g-x', tokens: ['fora-do-modelo'], expect: 'ROUTINE_UBS', descartadas: { revogadas: 1, conteudoMudou: 2 } }],
+    MODELO_VAZIO,
+    { modo: 'assinatura', agora: new Date(AGORA), registro: REG },
+  );
+  const issue = relatorio.issues.find((i) => i.kind === 'golden_sem_revisor');
+  assert.ok(issue);
+  assert.ok(
+    issue.message.endsWith(
+      ' (1 revogada(s), 2 de conteudo anterior ou sem vinculo; registre nova revisao)',
+    ),
+    issue.message,
+  );
+});
+
+test('caso desativado sai da suite e o ultimo desativado da golden_vazia', async () => {
+  // Fica so a dupla de rotina; os de emergencia saem pelo caminho legado (sem
+  // `deactivated_at`), que o gatilho de red flag nao ve.
+  await client.execute(
+    "UPDATE golden_case SET active = 0 WHERE id NOT IN ('g-valido', 'g-legado') AND deactivated_at IS NULL",
+  );
+  const desativar = (id: string) =>
+    client.execute(
+      `UPDATE golden_case SET active = 0, deactivated_at = '${AGORA}' WHERE id = '${id}' AND active = 1`,
+    );
+  const rodar = async () =>
+    validateGolden(await lerGoldenDoBanco(client), MODELO_VAZIO, {
+      modo: 'verificacao',
+      agora: new Date(AGORA),
+      registro: REG,
+    });
+
+  assert.equal((await rodar()).total, 2);
+  await desativar('g-legado');
+  assert.deepEqual(
+    (await lerGoldenDoBanco(client)).map((c) => c.id),
+    ['g-valido'],
+  );
+  assert.equal((await rodar()).total, 1);
+  await desativar('g-valido');
+  assert.ok((await rodar()).issues.some((i) => i.kind === 'golden_vazia'));
 });

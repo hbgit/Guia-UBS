@@ -158,9 +158,10 @@ function bancoAte0008(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
   for (let i = 0; i <= 8; i += 1) for (const s of migracao(i)) db.exec(s);
-  // Os gatilhos de entao: os de hoje menos os da tabela que a 0009 cria.
+  // Os gatilhos de entao: os de hoje menos os da tabela que a 0009 cria e os
+  // que leem `deactivated_at`, que so a 0010 cria.
   for (const s of triggerStatementsFromDisk()) {
-    if (!s.includes('golden_case_review')) db.exec(s);
+    if (!/golden_case_review|deactivat/.test(s)) db.exec(s);
   }
   db.exec(`INSERT INTO admin_user (id, email, name, role, created_at, updated_at)
            VALUES ('admin-1', 'op@exemplo.invalid', 'Operador', 'editor', 0, 0)`);
@@ -204,6 +205,7 @@ test('todo gatilho do triggers.sql existe no banco depois de migrar', () => {
   const db = bancoAte0008();
   try {
     for (const s of migracao(9)) db.exec(s);
+    for (const s of migracao(10)) db.exec(s);
     for (const s of triggerStatementsFromDisk()) db.exec(s);
 
     const existentes = new Set(
@@ -219,6 +221,69 @@ test('todo gatilho do triggers.sql existe no banco depois de migrar', () => {
     assert.ok(esperados.includes('golden_case_review_no_update'));
     assert.ok(esperados.includes('golden_case_review_no_delete'));
     for (const nome of esperados) assert.ok(existentes.has(nome), `gatilho "${nome}" ausente`);
+  } finally {
+    db.close();
+  }
+});
+
+test('revisao anterior a 0010 sobrevive com reviewed_hash NULL e os gatilhos novos existem', () => {
+  // A 0010 pode reconstruir `golden_case_review` (CREATE __new_ + copia) por
+  // causa do CHECK novo; a copia nao pode perder linha nem coluna.
+  const db = bancoAte0008();
+  try {
+    for (const s of migracao(9)) db.exec(s);
+    // Gatilhos de entao: os de hoje menos os que dependem da 0010.
+    for (const s of triggerStatementsFromDisk()) {
+      if (!/revocation|one_live|deactivat/.test(s)) db.exec(s);
+    }
+    db.exec(`INSERT INTO golden_case (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
+             VALUES ('g-1', '["chest"]', 'ROUTINE_UBS', 'ficticio', 'admin-1', 1)`);
+    db.exec(`INSERT INTO golden_attestation
+               (id, nome, conselho, uf, categoria, registro, termo_sha256, created_by, created_at)
+             VALUES ('AT-9001', 'Revisora Ficticia', 'CRM', 'RR', NULL, '000001',
+                     '${'a'.repeat(64)}', 'admin-1', '2026-11-01T00:00:00Z')`);
+    db.exec(`INSERT INTO golden_case_review
+               (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
+             VALUES ('rv-1', 'g-1', 'AT-9001', '2026-11-01', 'admin-1', '2026-11-02T00:00:00Z')`);
+
+    for (const s of migracao(10)) db.exec(s);
+    for (const s of triggerStatementsFromDisk()) db.exec(s);
+
+    const linha = db.prepare("SELECT * FROM golden_case_review WHERE id = 'rv-1'").get();
+    assert.deepEqual(
+      { ...linha },
+      {
+        id: 'rv-1',
+        case_id: 'g-1',
+        attestation_id: 'AT-9001',
+        reviewed_at: '2026-11-01',
+        recorded_by: 'admin-1',
+        recorded_at: '2026-11-02T00:00:00Z',
+        reviewed_hash: null,
+      },
+    );
+    const caso = db.prepare("SELECT deactivated_at FROM golden_case WHERE id = 'g-1'").get() as {
+      deactivated_at: string | null;
+    };
+    assert.equal(caso.deactivated_at, null);
+
+    const gatilhos = new Set(
+      (
+        db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all() as {
+          name: string;
+        }[]
+      ).map((r) => r.name),
+    );
+    for (const nome of [
+      'golden_case_review_one_live',
+      'golden_case_deactivation_final',
+      'golden_case_no_deactivate_red_flag',
+      'golden_case_review_revocation_no_update',
+      'golden_case_review_revocation_no_delete',
+      'golden_case_review_no_update',
+    ]) {
+      assert.ok(gatilhos.has(nome), `gatilho "${nome}" ausente`);
+    }
   } finally {
     db.close();
   }
