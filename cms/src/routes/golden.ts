@@ -22,14 +22,14 @@ import {
   MIN_REVISORES,
   SQL_REVISAO_NAO_REVOGADA,
 } from '@guia-ubs/contract';
-import type { Client } from '@libsql/client';
+import type { Client, InStatement } from '@libsql/client';
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { requirePermission, type AuthVariables } from '../auth/middleware.js';
 import { createDb } from '../db/client.js';
-import { classificarViolacao } from '../db/errors.js';
+import { classificarViolacao, mensagemDoErro } from '../db/errors.js';
 import { goldenAttestation, goldenCase, goldenCaseReview } from '../db/schema/publishing.js';
 import { comandoDeAuditoria } from '../services/audit.js';
 
@@ -63,6 +63,42 @@ export async function motivoComDadoPessoal(client: Client, motivo: string): Prom
     const registro = String(a.registro).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return texto.includes(semAcento(String(a.nome))) || new RegExp(`\\b${registro}\\b`).test(semAt);
   });
+}
+
+/**
+ * O batch da desativacao, exportado para o teste montar a corrida com os
+ * comandos reais. `active` e `deactivated_at` no MESMO UPDATE: o gatilho de red
+ * flag so dispara na transicao de deactivated_at, e a rota nao reimplementa a regra.
+ */
+export function comandosDeDesativacao(
+  salt: string,
+  caseId: string,
+  atorId: string,
+  motivo: string,
+  carimbo: string,
+  antes: number,
+): InStatement[] {
+  return [
+    {
+      sql: `UPDATE golden_case SET active = 0, deactivated_at = ?
+            WHERE id = ? AND deactivated_at IS NULL`,
+      args: [carimbo, caseId],
+    },
+    comandoDeAuditoria(
+      salt,
+      {
+        actorId: atorId,
+        action: 'golden_case_deactivate',
+        entityType: 'golden_case',
+        entityId: caseId,
+        before: { active: antes },
+        after: { active: 0, motivo },
+      },
+      // `changes()` do UPDATE logo acima: a trilha so entra se ESTE update mudou
+      // a linha. Carimbo nao serve: duas requisicoes podem gerar o mesmo ms.
+      { sql: 'changes() = 1', args: [] },
+    ),
+  ];
 }
 
 export function goldenRoutes(client: Client, salt: string) {
@@ -302,10 +338,12 @@ export function goldenRoutes(client: Client, salt: string) {
         'write',
       );
     } catch (erro) {
-      const classe = classificarViolacao(erro);
-      if (classe === 'duplicidade') return await conflito();
-      // Gatilho golden_case_review_no_deactivated_case: desativado depois do pre-check.
-      if (classe === 'dominio') return c.json({ error: 'caso desativado' }, 409);
+      if (classificarViolacao(erro) === 'duplicidade') return await conflito();
+      // So o gatilho golden_case_review_no_deactivated_case (desativado depois do
+      // pre-check); outro CHECK e defeito e relanca.
+      if (mensagemDoErro(erro).includes('em caso desativado')) {
+        return c.json({ error: 'caso desativado' }, 409);
+      }
       throw erro;
     }
 
@@ -367,35 +405,9 @@ export function goldenRoutes(client: Client, salt: string) {
     if (!alvo) return c.json({ error: 'caso nao encontrado' }, 404);
 
     let afetadas: number;
-    const carimbo = new Date().toISOString();
     try {
-      // `active` e `deactivated_at` no MESMO UPDATE: o gatilho de red flag so
-      // dispara na transicao de deactivated_at, e a rota nao reimplementa a regra.
-      // A trilha so entra se ESTE update entrou (mesmo carimbo): a desativacao
-      // concorrente que perdeu nao deixa linha.
       const [update] = await client.batch(
-        [
-          {
-            sql: `UPDATE golden_case SET active = 0, deactivated_at = ?
-                  WHERE id = ? AND deactivated_at IS NULL`,
-            args: [carimbo, caseId],
-          },
-          comandoDeAuditoria(
-            salt,
-            {
-              actorId: c.get('operador').id,
-              action: 'golden_case_deactivate',
-              entityType: 'golden_case',
-              entityId: caseId,
-              before: { active: alvo.active },
-              after: { active: 0, motivo },
-            },
-            {
-              sql: 'EXISTS (SELECT 1 FROM golden_case WHERE id = ? AND deactivated_at = ?)',
-              args: [caseId, carimbo],
-            },
-          ),
-        ],
+        comandosDeDesativacao(salt, caseId, c.get('operador').id, motivo, new Date().toISOString(), alvo.active),
         'write',
       );
       afetadas = update!.rowsAffected;

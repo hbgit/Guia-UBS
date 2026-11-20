@@ -12,7 +12,8 @@ import { hashConteudoGolden, SQL_REVISAO_NAO_REVOGADA } from '@guia-ubs/contract
 import { lerGoldenDoBanco } from '../../packer/src/extract.js';
 import { validateGolden } from '../../packer/src/validate.js';
 import { classificarViolacao } from '../src/db/errors.js';
-import { auditRows, freshApp, pedido, seedConteudo, sessaoDe, type Fixture } from './support/app.js';
+import { comandosDeDesativacao } from '../src/routes/golden.js';
+import { auditRows, freshApp, pedido, seedConteudo, sessaoDe, TEST_ENV, type Fixture } from './support/app.js';
 
 let f: Fixture;
 let editor: { cookie: string; id: string };
@@ -651,4 +652,21 @@ test('falha ao gravar a trilha ao criar atestado reverte o registro', async () =
   const trilha = (await auditRows(f)).find((a) => a.action === 'golden_attestation_create' && a.entity_id === 'AT-9109');
   assert.ok(trilha);
   assert.doesNotMatch(trilha.after_json!, /Revisora Ficticia Nove|000109/);
+});
+
+test('duas desativacoes com o MESMO carimbo: uma unica linha na trilha', async () => {
+  // Carimbo em milissegundos colide entre requisicoes concorrentes; a trilha nao pode depender dele.
+  await revisado('caso-mesmo-carimbo');
+  const carimbo = '2026-11-20T12:00:00.000Z';
+  const lote = () =>
+    f.client.batch(
+      comandosDeDesativacao(TEST_ENV.hashSalt, 'caso-mesmo-carimbo', revisor.id, MOTIVO, carimbo, 1),
+      'write',
+    );
+  const [a, b] = await Promise.all([lote(), lote()]);
+  assert.deepEqual([a[0]!.rowsAffected, b[0]!.rowsAffected].sort(), [0, 1]);
+  const trilha = (await auditRows(f)).filter(
+    (x) => x.action === 'golden_case_deactivate' && x.entity_id === 'caso-mesmo-carimbo',
+  );
+  assert.equal(trilha.length, 1);
 });
