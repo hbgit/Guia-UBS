@@ -323,10 +323,10 @@ test('a tela de cadastro oferece o caminho de quem JA tem a chave', async () => 
 // ---------------------------------------------------------------------------
 
 const TERMO = {
-  type: 'terms',
+  type: 'tos',
   version: '0.1.0',
   contentMd: '# Termo\n\nTexto do termo.',
-  hash: 'h1',
+  hash: 'a'.repeat(64),
   effectiveFrom: '2026-11-01',
   aceito: false,
 };
@@ -348,7 +348,7 @@ test('aceitar envia a versao e o hash LIDOS e vai ao painel', async () => {
       pedidos.push(url);
       if (url === '/api/consentimento' && init?.method === 'POST') {
         posts.push(JSON.parse(String(init.body)));
-        return Promise.resolve(json(200, { aceito: true, version: '0.1.0', hash: 'h1' }));
+        return Promise.resolve(json(200, { aceito: true, version: '0.1.0', hash: 'a'.repeat(64) }));
       }
       if (url === '/api/consentimento') return Promise.resolve(json(200, TERMO));
       if (url === '/api/me') return Promise.resolve(json(200, operador('editor', ['content:read'])));
@@ -359,7 +359,7 @@ test('aceitar envia a versao e o hash LIDOS e vai ao painel', async () => {
 
   await userEvent.click(await screen.findByRole('button', { name: 'Li e aceito o termo de uso' }));
 
-  expect(posts).toEqual([{ version: '0.1.0', hash: 'h1' }]);
+  expect(posts).toEqual([{ version: '0.1.0', hash: 'a'.repeat(64) }]);
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Painel' })).toBeTruthy());
 });
 
@@ -465,6 +465,14 @@ test('abrir /entrar/termo com /api/me em 403 de consentimento NAO redireciona', 
   });
 
   expect(await screen.findByText(/Versao 0\.1\.0/)).toBeTruthy();
+});
+
+test('rota protegida com /api/me em 403 de consentimento termina na tela do termo', async () => {
+  servidor({ '/api/me': () => json(403, PENDENTE), '/api/consentimento': () => json(200, TERMO) });
+  montar('/');
+
+  expect(await screen.findByText(/Versao 0\.1\.0/)).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Termo de uso' })).toBeTruthy();
 });
 
 test('a barra nao aparece em /entrar/termo com operador em cache', async () => {

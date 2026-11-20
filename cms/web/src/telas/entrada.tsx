@@ -308,7 +308,10 @@ export function TelaDeTermo() {
       next?: string;
       vigente?: Termo;
     };
-    if (r.status === 401) navegar('/entrar');
+    if (r.status === 401) {
+      esquecer();
+      navegar('/entrar');
+    }
     else if (r.status === 403 && corpo.error === 'operador desligado') setSituacao('desligado');
     else if (r.status === 403 && corpo.next && corpo.next !== '/api/consentimento') {
       navegar('/entrar/cadastrar-2fa');
@@ -326,17 +329,15 @@ export function TelaDeTermo() {
   async function carregar() {
     setAviso(undefined);
     setSituacao('carregando');
-    {
-      try {
-        const r = await sondar('/api/consentimento');
-        if (r.ok) {
-          setTermo((await r.json()) as Termo);
-          setSituacao('ok');
-        } else await tratarFalha(r);
-      } catch {
-        setAviso('Erro no servidor; tente de novo.');
-        setSituacao('erro');
-      }
+    try {
+      const r = await sondar('/api/consentimento');
+      if (r.ok) {
+        setTermo((await r.json()) as Termo);
+        setSituacao('ok');
+      } else await tratarFalha(r);
+    } catch {
+      setAviso('Erro no servidor; tente de novo.');
+      setSituacao('erro');
     }
   }
 

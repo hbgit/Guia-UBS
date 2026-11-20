@@ -89,9 +89,10 @@ function Barra() {
 
 /** Sem sessao carregada, manda entrar. O servidor decide de novo em cada chamada. */
 function Protegida({ children }: { children: ReactNode }) {
-  const { operador, carregando } = useSessao();
+  const { operador, carregando, precisaAceitar } = useSessao();
   if (carregando) return <p>Carregando…</p>;
-  if (!operador) return <Navigate to="/entrar" replace />;
+  // O aviso global de consentimento tambem navega, mas este redirecionamento rodaria depois e o desfaria.
+  if (!operador) return <Navigate to={precisaAceitar ? '/entrar/termo' : '/entrar'} replace />;
   return <>{children}</>;
 }
 
