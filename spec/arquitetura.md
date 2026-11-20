@@ -1358,7 +1358,7 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 2. **O operador não revoga o aceite** (LGPD-RF05). `consent_record` é append-only e não há rota nem tela de revogação.
 3. **Política de Privacidade (`privacy`) e Aviso (`consent`) não são exigidos no login**; só o Termo de Uso.
 4. **As rotas mutantes de `/api` fora de `/api/auth/*` não checam `Origin`**; a proteção hoje é o cookie `sameSite=lax` — issue de acompanhamento.
-5. **O expurgo por prazo (RT10) agora precisa considerar `legal_document`** além das tabelas já listadas; hoje nada o faz.
+5. **`legal_document` não entra no expurgo por prazo (RT10).** A tabela não tem dado pessoal, e cada versão é a prova do texto que o operador aceitou: apagá-la deixaria `consent_record` apontando para versão e hash sem texto. A regra é guardar a versão enquanto existir `consent_record` que a cite; o expurgo que alcança o aceite é o de `consent_record`, e só depois dele a versão órfã pode sair.
 
 ### Fase 3.5 — Interface de operação (pré-requisito de release pública) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
