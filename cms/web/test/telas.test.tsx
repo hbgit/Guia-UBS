@@ -21,6 +21,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Operador } from '../src/api/erros.js';
 import { aoExigirSegundoFator, aoPerderSessao } from '../src/api/api.js';
 import { App } from '../src/App.js';
+import { estadoDaSessao } from '../src/api/entrada.js';
 import { navegacaoPara } from '../src/rotas.js';
 import { SessaoProvider } from '../src/sessao.js';
 
@@ -315,4 +316,161 @@ test('a tela de cadastro oferece o caminho de quem JA tem a chave', async () => 
 
   const atalho = await screen.findByRole('link', { name: /digite o codigo/i });
   expect(atalho.getAttribute('href')).toBe('/entrar/codigo');
+});
+
+// ---------------------------------------------------------------------------
+// Aceite do termo de uso
+// ---------------------------------------------------------------------------
+
+const TERMO = {
+  type: 'terms',
+  version: '0.1.0',
+  contentMd: '# Termo\n\nTexto do termo.',
+  hash: 'h1',
+  effectiveFrom: '2026-11-01',
+  aceito: false,
+};
+const PENDENTE = { error: 'aceite do termo de uso pendente', next: '/api/consentimento' };
+
+test('a tela do termo mostra a versao e o texto', async () => {
+  servidor({ '/api/consentimento': () => json(200, TERMO) });
+  montar('/entrar/termo');
+
+  expect(await screen.findByText(/Versao 0\.1\.0/)).toBeTruthy();
+  expect(screen.getByText(/Texto do termo\./)).toBeTruthy();
+});
+
+test('aceitar envia a versao e o hash LIDOS e vai ao painel', async () => {
+  const posts: unknown[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) => {
+      pedidos.push(url);
+      if (url === '/api/consentimento' && init?.method === 'POST') {
+        posts.push(JSON.parse(String(init.body)));
+        return Promise.resolve(json(200, { aceito: true, version: '0.1.0', hash: 'h1' }));
+      }
+      if (url === '/api/consentimento') return Promise.resolve(json(200, TERMO));
+      if (url === '/api/me') return Promise.resolve(json(200, operador('editor', ['content:read'])));
+      return Promise.resolve(json(404, {}));
+    }),
+  );
+  montar('/entrar/termo');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Li e aceito o termo de uso' }));
+
+  expect(posts).toEqual([{ version: '0.1.0', hash: 'h1' }]);
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'Painel' })).toBeTruthy());
+});
+
+test('409 troca o documento pelo vigente e avisa', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/consentimento' && init?.method === 'POST') {
+        return Promise.resolve(
+          json(409, {
+            error: 'o termo mudou',
+            vigente: { ...TERMO, version: '0.2.0', hash: 'h2', contentMd: 'Texto novo.' },
+          }),
+        );
+      }
+      return Promise.resolve(json(200, TERMO));
+    }),
+  );
+  montar('/entrar/termo');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Li e aceito o termo de uso' }));
+
+  expect(await screen.findByText(/Versao 0\.2\.0/)).toBeTruthy();
+  expect(screen.getByText(/O termo foi atualizado enquanto voce lia/)).toBeTruthy();
+});
+
+test('404 mostra a mensagem e nao oferece aceite', async () => {
+  servidor({ '/api/consentimento': () => json(404, { error: 'nenhum termo de uso publicado' }) });
+  montar('/entrar/termo');
+
+  expect(await screen.findByText(/Nenhum termo de uso publicado/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Li e aceito o termo de uso' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Sair' })).toBeTruthy();
+});
+
+test('401 no GET navega para /entrar', async () => {
+  servidor({ '/api/consentimento': () => json(401, { error: 'nao autenticado' }) });
+  montar('/entrar/termo');
+
+  expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeTruthy();
+});
+
+test('403 de segundo fator no GET navega para o cadastro', async () => {
+  servidor({
+    '/api/consentimento': () =>
+      json(403, { error: 'segundo fator obrigatorio', next: '/api/auth/two-factor/enable' }),
+  });
+  montar('/entrar/termo');
+
+  expect(await screen.findByRole('heading', { name: 'Cadastrar segundo fator' })).toBeTruthy();
+});
+
+test('403 operador desligado mostra a mensagem, sem aceite', async () => {
+  servidor({ '/api/consentimento': () => json(403, { error: 'operador desligado' }) });
+  montar('/entrar/termo');
+
+  expect(await screen.findByText('Este operador foi desligado.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Li e aceito o termo de uso' })).toBeNull();
+});
+
+test('erro de servidor no POST mantem o botao', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'POST' ? json(500, { error: 'x' }) : json(200, TERMO),
+      ),
+    ),
+  );
+  montar('/entrar/termo');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Li e aceito o termo de uso' }));
+
+  expect(await screen.findByText('Erro no servidor; tente de novo.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Li e aceito o termo de uso' })).toBeTruthy();
+});
+
+test('Sair chama sign-out e navega para /entrar', async () => {
+  servidor({
+    '/api/consentimento': () => json(200, TERMO),
+    '/api/auth/sign-out': () => json(200, { success: true }),
+  });
+  montar('/entrar/termo');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Sair' }));
+
+  expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeTruthy();
+  expect(pedidos).toContain('/api/auth/sign-out');
+});
+
+test('estadoDaSessao com 403 de consentimento devolve precisa_aceitar', async () => {
+  servidor({ '/api/me': () => json(403, PENDENTE) });
+  expect(await estadoDaSessao()).toEqual({ estado: 'precisa_aceitar' });
+});
+
+test('abrir /entrar/termo com /api/me em 403 de consentimento NAO redireciona', async () => {
+  servidor({ '/api/me': () => json(403, PENDENTE), '/api/consentimento': () => json(200, TERMO) });
+  montar('/entrar/termo');
+
+  await waitFor(() => expect(pedidos).toContain('/api/me'));
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(await screen.findByText(/Versao 0\.1\.0/)).toBeTruthy();
+});
+
+test('a barra nao aparece em /entrar/termo com operador em cache', async () => {
+  servidor({ '/api/consentimento': () => json(200, TERMO) });
+  montar('/entrar/termo', operador('editor', ['content:read']));
+
+  await screen.findByText(/Versao 0\.1\.0/);
+  expect(screen.queryByRole('navigation')).toBeNull();
 });

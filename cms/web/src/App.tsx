@@ -9,10 +9,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-import { aoExigirSegundoFator, aoPerderSessao } from './api/api.js';
+import { aoExigirConsentimento, aoExigirSegundoFator, aoPerderSessao } from './api/api.js';
 import { dispensaSessao, navegacaoPara } from './rotas.js';
 import { useSessao } from './sessao.js';
-import { TelaDeCadastroDe2fa, TelaDeCodigo, TelaDeEntrada } from './telas/entrada.js';
+import { TelaDeCadastroDe2fa, TelaDeCodigo, TelaDeEntrada, TelaDeTermo } from './telas/entrada.js';
 import { Painel } from './telas/painel.js';
 import {
   FormularioDeConteudo,
@@ -47,6 +47,10 @@ function useAvisosDeSessao() {
       // expulsaria a pessoa da unica tela que resolve o problema dela.
       if (!dispensaSessao(caminho.current)) navegar('/entrar');
     });
+    aoExigirConsentimento(() => {
+      // Mesma guarda: dentro do fluxo de entrada quem decide e a propria tela.
+      if (!dispensaSessao(caminho.current)) navegar('/entrar/termo');
+    });
     aoExigirSegundoFator(() => {
       // Mesma guarda, e pelo mesmo motivo. Quem ja cadastrou o segundo fator e
       // ainda nao o verificou recebe 403 em `/api/me` — inclusive na sondagem de
@@ -64,7 +68,8 @@ function useAvisosDeSessao() {
 function Barra() {
   const { operador } = useSessao();
   const local = useLocation();
-  if (!operador) return null;
+  // Operador em cache + termo pendente: a barra levaria de volta a esta tela.
+  if (!operador || dispensaSessao(local.pathname)) return null;
 
   return (
     <header className="barra">
@@ -100,6 +105,7 @@ export function App() {
         <Route path="/entrar" element={<TelaDeEntrada />} />
         <Route path="/entrar/codigo" element={<TelaDeCodigo />} />
         <Route path="/entrar/cadastrar-2fa" element={<TelaDeCadastroDe2fa />} />
+        <Route path="/entrar/termo" element={<TelaDeTermo />} />
         <Route
           path="/"
           element={

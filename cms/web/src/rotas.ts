@@ -68,6 +68,15 @@ export const ROTAS_DA_SPA: readonly Rota[] = [
     naBarra: false,
   },
   {
+    caminho: '/entrar/termo',
+    rotulo: 'Termo de uso',
+    exige: null,
+    // Dispensa: quem ainda nao aceitou recebe 403 em toda rota protegida, e esta
+    // e a unica tela que resolve isso.
+    sessao: 'dispensa',
+    naBarra: false,
+  },
+  {
     caminho: '/',
     rotulo: 'Painel',
     exige: null,

@@ -12,10 +12,10 @@
  * LITERAL: nada de contador, nada de relogio, nada de "voce tem mais N
  * tentativas". Ha teste afirmando que nenhum digito aparece.
  */
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { acionar } from '../api/api.js';
+import { acionar, sondar, tentar } from '../api/api.js';
 import {
   CREDENCIAL_INVALIDA,
   conferirCodigo,
@@ -40,6 +40,9 @@ function useDestino() {
         return undefined;
       case 'precisa_cadastrar':
         navegar('/entrar/cadastrar-2fa');
+        return undefined;
+      case 'precisa_aceitar':
+        navegar('/entrar/termo');
         return undefined;
       case 'travada':
         // LITERAL, do servidor. Ver o cabecalho do arquivo.
@@ -277,6 +280,113 @@ export function TelaDeCadastroDe2fa() {
           {enviando ? 'Gerando…' : 'Gerar chave'}
         </button>
       </form>
+    </main>
+  );
+}
+
+interface Termo {
+  version: string;
+  contentMd: string;
+  hash: string;
+}
+
+type Situacao = 'carregando' | 'ok' | 'sem_termo' | 'desligado' | 'erro';
+
+export function TelaDeTermo() {
+  const navegar = useNavigate();
+  const { recarregar, esquecer } = useSessao();
+  const [termo, setTermo] = useState<Termo>();
+  const [situacao, setSituacao] = useState<Situacao>('carregando');
+  const [aviso, setAviso] = useState<string>();
+  const [enviando, setEnviando] = useState(false);
+
+  // GET e POST usam `sondar`/`tentar`, que nao disparam os avisos globais; por
+  // isso TODO status e tratado aqui. `/api/consentimento` ja responde 401/403.
+  async function tratarFalha(r: Response): Promise<void> {
+    const corpo = (await r.json().catch(() => ({}))) as {
+      error?: string;
+      next?: string;
+      vigente?: Termo;
+    };
+    if (r.status === 401) navegar('/entrar');
+    else if (r.status === 403 && corpo.error === 'operador desligado') setSituacao('desligado');
+    else if (r.status === 403 && corpo.next && corpo.next !== '/api/consentimento') {
+      navegar('/entrar/cadastrar-2fa');
+    } else if (r.status === 404) setSituacao('sem_termo');
+    else if (r.status === 409 && corpo.vigente) {
+      setTermo(corpo.vigente);
+      setAviso('O termo foi atualizado enquanto voce lia. Leia a versao nova.');
+    } else setAviso('Erro no servidor; tente de novo.');
+  }
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await sondar('/api/consentimento');
+        if (r.ok) {
+          setTermo((await r.json()) as Termo);
+          setSituacao('ok');
+        } else await tratarFalha(r);
+      } catch {
+        setSituacao('erro');
+      }
+    })();
+    // Uma leitura por montagem.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function aceitar() {
+    if (!termo) return;
+    setAviso(undefined);
+    setEnviando(true);
+    try {
+      const r = await tentar('/api/consentimento', { version: termo.version, hash: termo.hash });
+      if (r.ok) {
+        await recarregar();
+        navegar('/');
+      } else await tratarFalha(r);
+    } catch {
+      setAviso('Erro no servidor; tente de novo.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function sair() {
+    await tentar('/api/auth/sign-out').catch(() => undefined);
+    esquecer();
+    navegar('/entrar');
+  }
+
+  return (
+    <main className="cartao">
+      <h1>Termo de uso</h1>
+      {situacao === 'carregando' && <p>Carregando…</p>}
+      {situacao === 'sem_termo' && (
+        <p role="alert" className="erro">
+          Nenhum termo de uso publicado. Peca a quem opera o servidor para rodar{' '}
+          <code>cms:publish-legal</code>.
+        </p>
+      )}
+      {situacao === 'desligado' && (
+        <p role="alert" className="erro">
+          Este operador foi desligado.
+        </p>
+      )}
+      {situacao === 'erro' && <Erro texto="Erro no servidor; tente de novo." />}
+      <Erro texto={aviso} />
+      {termo && situacao === 'ok' && (
+        <>
+          <p className="nota">Versao {termo.version}</p>
+          <pre className="termo">{termo.contentMd}</pre>
+          <button type="button" disabled={enviando} onClick={() => void aceitar()}>
+            Li e aceito o termo de uso
+          </button>
+        </>
+      )}
+      <button type="button" onClick={() => void sair()}>
+        Sair
+      </button>
     </main>
   );
 }

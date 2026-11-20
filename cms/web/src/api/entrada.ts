@@ -28,6 +28,8 @@ export type EstadoDaEntrada =
   | { estado: 'completa'; operador: Operador }
   | { estado: 'pendente_codigo' }
   | { estado: 'precisa_cadastrar'; next: string }
+  /** 403 de consentimento: falta aceitar o termo de uso vigente. */
+  | { estado: 'precisa_aceitar' }
   /** Trava progressiva por conta. `mensagem` vai LITERAL para a tela. */
   | { estado: 'travada'; mensagem: string }
   | { estado: 'recusada' };
@@ -58,6 +60,7 @@ export async function estadoDaSessao(): Promise<EstadoDaEntrada> {
 
   if (r.status === 403) {
     const corpo = (await r.json().catch(() => ({}))) as { next?: string };
+    if (corpo.next === '/api/consentimento') return { estado: 'precisa_aceitar' };
     // O `next` vem do servidor. Fixar o caminho aqui criaria uma segunda copia
     // de uma decisao que ja e do middleware.
     return { estado: 'precisa_cadastrar', next: corpo.next ?? '/api/auth/two-factor/enable' };
