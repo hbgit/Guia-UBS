@@ -12,13 +12,15 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { createDatabaseClient } from '../src/db/client.js';
+import { mensagemDoErro } from '../src/db/errors.js';
 import { loadEnv } from '../src/env.js';
 import { publicarDocumento } from '../src/services/legal.js';
 
 const { values } = parseArgs({
   options: { autor: { type: 'string' }, versao: { type: 'string' }, arquivo: { type: 'string' } },
 });
-if (!values.autor || !values.versao || !values.arquivo) {
+// LGPD-RT04: versao semantica.
+if (!values.autor || !values.versao || !values.arquivo || !/^\d+\.\d+\.\d+$/.test(values.versao)) {
   console.error('uso: --autor <id do operador> --versao <x.y.z> --arquivo <caminho.md>');
   process.exit(2);
 }
@@ -40,6 +42,19 @@ try {
   console.log(`  versao  ${v.version}`);
   console.log(`  hash    ${v.hash}`);
   console.log('\n  Todos os operadores serao levados a aceitar de novo no proximo acesso.');
+} catch (erro) {
+  const m = mensagemDoErro(erro);
+  const motivo = /UNIQUE|PRIMARY KEY/i.test(m)
+    ? 'versao ja publicada'
+    : /FOREIGN KEY/i.test(m)
+      ? 'autor inexistente'
+      : /identico|vigente/i.test(m)
+        ? 'texto identico ao vigente'
+        : /vazio/i.test(m)
+          ? 'texto vazio'
+          : m;
+  console.error(`nao foi possivel publicar: ${motivo}`);
+  process.exitCode = 1;
 } finally {
   client.close();
 }

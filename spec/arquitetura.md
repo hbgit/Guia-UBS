@@ -1335,7 +1335,7 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 
 #### 5.21 Resultado da #10 — aceite do Termo de Uso no 1º login do CMS (2026-11-20)
 
-**O bloqueio é um middleware, depois dos de 2FA.** Rota protegida responde 403 com `next: /entrar/termo` até o operador aceitar a versão **vigente**. O 403 de consentimento nunca mascara o de 2FA nem o de operador desligado: esses respondem primeiro. `legal_document` e `consent_record` já existiam desde o item 16, e agora têm serviço (`GET/POST /api/consentimento`), com a linha de aceite e a da trilha gravadas **atomicamente** (`client.batch`) e instantes pelo relógio do banco. Troca de hash volta a 403; POST com hash antigo responde 409 com o documento vigente, para nunca gravar aceite de texto que a pessoa não viu.
+**O bloqueio é um middleware, depois dos de 2FA.** Rota protegida responde 403 com `next: /api/consentimento` (a SPA então leva a pessoa a `/entrar/termo`) até o operador aceitar a versão **vigente**. O 403 de consentimento nunca mascara o de 2FA nem o de operador desligado: esses respondem primeiro. `legal_document` e `consent_record` já existiam desde o item 16, e agora têm serviço (`GET/POST /api/consentimento`), com a linha de aceite e a da trilha gravadas **atomicamente** (`client.batch`) e instantes pelo relógio do banco. Troca de hash volta a 403; POST com hash antigo responde 409 com o documento vigente, para nunca gravar aceite de texto que a pessoa não viu.
 
 **Quatro decisões divergem do texto da issue.**
 1. **`/api/me` não é isento.** A SPA decide o fluxo de entrada pela resposta dele (`cms/web/src/api/entrada.ts`); isento, o operador entraria no painel sem ver o termo. A única rota isenta é `/api/consentimento`, exceção nomeada (padrão de `ROTAS_DE_CADASTRO_2FA`).
@@ -1357,7 +1357,8 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 1. **A verificação manual da tela no navegador não foi feita neste branch**, nem um sign-out real do Better Auth através do proxy do Vite. Só há teste de componente com `fetch` simulado.
 2. **O operador não revoga o aceite** (LGPD-RF05). `consent_record` é append-only e não há rota nem tela de revogação.
 3. **Política de Privacidade (`privacy`) e Aviso (`consent`) não são exigidos no login**; só o Termo de Uso.
-4. **O expurgo por prazo (RT10) agora precisa considerar `legal_document`** além das tabelas já listadas; hoje nada o faz.
+4. **As rotas mutantes de `/api` fora de `/api/auth/*` não checam `Origin`**; a proteção hoje é o cookie `sameSite=lax` — issue de acompanhamento.
+5. **O expurgo por prazo (RT10) agora precisa considerar `legal_document`** além das tabelas já listadas; hoje nada o faz.
 
 ### Fase 3.5 — Interface de operação (pré-requisito de release pública) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅

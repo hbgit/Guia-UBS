@@ -262,8 +262,10 @@ curl -s -b ck.txt $B/api/me     # 200 = pronto
 > `` `/entrar/codigo` ``. A ativação em si é o `verify-totp` sobre a sessão do
 > login — não é preciso um cookie de 2FA pendente.
 
-**Todo `POST` autenticado exige o cabeçalho `Origin`.** É proteção contra CSRF;
-sem ele a resposta é `403` e a mensagem não diz por quê.
+**Os `POST` de `/api/auth/*` exigem o cabeçalho `Origin`** (proteção contra CSRF
+do Better Auth); sem ele a resposta é `403` e a mensagem não diz por quê. As
+demais rotas `/api` não o conferem: o navegador o envia, e o `curl` acima o
+mantém por paridade.
 
 Errar a senha várias vezes trava a **conta**, progressivamente: duas tentativas
 de folga, depois 30 s dobrando até o teto de 15 minutos. Travada, ela recusa até
