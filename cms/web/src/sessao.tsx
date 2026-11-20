@@ -53,7 +53,10 @@ export function SessaoProvider({
     }
   }, []);
 
-  const esquecer = useCallback(() => setOperador(undefined), []);
+  const esquecer = useCallback(() => {
+    setOperador(undefined);
+    setPrecisaAceitar(false);
+  }, []);
 
   useEffect(() => {
     if (inicial === undefined) void recarregar();

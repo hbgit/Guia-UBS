@@ -38,6 +38,8 @@ function useAvisosDeSessao() {
   // estado de modulo em `api.ts`, e reinstalar a cada rota e desperdicio.
   const caminho = useRef(local.pathname);
   caminho.current = local.pathname;
+  const completo = useRef('');
+  completo.current = local.pathname + local.search;
 
   useEffect(() => {
     aoPerderSessao(() => {
@@ -49,7 +51,8 @@ function useAvisosDeSessao() {
     });
     aoExigirConsentimento(() => {
       // Mesma guarda: dentro do fluxo de entrada quem decide e a propria tela.
-      if (!dispensaSessao(caminho.current)) navegar('/entrar/termo');
+      // Leva a origem para o termo devolver a pessoa a ela depois do aceite.
+      if (!dispensaSessao(caminho.current)) navegar('/entrar/termo', { state: { de: completo.current } });
     });
     aoExigirSegundoFator(() => {
       // Mesma guarda, e pelo mesmo motivo. Quem ja cadastrou o segundo fator e
@@ -90,9 +93,16 @@ function Barra() {
 /** Sem sessao carregada, manda entrar. O servidor decide de novo em cada chamada. */
 function Protegida({ children }: { children: ReactNode }) {
   const { operador, carregando, precisaAceitar } = useSessao();
+  const local = useLocation();
   if (carregando) return <p>Carregando…</p>;
   // O aviso global de consentimento tambem navega, mas este redirecionamento rodaria depois e o desfaria.
-  if (!operador) return <Navigate to={precisaAceitar ? '/entrar/termo' : '/entrar'} replace />;
+  if (!operador) {
+    return precisaAceitar ? (
+      <Navigate to="/entrar/termo" state={{ de: local.pathname + local.search }} replace />
+    ) : (
+      <Navigate to="/entrar" replace />
+    );
+  }
   return <>{children}</>;
 }
 

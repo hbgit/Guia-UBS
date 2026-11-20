@@ -509,3 +509,27 @@ test('Sair com sign-out recusado fica na tela e avisa', async () => {
   expect(await screen.findByText('Nao foi possivel sair; tente de novo.')).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Termo de uso' })).toBeTruthy();
 });
+
+test('termo ja aceito no GET segue direto ao painel, sem o botao', async () => {
+  servidor({
+    '/api/consentimento': () => json(200, { ...TERMO, aceito: true }),
+    '/api/me': () => json(200, operador('editor', ['content:read'])),
+  });
+  montar('/entrar/termo');
+
+  expect(await screen.findByRole('heading', { name: 'Painel' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Li e aceito o termo de uso' })).toBeNull();
+});
+
+test('depois do aceite volta a rota protegida de origem, nao ao painel', async () => {
+  servidor({
+    '/api/me': [json(403, PENDENTE), json(200, operador('editor', ['content:read']))],
+    '/api/consentimento': () => json(200, TERMO),
+    '/api/releases': () => json(200, { items: [] }),
+  });
+  montar('/releases');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Li e aceito o termo de uso' }));
+
+  expect(await screen.findByRole('heading', { name: 'Releases' })).toBeTruthy();
+});

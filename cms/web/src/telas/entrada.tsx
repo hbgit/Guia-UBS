@@ -13,7 +13,7 @@
  * tentativas". Ha teste afirmando que nenhum digito aparece.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { acionar, sondar, tentar } from '../api/api.js';
 import {
@@ -294,6 +294,9 @@ type Situacao = 'carregando' | 'ok' | 'sem_termo' | 'desligado' | 'erro';
 
 export function TelaDeTermo() {
   const navegar = useNavigate();
+  // shortcut: volta a ROTA de origem, nao ao que estava digitado nela; um rascunho
+  // de formulario se perde mesmo assim. Guardar rascunho exigiria estado por tela.
+  const destino = (useLocation().state as { de?: string } | null)?.de ?? '/';
   const { recarregar, esquecer } = useSessao();
   const [termo, setTermo] = useState<Termo>();
   const [situacao, setSituacao] = useState<Situacao>('carregando');
@@ -332,7 +335,10 @@ export function TelaDeTermo() {
     try {
       const r = await sondar('/api/consentimento');
       if (r.ok) {
-        setTermo((await r.json()) as Termo);
+        const lido = (await r.json()) as Termo & { aceito?: boolean };
+        // Ja aceitou a versao vigente: nada a mostrar, segue adiante.
+        if (lido.aceito) return await seguir();
+        setTermo(lido);
         setSituacao('ok');
       } else await tratarFalha(r);
     } catch {
@@ -347,16 +353,20 @@ export function TelaDeTermo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Recarrega antes de navegar: com `precisaAceitar` ainda ligado, `Protegida` devolveria a pessoa para ca.
+  async function seguir() {
+    await recarregar();
+    navegar(destino, { replace: true });
+  }
+
   async function aceitar() {
     if (!termo) return;
     setAviso(undefined);
     setEnviando(true);
     try {
       const r = await tentar('/api/consentimento', { version: termo.version, hash: termo.hash });
-      if (r.ok) {
-        await recarregar();
-        navegar('/');
-      } else await tratarFalha(r);
+      if (r.ok) await seguir();
+      else await tratarFalha(r);
     } catch {
       setAviso('Erro no servidor; tente de novo.');
     } finally {
