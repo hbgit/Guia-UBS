@@ -971,7 +971,7 @@ caso mal construído sai da suíte por **desativação**, que é definitiva.
 | `/api/golden-cases` | `POST` | `editor` (`content:write`) — cria o caso **inativo**; `active: 1` responde `422` |
 | `/api/golden-cases/atestados` | `POST` | `clinical_reviewer` — registra o atestado de um profissional, com o ID do `atestados.yaml` |
 | `/api/golden-cases/<id>/revisores` | `POST` | `clinical_reviewer` — acrescenta a revisão; ao atingir o mínimo, o caso fica ativo |
-| `/api/golden-cases/<id>/revisores/<AT-NNNN>/revogar` | `POST` | `clinical_reviewer` — revoga a revisão **viva** daquele atestado naquele caso; corpo `{ "motivo": "..." }` |
+| `/api/golden-cases/<id>/revisores/<atestado>/revogar` | `POST` | `clinical_reviewer` — revoga a revisão **viva** daquele atestado naquele caso; corpo `{ "motivo": "..." }` |
 | `/api/golden-cases/<id>/desativar` | `POST` | `clinical_reviewer` — desativa o caso de forma **definitiva**; corpo `{ "motivo": "..." }` |
 
 Fluxo: o ID `AT-NNNN` é atribuído por PR em `seed/golden/atestados.yaml` → o
