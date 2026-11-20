@@ -193,6 +193,9 @@ vigente é exigido antes de qualquer rota protegida (§2.5).
 npm run cms:publish-legal -- --autor <id impresso pelo create-admin> --versao 0.1.0 --arquivo termo.md
 ```
 
+- O `--autor` precisa ser **admin ativo** (papel `admin`, não desligado): a trilha
+  atribui a publicação a ele.
+
 - Enquanto o controlador LGPD (F-11) e a revisão do texto (T7-R) estiverem
   pendentes, publica-se um **termo interno provisório** (versão `0.x`), mantido
   **fora do repositório**. Quando o texto revisado chegar, publica-se `1.0.0`, e

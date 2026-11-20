@@ -21,7 +21,7 @@ const { values } = parseArgs({
 });
 // LGPD-RT04: versao semantica.
 if (!values.autor || !values.versao || !values.arquivo || !/^\d+\.\d+\.\d+$/.test(values.versao)) {
-  console.error('uso: --autor <id do operador> --versao <x.y.z> --arquivo <caminho.md>');
+  console.error('uso: --autor <id de um admin ativo> --versao <x.y.z> --arquivo <caminho.md>');
   process.exit(2);
 }
 
@@ -46,8 +46,8 @@ try {
   const m = mensagemDoErro(erro);
   const motivo = /UNIQUE|PRIMARY KEY/i.test(m)
     ? 'versao ja publicada'
-    : /FOREIGN KEY/i.test(m)
-      ? 'autor inexistente'
+    : /autor/i.test(m)
+      ? 'autor inexistente, desligado ou sem papel admin'
       : /identico|vigente/i.test(m)
         ? 'texto identico ao vigente'
         : /vazio/i.test(m)

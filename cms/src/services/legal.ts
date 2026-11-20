@@ -60,6 +60,16 @@ export async function publicarDocumento(
   const contentMd = normalizarTexto(entrada.contentMd);
   if (contentMd.trim() === '') throw new Error('publicarDocumento: texto vazio.');
   const hash = hashDoTexto(contentMd);
+  if (autorId !== null) {
+    // A trilha atribui a publicacao ao autor: so admin ativo pode assinar por ela.
+    const autor = await client.execute({
+      sql: `SELECT 1 FROM admin_user WHERE id = ? AND role = 'admin' AND disabled_at IS NULL`,
+      args: [autorId],
+    });
+    if (autor.rows.length === 0) {
+      throw new Error('publicarDocumento: autor inexistente, desligado ou sem papel admin.');
+    }
+  }
   const vigente = await documentoVigente(client);
   if (vigente?.hash === hash) {
     throw new Error('publicarDocumento: texto identico ao vigente; nao se forca re-aceite.');
@@ -85,13 +95,15 @@ export async function publicarDocumento(
   return (await documentoVigente(client))!;
 }
 
+/** Roda em toda requisicao protegida: so versao e hash do vigente, nunca o texto. */
 export async function aceitouVigente(client: Client, subjectRef: string): Promise<boolean> {
-  const v = await documentoVigente(client);
-  if (!v) return false;
   const r = await client.execute({
-    sql: `SELECT 1 FROM consent_record
-          WHERE subject_ref = ? AND doc_type = ? AND doc_version = ? AND doc_hash = ? LIMIT 1`,
-    args: [subjectRef, TIPO_DO_TERMO_DO_OPERADOR, v.version, v.hash],
+    sql: `SELECT 1 FROM consent_record c
+          JOIN (SELECT version, content_hash FROM legal_document WHERE type = ?
+                ORDER BY effective_from DESC, rowid DESC LIMIT 1) v
+            ON c.doc_version = v.version AND c.doc_hash = v.content_hash
+          WHERE c.subject_ref = ? AND c.doc_type = ? LIMIT 1`,
+    args: [TIPO_DO_TERMO_DO_OPERADOR, subjectRef, TIPO_DO_TERMO_DO_OPERADOR],
   });
   return r.rows.length > 0;
 }
