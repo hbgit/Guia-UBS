@@ -320,3 +320,12 @@ WHEN OLD.deactivated_at IS NULL AND NEW.deactivated_at IS NOT NULL AND (NOT COAL
 BEGIN
   SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case red flag nao se desativa');
 END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `golden_case_review_no_deactivated_case`;
+--> statement-breakpoint
+CREATE TRIGGER `golden_case_review_no_deactivated_case`
+BEFORE INSERT ON `golden_case_review`
+WHEN (SELECT deactivated_at FROM golden_case WHERE id = NEW.case_id) IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case_review em caso desativado');
+END;

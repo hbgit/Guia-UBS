@@ -220,6 +220,25 @@ END`,
   );
 }
 
+/**
+ * Revisao nao entra em caso desativado (#86): a rota confere antes, mas uma
+ * desativacao concorrente pode entrar entre a leitura e a escrita.
+ */
+function goldenReviewNoDeactivatedCase(): string[] {
+  const tableName = getTableName(goldenCaseReview);
+  const name = `${tableName}_no_deactivated_case`;
+  // Mensagem comeca como a do CHECK: classificarViolacao (db/errors.ts) a le como dominio.
+  return trigger(
+    name,
+    `CREATE TRIGGER \`${name}\`
+BEFORE INSERT ON \`${tableName}\`
+WHEN (SELECT deactivated_at FROM ${getTableName(goldenCase)} WHERE id = NEW.case_id) IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case_review em caso desativado');
+END`,
+  );
+}
+
 /** Todas as sentencas, na ordem em que sao aplicadas. */
 export function triggerStatements(): string[] {
   return [
@@ -232,6 +251,7 @@ export function triggerStatements(): string[] {
     ...goldenReviewOneLive(),
     ...goldenDeactivationFinal(),
     ...goldenNoDeactivateRedFlag(),
+    ...goldenReviewNoDeactivatedCase(),
   ];
 }
 

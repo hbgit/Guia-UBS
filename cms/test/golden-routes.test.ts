@@ -11,6 +11,7 @@ import { hashConteudoGolden, SQL_REVISAO_NAO_REVOGADA } from '@guia-ubs/contract
 
 import { lerGoldenDoBanco } from '../../packer/src/extract.js';
 import { validateGolden } from '../../packer/src/validate.js';
+import { classificarViolacao } from '../src/db/errors.js';
 import { auditRows, freshApp, pedido, seedConteudo, sessaoDe, type Fixture } from './support/app.js';
 
 let f: Fixture;
@@ -545,4 +546,89 @@ test('desativar pela rota tira o caso da suite do packer; desativar o ultimo da 
   } finally {
     await g.close();
   }
+});
+
+// --- Atomicidade operacao x trilha e corridas (#86) ---
+
+/** Roda `corpo` com a trilha recusando toda insercao; o gatilho sai no fim. */
+async function comTrilhaQuebrada<T>(corpo: () => Promise<T>): Promise<T> {
+  await f.client.execute(
+    "CREATE TRIGGER falha_trilha BEFORE INSERT ON audit_entry BEGIN SELECT RAISE(ABORT, 'falha simulada'); END",
+  );
+  try {
+    return await corpo();
+  } finally {
+    await f.client.execute('DROP TRIGGER IF EXISTS falha_trilha');
+  }
+}
+
+test('falha ao gravar a trilha na revogacao reverte a revogacao', async () => {
+  await revisado('caso-at-rv');
+  const antes = await contar('SELECT 1 FROM golden_case_review_revocation');
+  const r = await comTrilhaQuebrada(() => revogar('caso-at-rv', 'AT-9101'));
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), antes);
+  assert.equal((await revogar('caso-at-rv', 'AT-9101')).status, 201, 'a revisao seguia nao revogada');
+});
+
+test('falha ao gravar a trilha na desativacao reverte a desativacao', async () => {
+  await revisado('caso-at-dv');
+  const r = await comTrilhaQuebrada(() => desativar('caso-at-dv'));
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-at-dv'");
+  assert.equal(c!.active, 1);
+  assert.equal(c!.deactivated_at, null);
+});
+
+test('falha ao gravar a trilha na revisao reverte a revisao', async () => {
+  await caso('caso-at-rev', { expect: 'ROUTINE_UBS' });
+  const r = await comTrilhaQuebrada(() =>
+    post(revisor.cookie, '/api/golden-cases/caso-at-rev/revisores', { atestado: 'AT-9101', reviewed_at: '2026-08-20' }),
+  );
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE case_id = 'caso-at-rev'"), 0);
+  const [c] = await linha("SELECT active FROM golden_case WHERE id = 'caso-at-rev'");
+  assert.equal(c!.active, 0);
+});
+
+test('banco recusa revisao em caso desativado', async () => {
+  // Cenario da corrida: a desativacao entra depois do pre-check da rota.
+  const hash = await hashConteudoGolden(CASO.tokens, CASO.expect);
+  await assert.rejects(
+    f.client.execute({
+      sql: `INSERT INTO golden_case_review
+              (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at, reviewed_hash)
+            VALUES ('rev-corrida', 'caso-dv', 'AT-9102', '2026-08-20', ?, '2026-08-20T00:00:00Z', ?)`,
+      args: [revisor2.id, hash],
+    }),
+    (erro: unknown) => classificarViolacao(erro) === 'dominio',
+  );
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE id = 'rev-corrida'"), 0);
+});
+
+test('duas desativacoes simultaneas: so uma efetiva', async () => {
+  await revisado('caso-corrida-dv');
+  const rs = await Promise.all([desativar('caso-corrida-dv'), desativar('caso-corrida-dv')]);
+  assert.deepEqual(rs.map((r) => r.status).sort(), [200, 409]);
+  const trilha = (await auditRows(f)).filter(
+    (a) => a.action === 'golden_case_deactivate' && a.entity_id === 'caso-corrida-dv',
+  );
+  assert.equal(trilha.length, 1);
+});
+
+test('duas revogacoes simultaneas: so uma efetiva', async () => {
+  await revisado('caso-corrida-rv');
+  const rs = await Promise.all([revogar('caso-corrida-rv', 'AT-9101'), revogar('caso-corrida-rv', 'AT-9101')]);
+  assert.deepEqual(rs.map((r) => r.status).sort(), [201, 404]);
+  assert.equal(
+    await contar(
+      `SELECT 1 FROM golden_case_review_revocation v JOIN golden_case_review r ON r.id = v.review_id
+        WHERE r.case_id = 'caso-corrida-rv'`,
+    ),
+    1,
+  );
+  const trilha = (await auditRows(f)).filter(
+    (a) => a.action === 'golden_review_revoke' && a.entity_id === 'caso-corrida-rv',
+  );
+  assert.equal(trilha.length, 1);
 });

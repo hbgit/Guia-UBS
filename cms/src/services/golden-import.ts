@@ -25,7 +25,7 @@ import {
 } from '@guia-ubs/contract';
 import type { Client, InStatement } from '@libsql/client';
 
-import { recordAudit } from './audit.js';
+import { comandoDeAuditoria } from './audit.js';
 
 export interface CasoGoldenYaml {
   id: string;
@@ -233,6 +233,16 @@ export async function importarGolden(
                     WHERE r.case_id = ? AND r.reviewed_hash = ? AND ${SQL_REVISAO_NAO_REVOGADA}) >= ?`,
       args: [caso.id, caso.id, hash, MIN_REVISORES],
     });
+    // D8 vale tambem para a trilha: ela entra no mesmo batch.
+    comandos.push(
+      comandoDeAuditoria(salt, {
+        actorId: opcoes.autor,
+        action: existe ? 'golden_case_review' : 'golden_case_import',
+        entityType: 'golden_case',
+        entityId: caso.id,
+        after: { atestados: acrescentar.map((r) => r.atestado), active: 1 },
+      }),
+    );
   }
   await client.batch(comandos, 'write');
 
@@ -240,13 +250,6 @@ export async function importarGolden(
     const atestados = acrescentar.map((r) => r.atestado);
     if (existe) rel.revisoresAcrescentados.push({ id: caso.id, atestados });
     else rel.inseridos.push(caso.id);
-    await recordAudit(client, salt, {
-      actorId: opcoes.autor,
-      action: existe ? 'golden_case_review' : 'golden_case_import',
-      entityType: 'golden_case',
-      entityId: caso.id,
-      after: { atestados, active: 1 },
-    });
   }
   return rel;
 }

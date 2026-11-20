@@ -31,7 +31,7 @@ import { requirePermission, type AuthVariables } from '../auth/middleware.js';
 import { createDb } from '../db/client.js';
 import { classificarViolacao } from '../db/errors.js';
 import { goldenAttestation, goldenCase, goldenCaseReview } from '../db/schema/publishing.js';
-import { recordAudit } from '../services/audit.js';
+import { comandoDeAuditoria, recordAudit } from '../services/audit.js';
 
 const novoCaso = z.object({
   id: z.string().min(1),
@@ -267,7 +267,7 @@ export function goldenRoutes(client: Client, salt: string) {
       // Uma batch so: a revisao e a ativacao nao podem se separar. O UPDATE conta
       // as linhas no proprio banco, entao dois revisores concorrentes nao deixam
       // o caso inativo com quorum fechado. So conta revisao valida: nao revogada
-      // e do conteudo atual.
+      // e do conteudo atual. A trilha vai no mesmo batch: operacao sem trilha nao fica.
       await client.batch(
         [
           {
@@ -283,22 +283,26 @@ export function goldenRoutes(client: Client, salt: string) {
                           WHERE r.case_id = ? AND r.reviewed_hash = ? AND ${SQL_REVISAO_NAO_REVOGADA}) >= ?`,
             args: [caseId, caseId, hash, MIN_REVISORES],
           },
+          // Sem `active`: so e conhecido depois do batch; a resposta HTTP o le.
+          comandoDeAuditoria(salt, {
+            actorId: ator.id,
+            action: 'golden_case_review',
+            entityType: 'golden_case',
+            entityId: caseId,
+            after: { atestado: atestadoId, reviewed_at: data },
+          }),
         ],
         'write',
       );
     } catch (erro) {
-      if (classificarViolacao(erro) === 'duplicidade') return await conflito();
+      const classe = classificarViolacao(erro);
+      if (classe === 'duplicidade') return await conflito();
+      // Gatilho golden_case_review_no_deactivated_case: desativado depois do pre-check.
+      if (classe === 'dominio') return c.json({ error: 'caso desativado' }, 409);
       throw erro;
     }
 
     const ativo = (await db.select().from(goldenCase).where(eq(goldenCase.id, caseId)))[0]!.active;
-    await recordAudit(client, salt, {
-      actorId: ator.id,
-      action: 'golden_case_review',
-      entityType: 'golden_case',
-      entityId: caseId,
-      after: { atestado: atestadoId, reviewed_at: data, active: ativo },
-    });
     return c.json({ ok: true, caso: caseId, atestado: atestadoId, active: ativo }, 201);
   });
 
@@ -316,11 +320,23 @@ export function goldenRoutes(client: Client, salt: string) {
     }
     const ator = c.get('operador');
     try {
-      await client.execute({
-        sql: `INSERT INTO golden_case_review_revocation (id, review_id, reason, revoked_by, revoked_at)
-              VALUES (?, ?, ?, ?, ?)`,
-        args: [randomUUID(), reviewId, motivo, ator.id, new Date().toISOString()],
-      });
+      await client.batch(
+        [
+          {
+            sql: `INSERT INTO golden_case_review_revocation (id, review_id, reason, revoked_by, revoked_at)
+                  VALUES (?, ?, ?, ?, ?)`,
+            args: [randomUUID(), reviewId, motivo, ator.id, new Date().toISOString()],
+          },
+          comandoDeAuditoria(salt, {
+            actorId: ator.id,
+            action: 'golden_review_revoke',
+            entityType: 'golden_case',
+            entityId: caseId,
+            after: { atestado: atestadoId, motivo },
+          }),
+        ],
+        'write',
+      );
     } catch (erro) {
       // Revogacao concorrente da mesma revisao (review_id UNIQUE): ja nao ha viva.
       if (classificarViolacao(erro) === 'duplicidade') {
@@ -332,13 +348,6 @@ export function goldenRoutes(client: Client, salt: string) {
     const ativo = (
       await createDb(client).select().from(goldenCase).where(eq(goldenCase.id, caseId))
     )[0]!.active;
-    await recordAudit(client, salt, {
-      actorId: ator.id,
-      action: 'golden_review_revoke',
-      entityType: 'golden_case',
-      entityId: caseId,
-      after: { atestado: atestadoId, motivo },
-    });
     return c.json({ ok: true, caso: caseId, atestado: atestadoId, active: ativo }, 201);
   });
 
@@ -351,16 +360,38 @@ export function goldenRoutes(client: Client, salt: string) {
     if (!alvo) return c.json({ error: 'caso nao encontrado' }, 404);
 
     let afetadas: number;
+    const carimbo = new Date().toISOString();
     try {
       // `active` e `deactivated_at` no MESMO UPDATE: o gatilho de red flag so
       // dispara na transicao de deactivated_at, e a rota nao reimplementa a regra.
-      afetadas = (
-        await client.execute({
-          sql: `UPDATE golden_case SET active = 0, deactivated_at = ?
-                WHERE id = ? AND deactivated_at IS NULL`,
-          args: [new Date().toISOString(), caseId],
-        })
-      ).rowsAffected;
+      // A trilha so entra se ESTE update entrou (mesmo carimbo): a desativacao
+      // concorrente que perdeu nao deixa linha.
+      const [update] = await client.batch(
+        [
+          {
+            sql: `UPDATE golden_case SET active = 0, deactivated_at = ?
+                  WHERE id = ? AND deactivated_at IS NULL`,
+            args: [carimbo, caseId],
+          },
+          comandoDeAuditoria(
+            salt,
+            {
+              actorId: c.get('operador').id,
+              action: 'golden_case_deactivate',
+              entityType: 'golden_case',
+              entityId: caseId,
+              before: { active: alvo.active },
+              after: { active: 0, motivo },
+            },
+            {
+              sql: 'EXISTS (SELECT 1 FROM golden_case WHERE id = ? AND deactivated_at = ?)',
+              args: [caseId, carimbo],
+            },
+          ),
+        ],
+        'write',
+      );
+      afetadas = update!.rowsAffected;
     } catch (erro) {
       if (classificarViolacao(erro) === 'dominio') {
         return c.json(
@@ -374,15 +405,6 @@ export function goldenRoutes(client: Client, salt: string) {
       throw erro;
     }
     if (afetadas === 0) return c.json({ error: 'caso ja desativado' }, 409);
-
-    await recordAudit(client, salt, {
-      actorId: c.get('operador').id,
-      action: 'golden_case_deactivate',
-      entityType: 'golden_case',
-      entityId: caseId,
-      before: { active: alvo.active },
-      after: { active: 0, motivo },
-    });
     return c.json({ ok: true, caso: caseId, active: 0 }, 200);
   });
 

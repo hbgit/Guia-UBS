@@ -311,3 +311,17 @@ test('caso desativado no CMS ainda no YAML: conflito, nada escrito, caso segue i
   assert.equal(await contagem('golden_case'), 1);
   assert.equal(Number((await q('SELECT active AS a FROM golden_case'))[0]!.a), 0);
 });
+
+test('falha ao gravar a trilha na importacao reverte a importacao inteira', async () => {
+  await registrarCms();
+  await f.client.execute(
+    "CREATE TRIGGER falha_trilha BEFORE INSERT ON audit_entry BEGIN SELECT RAISE(ABORT, 'falha simulada'); END",
+  );
+  try {
+    await assert.rejects(importar([caso('a'), caso('b')]));
+  } finally {
+    await f.client.execute('DROP TRIGGER IF EXISTS falha_trilha');
+  }
+  assert.equal(await contagem('golden_case'), 0);
+  assert.equal(await contagem('golden_case_review'), 0);
+});
