@@ -1,6 +1,6 @@
 /**
  * Termo de uso do operador: publicacao versionada e aceite atomico com a trilha
- * (issue #10). Banco de `freshApp()`, que nao publica termo nenhum.
+ * (issue #10). Banco de `freshApp(undefined, { termo: false })`, sem termo nenhum.
  */
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
@@ -20,7 +20,7 @@ let operador: { id: string; email: string };
 const TEXTO = '# Termo\n\nTexto ficticio do termo.\n';
 
 before(async () => {
-  f = await freshApp();
+  f = await freshApp(undefined, { termo: false });
   operador = await novoOperador(f, 'editor');
 });
 after(async () => f.close());
@@ -34,7 +34,7 @@ test('hash e normalizacao', () => {
     hashDoTexto('abc'),
     'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
   );
-  assert.equal(normalizarTexto('﻿a\r\nb'), 'a\nb');
+  assert.equal(normalizarTexto('\uFEFFa\r\nb'), 'a\nb');
 });
 
 test('sem termo: vigente nulo e aceite recusado', async () => {
@@ -53,12 +53,15 @@ test('publicar v1 e v2, recusar texto igual (mesmo com CRLF), trilha e aceite', 
 
   await assert.rejects(
     publicarDocumento(f.client, TEST_ENV.hashSalt, { version: 'v1b', contentMd: TEXTO }, operador.id),
+    /texto identico ao vigente/,
   );
   await assert.rejects(
     publicarDocumento(f.client, TEST_ENV.hashSalt, { version: 'v1c', contentMd: TEXTO.replace(/\n/g, '\r\n') }, operador.id),
+    /texto identico ao vigente/,
   );
   await assert.rejects(
     publicarDocumento(f.client, TEST_ENV.hashSalt, { version: 'v1d', contentMd: '  \r\n' }, operador.id),
+    /texto vazio/,
   );
 
   const visto = { version: 'v1', hash: v1.hash };

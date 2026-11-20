@@ -26,7 +26,7 @@ export interface DocumentoVigente {
 }
 
 export function normalizarTexto(texto: string): string {
-  return texto.replace(/^﻿/, '').replace(/\r\n/g, '\n');
+  return texto.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 }
 
 /** Puro: quem chama normaliza antes. */

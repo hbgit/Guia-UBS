@@ -13,6 +13,7 @@ import { after, before, test } from 'node:test';
 import { pseudonymize, subjectKey } from '../src/auth/pseudonymize.js';
 import { recordAudit } from '../src/services/audit.js';
 import {
+  aceitarTermo,
   auditRows,
   ativar2fa,
   freshApp,
@@ -127,6 +128,7 @@ test('troca de papel guarda o ANTES e o DEPOIS', async () => {
   const admin = await novoOperador(f, 'admin', 'promotor@exemplo.invalid');
   const segredo = await ativar2fa(f, admin.email);
   const cookie = await loginCom2fa(f, admin.email, segredo);
+  await aceitarTermo(f, cookie);
   const alvo = await novoOperador(f, 'editor', 'promovido@exemplo.invalid');
 
   const r = await f.app.request(`/api/users/${alvo.id}`, {

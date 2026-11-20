@@ -21,6 +21,7 @@ import { createClient, type Client } from '@libsql/client';
 import { createApp, type App } from '../../src/app.js';
 import { migrationStatements } from '../../src/db/client.js';
 import type { Env } from '../../src/env.js';
+import { publicarDocumento } from '../../src/services/legal.js';
 import { createOperator } from '../../src/services/operators.js';
 import type { AdminRole } from '../../src/auth/permissions.js';
 
@@ -32,6 +33,9 @@ export const TEST_ENV: Env = {
   hashSalt: 'sal-de-teste-ficticio-com-mais-de-32-caracteres',
   port: 0,
 };
+
+/** Texto FICTICIO do termo que `freshApp` publica. */
+export const TERMO_DE_TESTE = 'Termo de uso FICTICIO, apenas para teste automatizado.';
 
 export interface Fixture extends App {
   client: Client;
@@ -50,10 +54,23 @@ export interface Fixture extends App {
  * Um arquivo tambem aproxima o teste do que roda: o `sqld` e um servidor com um
  * banco so, e nao um banco por conexao.
  */
-export async function freshApp(spa?: string): Promise<Fixture> {
+export async function freshApp(
+  spa?: string,
+  opcoes: { termo?: boolean } = {},
+): Promise<Fixture> {
   const diretorio = mkdtempSync(join(tmpdir(), 'gubs-cms-'));
   const client = createClient({ url: `file:${join(diretorio, 'cms.db')}` });
   for (const statement of migrationStatements()) await client.execute(statement);
+  // Termo publicado por padrao: sem ele nenhuma rota protegida abre (issue #10).
+  // Quem testa o banco sem termo pede `{ termo: false }`.
+  if (opcoes.termo ?? true) {
+    await publicarDocumento(
+      client,
+      TEST_ENV.hashSalt,
+      { version: 'teste-1', contentMd: TERMO_DE_TESTE },
+      null,
+    );
+  }
   // Rate limit desligado: dezenas de logins em segundos bateriam no teto de
   // 5/60s e cada teste seguinte viraria falso vermelho. A trava progressiva por
   // CONTA — que e a protecao exigida pela LGPD-RT07 — continua ligada.
@@ -206,9 +223,10 @@ export async function auditRows(
 }
 
 /**
- * Sessao pronta de um papel: cria operador, ativa 2FA pelo fluxo real e loga.
+ * Sessao pronta de um papel: cria operador, ativa 2FA pelo fluxo real, loga e
+ * aceita o termo de uso.
  *
- * Existe porque toda rota protegida exige os tres passos, e repeti-los em cada
+ * Existe porque toda rota protegida exige os quatro passos, e repeti-los em cada
  * teste esconderia o que o teste realmente afirma no meio do preparo.
  */
 export async function sessaoDe(
@@ -219,7 +237,20 @@ export async function sessaoDe(
   const operador = await novoOperador(fixture, role, email);
   const segredo = await ativar2fa(fixture, operador.email);
   const cookie = await loginCom2fa(fixture, operador.email, segredo);
+  await aceitarTermo(fixture, cookie);
   return { cookie, id: operador.id, email: operador.email };
+}
+
+/**
+ * Aceita o termo vigente pelo fluxo REAL: le e ecoa versao e hash, como a SPA.
+ * Carimbar `consent_record` no banco pularia justamente a conferencia do hash.
+ */
+export async function aceitarTermo(fixture: Fixture, cookie: string): Promise<void> {
+  const lido = await pedido(fixture, cookie, 'GET', '/api/consentimento');
+  assert.equal(lido.status, 200, `GET /api/consentimento respondeu ${lido.status}`);
+  const { version, hash } = (await lido.json()) as { version: string; hash: string };
+  const aceito = await pedido(fixture, cookie, 'POST', '/api/consentimento', { version, hash });
+  assert.equal(aceito.status, 200, `POST /api/consentimento respondeu ${aceito.status}`);
 }
 
 /** Requisicao autenticada com corpo JSON. `If-Match` entra como cabecalho. */

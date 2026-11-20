@@ -13,11 +13,13 @@ import { createAuth, type Auth } from './auth/config.js';
 import {
   auditAndThrottleAuth,
   require2fa,
+  requireConsent,
   requireSession,
   type AuthVariables,
 } from './auth/middleware.js';
 import { mensagemDoErro } from './db/errors.js';
 import type { Env } from './env.js';
+import { consentRoutes } from './routes/consent.js';
 import { contentRoutes } from './routes/content.js';
 import { approvalRoutes } from './routes/approvals.js';
 import { goldenRoutes } from './routes/golden.js';
@@ -76,10 +78,13 @@ export function createApp({
   app.use('/api/auth/*', auditAndThrottleAuth(auth, client, env.hashSalt));
   app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
-  // Tudo abaixo exige sessao valida, operador ativo e 2FA ativa.
+  // Tudo abaixo exige sessao valida, operador ativo, 2FA ativa e o termo de uso
+  // vigente aceito — nessa ordem, que decide qual 403 a pessoa ouve primeiro.
   const protegido = new Hono<{ Variables: AuthVariables }>();
   protegido.use('*', requireSession(auth));
   protegido.use('*', require2fa());
+  protegido.use('*', requireConsent(client));
+  protegido.route('/consentimento', consentRoutes(client, env.hashSalt));
   protegido.route('/me', meRoutes());
   protegido.route('/users', userRoutes(client, env.hashSalt));
   protegido.route('/content', contentRoutes(client, env.hashSalt));

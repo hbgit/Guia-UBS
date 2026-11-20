@@ -620,9 +620,15 @@ uma checagem que vive só na rota protege apenas contra quem passa pela rota.
 | Rota | Método | Quem |
 |---|---|---|
 | `/api/me` | `GET` | qualquer sessão — devolve papel e permissões resolvidas |
+| `/api/consentimento` | `GET` | qualquer sessão com 2FA — termo de uso vigente e se você já o aceitou; `404` sem termo publicado |
+| `/api/consentimento` | `POST` | qualquer sessão com 2FA — aceita o termo ecoando `{version, hash}` lidos; `409` com `vigente` se o termo mudou |
 | `/api/users` | `GET` | `admin` |
 | `/api/users` | `POST` | `admin` |
 | `/api/users/<id>` | `PATCH` | `admin` |
+
+Toda rota desta tabela, e do resto de `/api`, responde `403` com
+`next: "/api/consentimento"` enquanto o termo de uso vigente não for aceito —
+menos o próprio `/api/consentimento`. Sem termo publicado, o bloqueio fica fechado.
 
 ```sh
 curl -s -b ck.txt $B/api/users                          # listar
