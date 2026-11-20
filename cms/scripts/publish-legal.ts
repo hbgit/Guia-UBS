@@ -8,6 +8,7 @@
  * Uso: npm run cms:publish-legal -- --autor <id> --versao 0.1.0 --arquivo termo.md
  */
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { createDatabaseClient } from '../src/db/client.js';
@@ -22,7 +23,11 @@ if (!values.autor || !values.versao || !values.arquivo) {
   process.exit(2);
 }
 
-const contentMd = readFileSync(values.arquivo, 'utf8');
+const contentMd = readFileSync(
+  // npm workspaces roda o script com cwd=cms/; INIT_CWD e o diretorio do shell.
+  resolve(process.env.INIT_CWD ?? process.cwd(), values.arquivo),
+  'utf8',
+);
 const env = loadEnv();
 const client = createDatabaseClient(env.databaseUrl);
 try {
