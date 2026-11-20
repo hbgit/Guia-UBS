@@ -184,6 +184,25 @@ processos da máquina.
 Crie ao menos **dois** operadores com papéis diferentes. Um só não publica nada
 — ver §3.
 
+### 2.4.1 Publicar o Termo de Uso
+
+**Sem termo publicado, ninguém passa do login — nem o admin.** O aceite do termo
+vigente é exigido antes de qualquer rota protegida (§2.5).
+
+```sh
+npm run cms:publish-legal -- --autor <id impresso pelo create-admin> --versao 0.1.0 --arquivo termo.md
+```
+
+- Enquanto o controlador LGPD (F-11) e a revisão do texto (T7-R) estiverem
+  pendentes, publica-se um **termo interno provisório** (versão `0.x`), mantido
+  **fora do repositório**. Quando o texto revisado chegar, publica-se `1.0.0`, e
+  todos aceitam de novo.
+- Publicar versão nova **força o re-aceite de todos**. Publicar texto idêntico ao
+  vigente é recusado (fim de linha CRLF/LF e BOM não contam como mudança).
+- O texto de uma versão publicada não pode ser editado (gatilho): para corrigir,
+  publica-se versão nova.
+- Ordem de implantação: migrar → criar operador → **publicar termo** → ativar 2FA → aceitar.
+
 ### 2.5 Ativar o segundo fator
 
 **A conta recém-criada não alcança rota protegida nenhuma até isto ser feito.**
@@ -213,6 +232,13 @@ curl -s -c ck.txt -X POST $B/api/auth/sign-in/email -H "$J" -H "$O" \
 curl -s -b ck.txt -c ck.txt -X POST $B/api/auth/two-factor/verify-totp \
   -H "$J" -H "$O" -d '{"code":"123456"}'
 
+curl -s -b ck.txt $B/api/me     # 403 aceite pendente
+
+# 4. ler o termo vigente e aceitar, devolvendo o version e o hash do GET
+curl -s -b ck.txt -H "$J" -H "$O" $B/api/consentimento
+curl -s -b ck.txt -X POST $B/api/consentimento -H "$J" -H "$O" \
+  -d '{"version":"<version do GET>","hash":"<hash do GET>"}'
+
 curl -s -b ck.txt $B/api/me     # 200 = pronto
 ```
 
@@ -222,7 +248,8 @@ curl -s -b ck.txt $B/api/me     # 200 = pronto
 > o cadastro só é ativado na primeira verificação bem-sucedida, num login novo, e
 > é por isso que a tela pede para entrar outra vez em vez de aceitar o código ali.
 > O `curl` acima continua valendo como descrição do que a tela faz por baixo.
-> Concluído o segundo fator, a entrada leva ao painel em `` `/` ``, que diz o que
+> Concluído o segundo fator, a entrada leva a `` `/entrar/termo` `` e, só depois do
+> aceite, ao painel em `` `/` ``, que diz o que
 > o seu papel faz — e o que ele deliberadamente **não** faz.
 
 > **Um `403` com dois significados.** Depois do `enable`, `two_factor_enabled`

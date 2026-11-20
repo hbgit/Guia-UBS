@@ -62,8 +62,9 @@ try {
     console.log(`  senha   ${senha}`);
     console.log('          (mostrada uma unica vez — guarde agora)');
   }
-  console.log('\n  O 2FA ainda NAO esta ativo. Enquanto nao estiver, esta conta nao');
-  console.log('  alcanca rota protegida nenhuma: ative em /api/auth/two-factor/enable.');
+  console.log('\n  Esta conta so alcanca rota protegida depois de (1) ativar o 2FA, em');
+  console.log('  /api/auth/two-factor/enable, e (2) aceitar o termo vigente. Se nao houver');
+  console.log(`  termo publicado, rode cms:publish-legal com --autor ${criado.id}.`);
 } finally {
   client.close();
 }

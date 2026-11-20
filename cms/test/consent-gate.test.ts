@@ -75,8 +75,8 @@ test('fluxo: bloqueio, aceite, concorrencia, nova versao, 409 e 400', async () =
   assert.equal((await pedido(f, sessao.cookie, 'GET', '/api/releases')).status, 200);
   assert.equal(((await (await ler()).json()) as { aceito: boolean }).aceito, true);
 
-  await assert.rejects(f.client.execute("UPDATE consent_record SET method = 'x'"));
-  await assert.rejects(f.client.execute("UPDATE legal_document SET content_md = 'x'"));
+  await assert.rejects(f.client.execute("UPDATE consent_record SET method = 'x'"), /append-only/);
+  await assert.rejects(f.client.execute("UPDATE legal_document SET content_md = 'x'"), /append-only/);
 
   // Nova versao: o bloqueio volta.
   await publicarDocumento(f.client, TEST_ENV.hashSalt, { version: 'teste-2', contentMd: TERMO_DE_TESTE + ' v2' }, null);
