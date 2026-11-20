@@ -30,11 +30,17 @@ import { ErroApi, type Falha, type Lido, type ProblemaDeRegra } from './erros.js
 // ---------------------------------------------------------------------------
 
 let aoPerder: (() => void) | undefined;
+let aoExigirTermo: (() => void) | undefined;
 let aoExigir2fa: ((next: string) => void) | undefined;
 
 /** Instalado uma vez pelo `App`: leva para `/entrar`. */
 export function aoPerderSessao(fn: () => void): void {
   aoPerder = fn;
+}
+
+/** Instalado uma vez pelo `App`: leva para a tela de aceite do termo. */
+export function aoExigirConsentimento(fn: () => void): void {
+  aoExigirTermo = fn;
 }
 
 /** Instalado uma vez pelo `App`: leva para o cadastro do segundo fator. */
@@ -65,6 +71,9 @@ function classificar(status: number, corpo: CorpoDeErro): Falha {
     // A ordem importa: o 403 de segundo fator e o unico que traz `next`, e e o
     // unico com caminho de saida. Casar por mensagem antes dele faria uma
     // mudanca de texto no servidor virar um usuario trancado do lado de fora.
+    // O 403 de consentimento tambem traz `next`: precisa vir ANTES, ou viraria
+    // segundo fator e mandaria o operador para o cadastro errado.
+    if (corpo.next === '/api/consentimento') return { tipo: 'consentimento' };
     if (corpo.next) return { tipo: 'segundo_fator', next: corpo.next };
     if (mensagem === 'operador desligado') return { tipo: 'desligado' };
     if (mensagem === 'sem permissao') return { tipo: 'sem_permissao' };
@@ -164,6 +173,7 @@ async function conferir(r: Response): Promise<Response> {
   if (r.ok) return r;
   const falha = classificar(r.status, await corpoDeErro(r));
   if (falha.tipo === 'nao_autenticado') aoPerder?.();
+  if (falha.tipo === 'consentimento') aoExigirTermo?.();
   if (falha.tipo === 'segundo_fator') aoExigir2fa?.(falha.next);
   throw new ErroApi(falha, r.status);
 }

@@ -312,3 +312,9 @@ input[type='checkbox'] {
   width: auto;
   flex: 1;
 }
+
+/* Termo juridico tem paragrafo inteiro numa linha. */
+.termo {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

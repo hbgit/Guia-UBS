@@ -10,6 +10,7 @@ import { after, before, test } from 'node:test';
 
 import { createAuth, SESSION_MAX_AGE_SECONDS } from '../src/auth/config.js';
 import {
+  aceitarTermo,
   ativar2fa,
   freshApp,
   login,
@@ -106,6 +107,7 @@ test('com 2FA ativa, /api/me devolve papel e permissoes resolvidas', async () =>
   const operador = await novoOperador(f, 'clinical_reviewer', 'com-2fa@exemplo.invalid');
   const segredo = await ativar2fa(f, operador.email);
   const cookie = await loginCom2fa(f, operador.email, segredo);
+  await aceitarTermo(f, cookie);
 
   const r = await f.app.request('/api/me', { headers: { cookie } });
   assert.equal(r.status, 200);
@@ -119,6 +121,7 @@ test('a resposta de /api/me nao carrega credencial nenhuma', async () => {
   const operador = await novoOperador(f, 'editor', 'sem-credencial@exemplo.invalid');
   const segredo = await ativar2fa(f, operador.email);
   const cookie = await loginCom2fa(f, operador.email, segredo);
+  await aceitarTermo(f, cookie);
   const r = await f.app.request('/api/me', { headers: { cookie } });
   const texto = await r.text();
   for (const proibido of ['password', 'senha', 'secret', 'backup']) {
@@ -130,6 +133,7 @@ test('editor nao alcanca a gestao de operadores', async () => {
   const operador = await novoOperador(f, 'editor', 'editor-barrado@exemplo.invalid');
   const segredo = await ativar2fa(f, operador.email);
   const cookie = await loginCom2fa(f, operador.email, segredo);
+  await aceitarTermo(f, cookie);
   const r = await f.app.request('/api/users', { headers: { cookie } });
   assert.equal(r.status, 403);
 });
@@ -138,6 +142,7 @@ test('admin lista operadores, e a lista nao traz credencial', async () => {
   const operador = await novoOperador(f, 'admin', 'admin-lista@exemplo.invalid');
   const segredo = await ativar2fa(f, operador.email);
   const cookie = await loginCom2fa(f, operador.email, segredo);
+  await aceitarTermo(f, cookie);
 
   const r = await f.app.request('/api/users', { headers: { cookie } });
   assert.equal(r.status, 200);
@@ -154,6 +159,7 @@ test('um operador nao altera a propria conta', async () => {
   const operador = await novoOperador(f, 'admin', 'auto-promocao@exemplo.invalid');
   const segredo = await ativar2fa(f, operador.email);
   const cookie = await loginCom2fa(f, operador.email, segredo);
+  await aceitarTermo(f, cookie);
 
   const r = await f.app.request(`/api/users/${operador.id}`, {
     method: 'PATCH',
@@ -173,9 +179,13 @@ test('operador desligado nao usa sessao que ja tinha', async () => {
   const segredoAlvo = await ativar2fa(f, alvo.email);
 
   const sessaoAlvo = await loginCom2fa(f, alvo.email, segredoAlvo);
+
+  await aceitarTermo(f, sessaoAlvo);
   assert.equal((await f.app.request('/api/me', { headers: { cookie: sessaoAlvo } })).status, 200);
 
   const sessaoAdmin = await loginCom2fa(f, admin.email, segredoAdmin);
+
+  await aceitarTermo(f, sessaoAdmin);
   const desligou = await f.app.request(`/api/users/${alvo.id}`, {
     method: 'PATCH',
     headers: { cookie: sessaoAdmin, 'content-type': 'application/json', origin: 'http://localhost' },

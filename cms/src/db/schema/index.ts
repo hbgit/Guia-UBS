@@ -37,7 +37,7 @@ import {
   venue,
   venueTranslation,
 } from './content.js';
-import { auditEntry, consentRecord } from './governance.js';
+import { auditEntry, consentRecord, legalDocument } from './governance.js';
 import { approval, goldenCaseReview } from './publishing.js';
 
 export * from './auth.js';
@@ -62,6 +62,7 @@ export * from './telemetry.js';
 export const APPEND_ONLY_TABLES: readonly { table: SQLiteTable; requirement: string }[] = [
   { table: auditEntry, requirement: 'LGPD-RT03' },
   { table: consentRecord, requirement: 'LGPD-RT05' },
+  { table: legalDocument, requirement: 'LGPD-RT04' },
   { table: approval, requirement: 'arquitetura.md 4.3-C' },
   { table: goldenCaseReview, requirement: 'PRD R5 / P0-2' },
 ];

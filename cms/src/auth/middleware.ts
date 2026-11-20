@@ -7,6 +7,7 @@ import type { MiddlewareHandler } from 'hono';
 
 import { createDb } from '../db/client.js';
 import { recordAudit } from '../services/audit.js';
+import { aceitouVigente } from '../services/legal.js';
 import type { Auth } from './config.js';
 import { isLocked, clearFailures, readLockout, registerFailure } from './lockout.js';
 import { can, isAdminRole, type Permission } from './permissions.js';
@@ -62,6 +63,27 @@ export function require2fa(): MiddlewareHandler<{ Variables: AuthVariables }> {
         { error: 'segundo fator obrigatorio', next: '/api/auth/two-factor/enable' },
         403,
       );
+    }
+    await next();
+  };
+}
+
+/** A excecao nomeada de `requireConsent`: ler e aceitar o proprio termo. */
+export const ROTA_DE_CONSENTIMENTO = '/api/consentimento';
+
+/**
+ * Aceite do termo de uso vigente e OBRIGATORIO (issue #10, LGPD-RT04/RT05).
+ *
+ * Roda depois de `require2fa`: quem nao tem segundo fator ouve primeiro esse
+ * 403. `/api/me` NAO e excecao de proposito — devolveria papel e permissoes a
+ * quem ainda nao aceitou. Sem termo publicado o bloqueio fica fechado: abrir
+ * seria aceite presumido.
+ */
+export function requireConsent(client: Client): MiddlewareHandler<{ Variables: AuthVariables }> {
+  return async (c, next) => {
+    if (c.req.path === ROTA_DE_CONSENTIMENTO) return next();
+    if (!(await aceitouVigente(client, c.get('operador').id))) {
+      return c.json({ error: 'aceite do termo de uso pendente', next: ROTA_DE_CONSENTIMENTO }, 403);
     }
     await next();
   };

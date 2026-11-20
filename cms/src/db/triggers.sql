@@ -37,6 +37,22 @@ BEGIN
   SELECT RAISE(ABORT, 'consent_record e append-only (LGPD-RT05)');
 END;
 --> statement-breakpoint
+DROP TRIGGER IF EXISTS `legal_document_no_update`;
+--> statement-breakpoint
+CREATE TRIGGER `legal_document_no_update`
+BEFORE UPDATE ON `legal_document`
+BEGIN
+  SELECT RAISE(ABORT, 'legal_document e append-only (LGPD-RT04)');
+END;
+--> statement-breakpoint
+DROP TRIGGER IF EXISTS `legal_document_no_delete`;
+--> statement-breakpoint
+CREATE TRIGGER `legal_document_no_delete`
+BEFORE DELETE ON `legal_document`
+BEGIN
+  SELECT RAISE(ABORT, 'legal_document e append-only (LGPD-RT04)');
+END;
+--> statement-breakpoint
 DROP TRIGGER IF EXISTS `approval_no_update`;
 --> statement-breakpoint
 CREATE TRIGGER `approval_no_update`

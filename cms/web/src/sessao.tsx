@@ -12,11 +12,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { buscar } from './api/api.js';
-import type { Operador } from './api/erros.js';
+import { ErroApi, type Operador } from './api/erros.js';
 
 interface Sessao {
   operador: Operador | undefined;
   carregando: boolean;
+  /** `/api/me` respondeu 403 de consentimento: a rota protegida deve ir ao termo, nao a `/entrar`. */
+  precisaAceitar: boolean;
   recarregar: () => Promise<void>;
   esquecer: () => void;
 }
@@ -33,12 +35,15 @@ export function SessaoProvider({
 }) {
   const [operador, setOperador] = useState<Operador | undefined>(inicial);
   const [carregando, setCarregando] = useState(inicial === undefined);
+  const [precisaAceitar, setPrecisaAceitar] = useState(false);
 
   const recarregar = useCallback(async () => {
     setCarregando(true);
     try {
       setOperador(await buscar<Operador>('/api/me'));
-    } catch {
+      setPrecisaAceitar(false);
+    } catch (e) {
+      setPrecisaAceitar(e instanceof ErroApi && e.falha.tipo === 'consentimento');
       // 401 e 403 ja dispararam os avisos globais de `api.ts`, que navegam. Aqui
       // so registramos a ausencia — insistir levaria a um laco de requisicoes
       // contra um servidor que ja respondeu "nao".
@@ -48,7 +53,10 @@ export function SessaoProvider({
     }
   }, []);
 
-  const esquecer = useCallback(() => setOperador(undefined), []);
+  const esquecer = useCallback(() => {
+    setOperador(undefined);
+    setPrecisaAceitar(false);
+  }, []);
 
   useEffect(() => {
     if (inicial === undefined) void recarregar();
@@ -56,7 +64,7 @@ export function SessaoProvider({
   }, [inicial, recarregar]);
 
   return (
-    <Contexto.Provider value={{ operador, carregando, recarregar, esquecer }}>
+    <Contexto.Provider value={{ operador, carregando, precisaAceitar, recarregar, esquecer }}>
       {children}
     </Contexto.Provider>
   );

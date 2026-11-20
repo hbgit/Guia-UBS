@@ -9,10 +9,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-import { aoExigirSegundoFator, aoPerderSessao } from './api/api.js';
+import { aoExigirConsentimento, aoExigirSegundoFator, aoPerderSessao } from './api/api.js';
 import { dispensaSessao, navegacaoPara } from './rotas.js';
 import { useSessao } from './sessao.js';
-import { TelaDeCadastroDe2fa, TelaDeCodigo, TelaDeEntrada } from './telas/entrada.js';
+import { TelaDeCadastroDe2fa, TelaDeCodigo, TelaDeEntrada, TelaDeTermo } from './telas/entrada.js';
 import { Painel } from './telas/painel.js';
 import {
   FormularioDeConteudo,
@@ -38,6 +38,8 @@ function useAvisosDeSessao() {
   // estado de modulo em `api.ts`, e reinstalar a cada rota e desperdicio.
   const caminho = useRef(local.pathname);
   caminho.current = local.pathname;
+  const completo = useRef('');
+  completo.current = local.pathname + local.search;
 
   useEffect(() => {
     aoPerderSessao(() => {
@@ -46,6 +48,11 @@ function useAvisosDeSessao() {
       // `/entrar/cadastrar-2fa` ele e o cookie de 2FA pendente, e redirecionar
       // expulsaria a pessoa da unica tela que resolve o problema dela.
       if (!dispensaSessao(caminho.current)) navegar('/entrar');
+    });
+    aoExigirConsentimento(() => {
+      // Mesma guarda: dentro do fluxo de entrada quem decide e a propria tela.
+      // Leva a origem para o termo devolver a pessoa a ela depois do aceite.
+      if (!dispensaSessao(caminho.current)) navegar('/entrar/termo', { state: { de: completo.current } });
     });
     aoExigirSegundoFator(() => {
       // Mesma guarda, e pelo mesmo motivo. Quem ja cadastrou o segundo fator e
@@ -64,7 +71,8 @@ function useAvisosDeSessao() {
 function Barra() {
   const { operador } = useSessao();
   const local = useLocation();
-  if (!operador) return null;
+  // Operador em cache + termo pendente: a barra levaria de volta a esta tela.
+  if (!operador || dispensaSessao(local.pathname)) return null;
 
   return (
     <header className="barra">
@@ -84,9 +92,17 @@ function Barra() {
 
 /** Sem sessao carregada, manda entrar. O servidor decide de novo em cada chamada. */
 function Protegida({ children }: { children: ReactNode }) {
-  const { operador, carregando } = useSessao();
+  const { operador, carregando, precisaAceitar } = useSessao();
+  const local = useLocation();
   if (carregando) return <p>Carregando…</p>;
-  if (!operador) return <Navigate to="/entrar" replace />;
+  // O aviso global de consentimento tambem navega, mas este redirecionamento rodaria depois e o desfaria.
+  if (!operador) {
+    return precisaAceitar ? (
+      <Navigate to="/entrar/termo" state={{ de: local.pathname + local.search }} replace />
+    ) : (
+      <Navigate to="/entrar" replace />
+    );
+  }
   return <>{children}</>;
 }
 
@@ -100,6 +116,7 @@ export function App() {
         <Route path="/entrar" element={<TelaDeEntrada />} />
         <Route path="/entrar/codigo" element={<TelaDeCodigo />} />
         <Route path="/entrar/cadastrar-2fa" element={<TelaDeCadastroDe2fa />} />
+        <Route path="/entrar/termo" element={<TelaDeTermo />} />
         <Route
           path="/"
           element={

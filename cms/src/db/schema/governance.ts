@@ -2,7 +2,7 @@
  * Governanca: trilha de auditoria, documentos legais e registro de aceite
  * (arquitetura.md 4.3-A).
  *
- * Duas destas tabelas sao APPEND-ONLY, e nao por capricho de modelagem: o valor
+ * Tres destas tabelas (trilha, documento legal e aceite) sao APPEND-ONLY, e nao por capricho de modelagem: o valor
  * de uma trilha de auditoria e de um aceite de termo esta inteiro em serem
  * irrefutaveis. Uma linha que pode ser editada nao prova nada.
  *

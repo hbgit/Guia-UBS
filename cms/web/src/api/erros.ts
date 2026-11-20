@@ -31,6 +31,8 @@ export type Falha =
    * (`/api/auth/two-factor/enable`) e e o unico caminho de saida.
    */
   | { tipo: 'segundo_fator'; next: string }
+  /** 403 com `next: /api/consentimento` — falta aceitar o termo de uso vigente. */
+  | { tipo: 'consentimento' }
   /** 403 — a conta foi desligada. Efeito imediato, inclusive em sessao aberta. */
   | { tipo: 'desligado' }
   /** 403 — o papel nao tem a permissao exigida pela rota. */

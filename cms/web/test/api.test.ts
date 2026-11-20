@@ -10,6 +10,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import {
   ErroApi,
+  aoExigirConsentimento,
   aoExigirSegundoFator,
   aoPerderSessao,
   buscar,
@@ -83,6 +84,22 @@ test('403 com `next` vira segundo_fator e carrega o caminho DO SERVIDOR', async 
   // Fixar o caminho no cliente criaria uma segunda copia de uma decisao do
   // middleware; o teste afirma que ele veio de la.
   expect(destino).toBe('/api/auth/two-factor/enable');
+});
+
+test('403 com next de consentimento vira consentimento, ANTES do segundo fator', async () => {
+  let avisos = 0;
+  let avisos2fa = 0;
+  aoExigirConsentimento(() => {
+    avisos += 1;
+  });
+  aoExigirSegundoFator(() => {
+    avisos2fa += 1;
+  });
+  fingir(responder(403, { error: 'aceite do termo de uso pendente', next: '/api/consentimento' }));
+
+  expect(await falhaDe(() => buscar('/api/releases'))).toEqual({ tipo: 'consentimento' });
+  expect(avisos).toBe(1);
+  expect(avisos2fa).toBe(0);
 });
 
 test('os tres 403 restantes sao distinguidos', async () => {

@@ -6,6 +6,7 @@
   "description": "Plano de controle: banco master do catalogo, migracoes e gatilhos",
   "scripts": {
     "create-admin": "tsx scripts/create-admin.ts",
+    "publish-legal": "tsx scripts/publish-legal.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:triggers": "tsx scripts/gen-triggers.ts",
