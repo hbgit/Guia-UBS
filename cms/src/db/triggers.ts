@@ -205,11 +205,15 @@ function goldenNoDeactivateRedFlag(): string[] {
     name,
     `CREATE TRIGGER \`${name}\`
 BEFORE UPDATE ON \`${tableName}\`
-WHEN OLD.deactivated_at IS NULL AND NEW.deactivated_at IS NOT NULL AND NOT COALESCE(
+WHEN OLD.deactivated_at IS NULL AND NEW.deactivated_at IS NOT NULL AND (NOT COALESCE(
+  (SELECT severity_level FROM routing_outcome WHERE id = OLD.expected_outcome_id)
+    < (SELECT MAX(severity_level) FROM routing_outcome),
+  0
+) OR NOT COALESCE(
   (SELECT severity_level FROM routing_outcome WHERE id = NEW.expected_outcome_id)
     < (SELECT MAX(severity_level) FROM routing_outcome),
   0
-)
+))
 BEGIN
   SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case red flag nao se desativa');
 END`,

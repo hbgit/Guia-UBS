@@ -191,6 +191,14 @@ describe('golden: gatilhos da #43', () => {
     assert.deepEqual({ ...linha }, { active: 0, deactivated_at: NOW });
   });
 
+  test('UPDATE que troca o desfecho de emergencia para rotina e desativa de uma vez aborta', () => {
+    caso('g-troca', 'EMERGENCY');
+    assert.throws(
+      () => g.db.exec(`UPDATE golden_case SET expected_outcome_id = 'ROUTINE_UBS', active = 0, deactivated_at = '${NOW}' WHERE id = 'g-troca'`),
+      /CHECK constraint failed: golden_case red flag/,
+    );
+  });
+
   test('caso desativado nao volta: UPDATE active=1 aborta, UPDATE deactivated_at=NULL aborta', () => {
     assert.throws(
       () => g.db.exec("UPDATE golden_case SET active = 1 WHERE id = 'g-exemplo'"),

@@ -398,6 +398,16 @@ test('revogar duas vezes: a segunda responde 404', async () => {
   assert.equal(await contar('SELECT 1 FROM golden_case_review_revocation'), 1);
 });
 
+test('motivo que cita o atestado por AT-NNNN passa mesmo se o registro de outro for esses digitos', async () => {
+  await registrar({
+    id: 'AT-9104', nome: 'Revisor Ficticio Quatro', conselho: 'CRM', uf: 'RR',
+    registro: '9102', termo_sha256: termo('f'),
+  });
+  await revisado('caso-rv-at', 'ROUTINE_UBS', 'AT-9102');
+  assert.equal((await revogar('caso-rv-at', 'AT-9102', 'registro 9102 lancado errado')).status, 422);
+  assert.equal((await revogar('caso-rv-at', 'AT-9102', 'revisao de AT-9102 lancada errada')).status, 201);
+});
+
 test('mesmo atestado corrige a data: revoga e registra de novo', async () => {
   const r = await post(revisor.cookie, '/api/golden-cases/caso-rv-403/revisores', {
     atestado: 'AT-9101', reviewed_at: '2026-08-25',

@@ -56,10 +56,12 @@ const semAcento = (s: string) =>
  */
 export async function motivoComDadoPessoal(client: Client, motivo: string): Promise<boolean> {
   const texto = semAcento(motivo);
+  // AT-NNNN e a forma permitida de citar o profissional; nao pode casar como registro.
+  const semAt = texto.replace(/\bat-\d+\b/gi, ' ');
   const { rows } = await client.execute('SELECT nome, registro FROM golden_attestation');
   return rows.some((a) => {
     const registro = String(a.registro).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return texto.includes(semAcento(String(a.nome))) || new RegExp(`\\b${registro}\\b`).test(texto);
+    return texto.includes(semAcento(String(a.nome))) || new RegExp(`\\b${registro}\\b`).test(semAt);
   });
 }
 
