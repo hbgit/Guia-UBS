@@ -1123,7 +1123,7 @@ O defeito sobreviveu desde o item 19 porque **nenhum teste comparava a FSM com a
 
 ##### Lacunas novas, declaradas ao fim de 23b
 
-1. **Não há aceite de Termo de Uso no primeiro login.** `legal_document` e `consent_record` existem e são append-only desde o item 16, e **nenhuma rota os toca**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com versão e hash do documento registrados. Construir a tela de entrada tornou a lacuna mais visível, não menor.
+1. ~~**Não há aceite de Termo de Uso no primeiro login.**~~ **Fechada pela #10, §5.21.** Texto original: `legal_document` e `consent_record` existem e são append-only desde o item 16, e **nenhuma rota os toca**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com versão e hash do documento registrados. Construir a tela de entrada tornou a lacuna mais visível, não menor.
 2. **Tradução não tem travamento otimista.** `PUT …/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`; dois editores se sobrescrevem em silêncio. A SPA não tem como corrigir isso do lado dela.
 3. ~~**O CMS não está atrás de TLS.**~~ **Fechada no item 24** — ver §5.14.
 
@@ -1333,6 +1333,32 @@ Fecha a lacuna 3 do item 18 (e a 5 da Fase 3). Era pequena em código e grande e
 6. No runner do CI, `PACK_SIGNING_KEY_HOST_PATH` aponta para um arquivo inexistente, e o compose cria um **diretório** root em `contract/keys/dev-k1.pem`. É inofensivo: o `**/*.pem` o tira do contexto de build.
 7. **A imagem do MinIO não existe mais para quem não a tem em cache** ([#84](https://github.com/hbgit/Guia-UBS/issues/84)). `minio/minio` e `minio/mc` saíram do Docker Hub em setembro de 2026, e desde 24/09/2026 o quay.io recusa pull anônimo. O primeiro run do CI desta PR falhou com `pull access denied for minio/minio` (commit `a55b66c`). Em host sem cache (VPS nova, dev do zero) o `storage` não sobe, e por `depends_on` levam junto `packer` e `edge`. **A verificação "contra MinIO real" acima só funcionou porque a imagem estava em cache nesta máquina.** O smoke do CI desvia do `storage` de propósito, então nada mais acusa o problema. O substituto exige ADR e precisa preservar os usos do `mc` de dentro do container: o healthcheck `mc ready local`, a restauração da política em `docs/operacao.md` §2.10 e `infra/scripts/publish-model.sh`.
 
+#### 5.21 Resultado da #10 — aceite do Termo de Uso no 1º login do CMS (2026-11-20)
+
+**O bloqueio é um middleware, depois dos de 2FA.** Rota protegida responde 403 com `next: /entrar/termo` até o operador aceitar a versão **vigente**. O 403 de consentimento nunca mascara o de 2FA nem o de operador desligado: esses respondem primeiro. `legal_document` e `consent_record` já existiam desde o item 16, e agora têm serviço (`GET/POST /api/consentimento`), com a linha de aceite e a da trilha gravadas **atomicamente** (`client.batch`) e instantes pelo relógio do banco. Troca de hash volta a 403; POST com hash antigo responde 409 com o documento vigente, para nunca gravar aceite de texto que a pessoa não viu.
+
+**Quatro decisões divergem do texto da issue.**
+1. **`/api/me` não é isento.** A SPA decide o fluxo de entrada pela resposta dele (`cms/web/src/api/entrada.ts`); isento, o operador entraria no painel sem ver o termo. A única rota isenta é `/api/consentimento`, exceção nomeada (padrão de `ROTAS_DE_CADASTRO_2FA`).
+2. **Sem termo publicado, o bloqueio fica fechado** (403; `GET /api/consentimento` responde 404). Abrir por omissão faria o CMS rodar sem termo em produção sem que nada acusasse.
+3. **A tela fica em `/entrar/termo` com `sessao: 'dispensa'`**, fora de `Protegida`. Enquanto o aceite falta, `/api/me` dá 403 e `Protegida` mandaria a pessoa a `/entrar`, num laço.
+4. **`legal_document` virou append-only** (entrou em `APPEND_ONLY_TABLES`, com gatilho). A issue supunha que já era. Assim o gate não recalcula o hash a partir de `content_md`: o texto de versão publicada não muda mais.
+
+**Implantação com termo provisório.** Com esta mudança na VPS, ninguém passa do login, nem o admin, até existir um termo publicado. Enquanto F-11 e T7-R estiverem pendentes, quem opera publica pelo `cms:publish-legal` um termo interno provisório, **fora do repositório**, em versão `0.x` (ex.: `0.1.0`). Ele não substitui o texto revisado; quando este chegar, publica-se `1.0.0` e todos aceitam de novo no próximo acesso. O procedimento está em [`docs/operacao.md`](../docs/operacao.md).
+
+**`web-conformance` reinterpretado.** A issue pedia que ele cobrisse a tela, mas `web-conformance.test.ts` confere formulários de conteúdo contra o esquema e não tem relação com ela. A tela é coberta por `cms/web/test/telas.test.tsx` (comportamento) e por `doc-operacao.test.ts` (`/entrar/termo` em `ROTAS_DA_SPA` exige linha no manual).
+
+**Achados na execução.**
+- Dois testes de `cms/test/auth-flow.test.ts` passariam **por vacuidade**: esperavam o 403 de permissão e receberiam o de consentimento. Agora aceitam o termo antes.
+- `cms:publish-legal` resolve `--arquivo` contra `INIT_CWD`, porque o npm workspaces roda o script com cwd em `cms/`; sem isso, caminho relativo digitado no shell não achava o arquivo.
+- A tela sai de "Carregando" em erro, com retry, e "Sair" só navega se o sign-out der certo.
+
+##### Lacunas declaradas ao fim da #10
+
+1. **A verificação manual da tela no navegador não foi feita neste branch**, nem um sign-out real do Better Auth através do proxy do Vite. Só há teste de componente com `fetch` simulado.
+2. **O operador não revoga o aceite** (LGPD-RF05). `consent_record` é append-only e não há rota nem tela de revogação.
+3. **Política de Privacidade (`privacy`) e Aviso (`consent`) não são exigidos no login**; só o Termo de Uso.
+4. **O expurgo por prazo (RT10) agora precisa considerar `legal_document`** além das tabelas já listadas; hoje nada o faz.
+
 ### Fase 3.5 — Interface de operação (pré-requisito de release pública) ✅
 23a. Fiação: workspace `cms/web`, servir estáticos pelo Hono, estágio de build no Dockerfile. ✅
 23b. Entrada, cadastro do segundo fator e painel. ✅
@@ -1354,7 +1380,7 @@ Itens novos do realinhamento institucional (2026-11-02), cada um com plano próp
 25. **Identidade, assinatura e ABIs do app** ([ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)). `applicationId` definitivo (sufixo `guiasaude`, prefixo do domínio do PRISM), com os nomes de tarefa do WorkManager e `app/tool/release_permissions.dart` mudando junto; `signingConfig` de release a partir de `key.properties` fora do repositório (keystore em cofre com duas custódias); `arm64-v8a` e `armeabi-v7a`, `minSdk 26`, **um build por ABI, sem `--split-per-abi`**. Em `armeabi-v7a` o APK sai **sem o shim** e o app **não oferece nem inicia o download do modelo** (triagem pelo `RuleOnlyEngine`, INV-8), com teste. Guarda de `minAppBuild` contra o `versionCode` único, com teste (hoje nenhum código a compara). **Depende de:** F-3, F-6; provisória F-17. [implantacao.md](implantacao.md).
 27. **Playbook Ansible da VPS** ([ADR-007](stack.md#10-registro-de-decisões-arquiteturais-adr)), que cumpre a promessa de `infra/ansible/` (§3): usuário de deploy com SSH só por chave, firewall 22/80/443, `unattended-upgrades`, Docker pinado, LUKS se o provedor permitir, `compose.yaml` sem override sob systemd, `infra/.env` com permissão 600. Ao entrar, encerra o procedimento provisório de assinatura por dois mantenedores (Revisão do ADR-001). **Depende de:** F-1, F-2, F-7. [implantacao.md](implantacao.md).
 28. **Backup, restauração e monitoramento externo** (RNF-11, ADR-007 itens 7 e 8): backup diário cifrado fora do host (`sqld`, fontes primárias do MinIO, `caddydata`, `.env`), restauração testada a cada trimestre; monitor de `manifest.json` e do CMS, alertas de TLS e disco. **Depende de:** item 27, F-8 (provisória), F-1. [implantacao.md](implantacao.md).
-29. *Reservado: aceite do Termo de Uso do CMS, plano à parte.*
+29. **Aceite do Termo de Uso do CMS** (#10) ✅. §5.21.
 30. **Modelo SLM como download opcional/sob demanda.** Avaliar se o modelo de ~806 MB deixa de ser baixado automaticamente no 1º acesso, com os módulos educativos funcionando sem ele. **Depende de:** F-18; reabre o [ADR-003](stack.md#10-registro-de-decisões-arquiteturais-adr) se adotado. [implantacao.md](implantacao.md).
 31. **`app-release.yml`** (RNF-10, RF-17, [ADR-006](stack.md#10-registro-de-decisões-arquiteturais-adr), [ADR-009](stack.md#10-registro-de-decisões-arquiteturais-adr)): tag `vX.Y.Z` em `main` → APK por ABI + AAB assinados, `SHA256SUMS` (o job falha sem ele), impressão do certificado e nota de release; release no GitHub nasce *pre-release*, AAB vai para a faixa de teste da Play; guardas `build_apk.sh`/`model_url_check` e `check_release_permissions` no job; `versionCode` ≤ o publicado reprova. **Depende de:** item 25, F-4, F-7. [implantacao.md](implantacao.md).
 
