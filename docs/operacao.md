@@ -706,7 +706,8 @@ não escrito uma vez por entidade:
 | `/api/content/<entidade>/<chave>` | `GET` | ler — devolve `ETag` com a versão |
 | `/api/content/<entidade>/<chave>` | `PATCH` | editar — **exige `If-Match`** |
 | `/api/content/<entidade>/<chave>` | `DELETE` | remover, quando permitido |
-| `/api/content/<entidade>/<chave>/traducoes/<lang>` | `PUT` | gravar tradução |
+| `/api/content/<entidade>/<chave>/traducoes/<lang>` | `GET` | ler tradução — devolve `ETag` com a versão |
+| `/api/content/<entidade>/<chave>/traducoes/<lang>` | `PUT` | gravar tradução — **exige `If-Match`**, ou `If-None-Match: *` para criar |
 
 As dez entidades: `municipalities`, `assets`, `symptom-tokens`,
 `routing-outcomes`, `venues`, `cards`, `services`, `documents`,
@@ -749,7 +750,7 @@ curl -s -b ck.txt -X POST $B/api/content/assets -H "$J" -H "$O" \
 curl -s -b ck.txt -X POST $B/api/content/symptom-tokens -H "$J" -H "$O" \
   -d '{"id":"chest","kind":"body_part","iconRef":"icon.head","sortOrder":0,"deprecated":0}'
 curl -s -b ck.txt -X PUT $B/api/content/symptom-tokens/chest/traducoes/pt \
-  -H "$J" -H "$O" -d '{"label":"Peito"}'
+  -H "$J" -H "$O" -H 'If-None-Match: *' -d '{"label":"Peito"}'
 curl -s -b ck.txt -X POST $B/api/content/symptom-tokens -H "$J" -H "$O" \
   -d '{"id":"pain","kind":"symptom","iconRef":"icon.head","sortOrder":1,"deprecated":0}'
 
@@ -811,6 +812,24 @@ curl -s -b ck.txt -X PATCH $B/api/content/symptom-tokens/chest \
 
 O `409` de conflito carrega a versão atual porque um conflito que não diz contra
 o que se perdeu obriga a pessoa a recarregar a tela para descobrir.
+
+**Tradução segue o mesmo contrato**, com uma diferença: a primeira tradução de
+um idioma ainda não tem versão para mandar, então ela é **criada** com
+`If-None-Match: *` ("grave só se não existir") e responde `201` + `ETag: "1"`.
+Se alguém criou antes, vem o mesmo `409` com `versaoAtual`. Mandar os dois
+cabeçalhos juntos responde `400`; nenhum dos dois, `428`.
+
+```sh
+curl -s -b ck.txt -X PUT $B/api/content/symptom-tokens/chest/traducoes/es \
+  -H "$J" -H "$O" -H 'If-None-Match: *' -d '{"label":"Pecho"}'
+curl -s -b ck.txt -X PUT $B/api/content/symptom-tokens/chest/traducoes/es \
+  -H "$J" -H "$O" -H 'If-Match: "1"' -d '{"label":"Tórax"}'
+```
+
+A pré-condição que falha responde **`409`, e não o `412`** que a RFC 9110 prevê.
+É deliberado: o `409` com `versaoAtual` é a forma que a interface já usa para
+dizer contra o que se perdeu, em todas as escritas. Não "corrija" para `412`
+sem mudar o cliente junto.
 
 > **Pela interface:** o formulário lê a linha, guarda o `ETag` e o reenvia como
 > `If-Match` — o `428` é **inalcançável** pela tela, porque a função de gravar só

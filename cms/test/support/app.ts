@@ -261,12 +261,14 @@ export async function pedido(
   caminho: string,
   corpo?: unknown,
   ifMatch?: string | number,
+  ifNoneMatch?: string,
 ): Promise<Response> {
   const headers: Record<string, string> = {
     cookie,
     origin: TEST_ENV.authBaseUrl,
     ...(corpo === undefined ? {} : { 'content-type': 'application/json' }),
     ...(ifMatch === undefined ? {} : { 'if-match': `"${ifMatch}"` }),
+    ...(ifNoneMatch === undefined ? {} : { 'if-none-match': ifNoneMatch }),
   };
   return await fixture.app.request(caminho, {
     method: metodo,
