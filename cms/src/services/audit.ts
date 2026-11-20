@@ -21,11 +21,8 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import type { Client } from '@libsql/client';
-import { sql } from 'drizzle-orm';
+import type { Client, InStatement, InValue } from '@libsql/client';
 
-import { createDb } from '../db/client.js';
-import { auditEntry } from '../db/schema/governance.js';
 import { pseudonymize } from '../auth/pseudonymize.js';
 
 export interface AuditEvent {
@@ -70,27 +67,44 @@ function recusarBytes(rotulo: string, valor: unknown, profundidade = 0): void {
   for (const item of Object.values(valor)) recusarBytes(rotulo, item, profundidade + 1);
 }
 
+/**
+ * Instrucao de insercao na trilha, para quem precisa gravar a trilha NA MESMA
+ * transacao (`client.batch`) de outra escrita. `condicao` opcional vira `WHERE`:
+ * a trilha so entra se a escrita irma entrou.
+ */
+export function comandoDeAuditoria(
+  salt: string,
+  event: AuditEvent,
+  condicao?: { sql: string; args: InValue[] },
+): InStatement {
+  recusarBytes('before', event.before);
+  recusarBytes('after', event.after);
+  return {
+    // Relogio do BANCO, nao do processo: `occurred_at` e comparado com
+    // `pack_release.blocked_at`, carimbado pelo mesmo `sqld` (P0-2, D11). Mesmo
+    // formato de `toISOString()`, entao a ordem textual com linhas antigas vale.
+    sql:
+      `INSERT INTO audit_entry (id, actor_id, action, entity_type, entity_id, before_json, after_json, ip_hash, occurred_at)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now')` +
+      (condicao ? ` WHERE ${condicao.sql}` : ''),
+    args: [
+      randomUUID(),
+      event.actorId,
+      event.action,
+      event.entityType,
+      event.entityId,
+      event.before === undefined ? null : JSON.stringify(event.before),
+      event.after === undefined ? null : JSON.stringify(event.after),
+      event.ip ? pseudonymize(event.ip, salt) : null,
+      ...(condicao?.args ?? []),
+    ],
+  };
+}
+
 export async function recordAudit(
   client: Client,
   salt: string,
   event: AuditEvent,
 ): Promise<void> {
-  recusarBytes('before', event.before);
-  recusarBytes('after', event.after);
-
-  const db = createDb(client);
-  await db.insert(auditEntry).values({
-    id: randomUUID(),
-    actorId: event.actorId,
-    action: event.action,
-    entityType: event.entityType,
-    entityId: event.entityId,
-    beforeJson: event.before === undefined ? null : JSON.stringify(event.before),
-    afterJson: event.after === undefined ? null : JSON.stringify(event.after),
-    ipHash: event.ip ? pseudonymize(event.ip, salt) : null,
-    // Relogio do BANCO, nao do processo: `occurred_at` e comparado com
-    // `pack_release.blocked_at`, carimbado pelo mesmo `sqld` (P0-2, D11). Mesmo
-    // formato de `toISOString()`, entao a ordem textual com linhas antigas vale.
-    occurredAt: sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-  });
+  await client.execute(comandoDeAuditoria(salt, event));
 }

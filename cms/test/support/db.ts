@@ -130,6 +130,12 @@ export const APPEND_ONLY_ROWS: Readonly<Record<string, { insert: string; id: str
      VALUES ('consent-1', 'sujeito-ficticio-1', 'tos', '1.0.0', '${'b'.repeat(64)}',
              'web', '${NOW}')`,
   },
+  legal_document: {
+    id: 'legal-1',
+    insert: `INSERT INTO legal_document
+       (id, type, version, content_md, content_hash, effective_from)
+     VALUES ('legal-1', 'tos', '1.0.0', 'texto', '${'c'.repeat(64)}', '${NOW}')`,
+  },
   approval: {
     id: 'approval-1',
     insert: `INSERT INTO approval

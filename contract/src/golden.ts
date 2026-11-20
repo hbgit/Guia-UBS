@@ -39,6 +39,8 @@ export const ACOES_QUE_REABREM = ['content_', 'rule_', 'golden_'] as const;
  * emite `release_<estado>` sem ator.
  */
 export const ACOES_QUE_NAO_REABREM: readonly string[] = [
+  'legal_publish',
+  'consent_accept',
   'sign_in',
   'sign_in_failed',
   'sign_in_locked',
