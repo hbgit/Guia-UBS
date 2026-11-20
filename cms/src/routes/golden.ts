@@ -76,7 +76,6 @@ export function comandosDeDesativacao(
   atorId: string,
   motivo: string,
   carimbo: string,
-  antes: number,
 ): InStatement[] {
   return [
     {
@@ -91,7 +90,8 @@ export function comandosDeDesativacao(
         action: 'golden_case_deactivate',
         entityType: 'golden_case',
         entityId: caseId,
-        before: { active: antes },
+        // Sem `before`: o estado anterior so seria lido fora deste lote, e uma
+        // ativacao concorrente o deixaria falso numa trilha que nao se corrige.
         after: { active: 0, motivo },
       },
       // `changes()` do UPDATE logo acima: a trilha so entra se ESTE update mudou
@@ -407,7 +407,7 @@ export function goldenRoutes(client: Client, salt: string) {
     let afetadas: number;
     try {
       const [update] = await client.batch(
-        comandosDeDesativacao(salt, caseId, c.get('operador').id, motivo, new Date().toISOString(), alvo.active),
+        comandosDeDesativacao(salt, caseId, c.get('operador').id, motivo, new Date().toISOString()),
         'write',
       );
       afetadas = update!.rowsAffected;

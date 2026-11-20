@@ -457,7 +457,7 @@ test('desativar caso de rotina: active 0, deactivated_at preenchido, trilha gold
   assert.ok(c!.deactivated_at);
   const trilha = (await auditRows(f)).find((a) => a.action === 'golden_case_deactivate' && a.entity_id === 'caso-dv');
   assert.ok(trilha);
-  assert.deepEqual(JSON.parse(trilha.before_json!), { active: 1 });
+  assert.equal(trilha.before_json, null);
   assert.deepEqual(JSON.parse(trilha.after_json!), { active: 0, motivo: MOTIVO });
 });
 
@@ -607,6 +607,33 @@ test('banco recusa revisao em caso desativado', async () => {
   assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE id = 'rev-corrida'"), 0);
 });
 
+test('desativacao entre o pre-check e o lote: a rota traduz o gatilho em 409 sem nova linha', async () => {
+  // Banco e gatilho reais; so a ORDEM e forcada: o proximo batch desativa o caso antes de rodar.
+  await caso('caso-corrida', { expect: 'ROUTINE_UBS' });
+  const original = f.client.batch.bind(f.client);
+  f.client.batch = (async (...args: Parameters<typeof original>) => {
+    f.client.batch = original;
+    await f.client.execute(
+      "UPDATE golden_case SET active = 0, deactivated_at = '2026-11-20T00:00:00.000Z' WHERE id = 'caso-corrida'",
+    );
+    return original(...args);
+  }) as typeof original;
+  try {
+    const r = await post(revisor.cookie, '/api/golden-cases/caso-corrida/revisores', {
+      atestado: 'AT-9101', reviewed_at: '2026-08-20',
+    });
+    assert.equal(r.status, 409);
+    assert.deepEqual(await r.json(), { error: 'caso desativado' });
+  } finally {
+    f.client.batch = original;
+  }
+  assert.equal(await contar("SELECT 1 FROM golden_case_review WHERE case_id = 'caso-corrida'"), 0);
+  assert.equal(
+    (await auditRows(f)).filter((a) => a.action === 'golden_case_review' && a.entity_id === 'caso-corrida').length,
+    0,
+  );
+});
+
 test('duas desativacoes simultaneas: so uma efetiva', async () => {
   await revisado('caso-corrida-dv');
   const rs = await Promise.all([desativar('caso-corrida-dv'), desativar('caso-corrida-dv')]);
@@ -660,7 +687,7 @@ test('duas desativacoes com o MESMO carimbo: uma unica linha na trilha', async (
   const carimbo = '2026-11-20T12:00:00.000Z';
   const lote = () =>
     f.client.batch(
-      comandosDeDesativacao(TEST_ENV.hashSalt, 'caso-mesmo-carimbo', revisor.id, MOTIVO, carimbo, 1),
+      comandosDeDesativacao(TEST_ENV.hashSalt, 'caso-mesmo-carimbo', revisor.id, MOTIVO, carimbo),
       'write',
     );
   const [a, b] = await Promise.all([lote(), lote()]);
