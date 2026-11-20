@@ -474,3 +474,30 @@ test('a barra nao aparece em /entrar/termo com operador em cache', async () => {
   await screen.findByText(/Versao 0\.1\.0/);
   expect(screen.queryByRole('navigation')).toBeNull();
 });
+
+test('GET 500 mostra o erro, sai de Carregando e o retry refaz a leitura', async () => {
+  let n = 0;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve((n += 1) === 1 ? json(500, { error: 'x' }) : json(200, TERMO))),
+  );
+  montar('/entrar/termo');
+
+  expect(await screen.findByText('Erro no servidor; tente de novo.')).toBeTruthy();
+  expect(screen.queryByText('Carregando…')).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
+  expect(await screen.findByText(/Versao 0\.1\.0/)).toBeTruthy();
+});
+
+test('Sair com sign-out recusado fica na tela e avisa', async () => {
+  servidor({
+    '/api/consentimento': () => json(200, TERMO),
+    '/api/auth/sign-out': () => json(500, { error: 'x' }),
+  });
+  montar('/entrar/termo');
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Sair' }));
+
+  expect(await screen.findByText('Nao foi possivel sair; tente de novo.')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Termo de uso' })).toBeTruthy();
+});

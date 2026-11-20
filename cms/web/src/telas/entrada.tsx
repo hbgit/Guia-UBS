@@ -316,11 +316,17 @@ export function TelaDeTermo() {
     else if (r.status === 409 && corpo.vigente) {
       setTermo(corpo.vigente);
       setAviso('O termo foi atualizado enquanto voce lia. Leia a versao nova.');
-    } else setAviso('Erro no servidor; tente de novo.');
+    } else {
+      setAviso('Erro no servidor; tente de novo.');
+      // Na leitura inicial, sem isto a tela ficaria em "Carregando…" para sempre.
+      setSituacao((s) => (s === 'carregando' ? 'erro' : s));
+    }
   }
 
-  useEffect(() => {
-    void (async () => {
+  async function carregar() {
+    setAviso(undefined);
+    setSituacao('carregando');
+    {
       try {
         const r = await sondar('/api/consentimento');
         if (r.ok) {
@@ -328,9 +334,14 @@ export function TelaDeTermo() {
           setSituacao('ok');
         } else await tratarFalha(r);
       } catch {
+        setAviso('Erro no servidor; tente de novo.');
         setSituacao('erro');
       }
-    })();
+    }
+  }
+
+  useEffect(() => {
+    void carregar();
     // Uma leitura por montagem.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -353,7 +364,12 @@ export function TelaDeTermo() {
   }
 
   async function sair() {
-    await tentar('/api/auth/sign-out').catch(() => undefined);
+    // So sai da tela se o servidor encerrou a sessao: o cookie segue valido se falhou.
+    const r = await tentar('/api/auth/sign-out').catch(() => undefined);
+    if (!r?.ok) {
+      setAviso('Nao foi possivel sair; tente de novo.');
+      return;
+    }
     esquecer();
     navegar('/entrar');
   }
@@ -373,8 +389,12 @@ export function TelaDeTermo() {
           Este operador foi desligado.
         </p>
       )}
-      {situacao === 'erro' && <Erro texto="Erro no servidor; tente de novo." />}
       <Erro texto={aviso} />
+      {situacao === 'erro' && (
+        <button type="button" onClick={() => void carregar()}>
+          Tentar de novo
+        </button>
+      )}
       {termo && situacao === 'ok' && (
         <>
           <p className="nota">Versao {termo.version}</p>
