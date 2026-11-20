@@ -2,10 +2,12 @@
  * Casos golden e a revisao clinica que os ativa (P0-2).
  *
  * Um caso nasce INATIVO. So a revisao de ao menos `MIN_REVISORES` profissionais
- * atestados o ativa, e a revisao e so ACRESCIMO: nao ha PUT nem DELETE aqui, e o
- * gatilho do banco recusa UPDATE/DELETE de `golden_case_review`. Registrar
- * revisao errada nao se corrige por rota — fica para a issue de revogacao
- * auditada (D4).
+ * atestados, do conteudo ATUAL (`reviewed_hash`), o ativa. A revisao e so
+ * ACRESCIMO: nao ha PUT nem DELETE aqui, e o gatilho do banco recusa
+ * UPDATE/DELETE de `golden_case_review`. Revisao errada se corrige por
+ * revogacao auditada (#43), outra linha append-only, e o caso sai da suite por
+ * desativacao definitiva. Ser definitiva e a recusa para red flag sao gatilhos
+ * do banco; a rota so traduz o erro.
  *
  * A rota nao le `atestados.yaml`: o arquivo e versionado com o codigo e chega ao
  * CMS por implantacao. A coerencia CMS x registro e conferida pelo importador e
@@ -13,7 +15,13 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { avaliarAtestado, avaliarDataRevisao, MIN_REVISORES } from '@guia-ubs/contract';
+import {
+  avaliarAtestado,
+  avaliarDataRevisao,
+  hashConteudoGolden,
+  MIN_REVISORES,
+  SQL_REVISAO_NAO_REVOGADA,
+} from '@guia-ubs/contract';
 import type { Client } from '@libsql/client';
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -34,6 +42,26 @@ const novoCaso = z.object({
 });
 
 const novaRevisao = z.object({ atestado: z.unknown().optional(), reviewed_at: z.unknown().optional() });
+
+// Mesmo minimo do CHECK de golden_case_review_revocation.reason.
+const comMotivo = z.object({ motivo: z.string().trim().min(10) });
+
+const semAcento = (s: string) =>
+  s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+/**
+ * O motivo vai para a trilha, que e permanente: nome e registro do profissional
+ * so moram em `golden_attestation` (spec/lgpd.md). Confere contra TODOS os
+ * atestados, nao so o revogado: o motivo pode citar outra pessoa.
+ */
+export async function motivoComDadoPessoal(client: Client, motivo: string): Promise<boolean> {
+  const texto = semAcento(motivo);
+  const { rows } = await client.execute('SELECT nome, registro FROM golden_attestation');
+  return rows.some((a) => {
+    const registro = String(a.registro).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return texto.includes(semAcento(String(a.nome))) || new RegExp(`\\b${registro}\\b`).test(texto);
+  });
+}
 
 export function goldenRoutes(client: Client, salt: string) {
   const app = new Hono<{ Variables: AuthVariables }>();
@@ -181,6 +209,7 @@ export function goldenRoutes(client: Client, salt: string) {
 
     const alvo = (await db.select().from(goldenCase).where(eq(goldenCase.id, caseId)).limit(1))[0];
     if (!alvo) return c.json({ error: 'caso nao encontrado' }, 404);
+    if (alvo.deactivatedAt) return c.json({ error: 'caso desativado' }, 409);
 
     const ator = c.get('operador');
     // Promocao: quem criou o caso e depois virou revisor nao revisa o proprio
@@ -219,28 +248,38 @@ export function goldenRoutes(client: Client, salt: string) {
       db.select().from(goldenCaseReview).where(eq(goldenCaseReview.caseId, caseId));
     const conflito = async () =>
       c.json(
-        { error: 'este atestado ja revisou o caso', revisoes: await revisoesAtuais() },
+        {
+          error: `este atestado ja tem revisao neste caso; revogue a anterior em POST /api/golden-cases/${caseId}/revisores/${atestadoId}/revogar`,
+          revisoes: await revisoesAtuais(),
+        },
         409,
       );
-    if ((await revisoesAtuais()).some((r) => r.attestationId === atestadoId)) return await conflito();
+    // Mesma definicao do gatilho golden_case_review_one_live: nao revogada, qualquer hash.
+    if (await revisaoViva(caseId, atestadoId)) return await conflito();
 
+    const hash = await hashConteudoGolden(
+      JSON.parse(alvo.tokensJson) as string[],
+      alvo.expectedOutcomeId,
+    );
     try {
       // Uma batch so: a revisao e a ativacao nao podem se separar. O UPDATE conta
       // as linhas no proprio banco, entao dois revisores concorrentes nao deixam
-      // o caso inativo com quorum fechado.
+      // o caso inativo com quorum fechado. So conta revisao valida: nao revogada
+      // e do conteudo atual.
       await client.batch(
         [
           {
             sql: `INSERT INTO golden_case_review
-                    (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
-                  VALUES (?, ?, ?, ?, ?, ?)`,
-            args: [randomUUID(), caseId, atestadoId, data, ator.id, new Date().toISOString()],
+                    (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at, reviewed_hash)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [randomUUID(), caseId, atestadoId, data, ator.id, new Date().toISOString(), hash],
           },
           {
             sql: `UPDATE golden_case SET active = 1
-                  WHERE id = ?
-                    AND (SELECT COUNT(*) FROM golden_case_review WHERE case_id = ?) >= ?`,
-            args: [caseId, caseId, MIN_REVISORES],
+                  WHERE id = ? AND deactivated_at IS NULL
+                    AND (SELECT COUNT(DISTINCT r.attestation_id) FROM golden_case_review r
+                          WHERE r.case_id = ? AND r.reviewed_hash = ? AND ${SQL_REVISAO_NAO_REVOGADA}) >= ?`,
+            args: [caseId, caseId, hash, MIN_REVISORES],
           },
         ],
         'write',
@@ -260,6 +299,114 @@ export function goldenRoutes(client: Client, salt: string) {
     });
     return c.json({ ok: true, caso: caseId, atestado: atestadoId, active: ativo }, 201);
   });
+
+  // Pelo AT-, que e o que o operador tem no formulario; o UUID da revisao nunca chega a ele.
+  app.post('/:id/revisores/:atestado/revogar', requirePermission('approval:decide'), async (c) => {
+    const motivo = await motivoValido(c.req.json().catch(() => null));
+    if (typeof motivo !== 'string') return c.json(motivo, 422);
+    const caseId = c.req.param('id');
+    const atestadoId = c.req.param('atestado');
+
+    // Caso desativado tambem: corrigir o registro nao reativa nada.
+    const reviewId = await revisaoViva(caseId, atestadoId);
+    if (!reviewId) {
+      return c.json({ error: 'sem revisao nao revogada deste atestado neste caso' }, 404);
+    }
+    const ator = c.get('operador');
+    try {
+      await client.execute({
+        sql: `INSERT INTO golden_case_review_revocation (id, review_id, reason, revoked_by, revoked_at)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [randomUUID(), reviewId, motivo, ator.id, new Date().toISOString()],
+      });
+    } catch (erro) {
+      // Revogacao concorrente da mesma revisao (review_id UNIQUE): ja nao ha viva.
+      if (classificarViolacao(erro) === 'duplicidade') {
+        return c.json({ error: 'sem revisao nao revogada deste atestado neste caso' }, 404);
+      }
+      throw erro;
+    }
+    // Sem recontagem: o caso segue `active` e o portao o reprova dizendo por que.
+    const ativo = (
+      await createDb(client).select().from(goldenCase).where(eq(goldenCase.id, caseId))
+    )[0]!.active;
+    await recordAudit(client, salt, {
+      actorId: ator.id,
+      action: 'golden_review_revoke',
+      entityType: 'golden_case',
+      entityId: caseId,
+      after: { atestado: atestadoId, motivo },
+    });
+    return c.json({ ok: true, caso: caseId, atestado: atestadoId, active: ativo }, 201);
+  });
+
+  app.post('/:id/desativar', requirePermission('approval:decide'), async (c) => {
+    const motivo = await motivoValido(c.req.json().catch(() => null));
+    if (typeof motivo !== 'string') return c.json(motivo, 422);
+    const caseId = c.req.param('id');
+    const db = createDb(client);
+    const alvo = (await db.select().from(goldenCase).where(eq(goldenCase.id, caseId)).limit(1))[0];
+    if (!alvo) return c.json({ error: 'caso nao encontrado' }, 404);
+
+    let afetadas: number;
+    try {
+      // `active` e `deactivated_at` no MESMO UPDATE: o gatilho de red flag so
+      // dispara na transicao de deactivated_at, e a rota nao reimplementa a regra.
+      afetadas = (
+        await client.execute({
+          sql: `UPDATE golden_case SET active = 0, deactivated_at = ?
+                WHERE id = ? AND deactivated_at IS NULL`,
+          args: [new Date().toISOString(), caseId],
+        })
+      ).rowsAffected;
+    } catch (erro) {
+      if (classificarViolacao(erro) === 'dominio') {
+        return c.json(
+          {
+            error: 'caso de severidade maxima (red flag) nao se desativa',
+            next: 'docs/revisao-golden.md §4',
+          },
+          422,
+        );
+      }
+      throw erro;
+    }
+    if (afetadas === 0) return c.json({ error: 'caso ja desativado' }, 409);
+
+    await recordAudit(client, salt, {
+      actorId: c.get('operador').id,
+      action: 'golden_case_deactivate',
+      entityType: 'golden_case',
+      entityId: caseId,
+      before: { active: alvo.active },
+      after: { active: 0, motivo },
+    });
+    return c.json({ ok: true, caso: caseId, active: 0 }, 200);
+  });
+
+  /** O motivo valido, ou o corpo do 422. */
+  async function motivoValido(
+    json: Promise<unknown>,
+  ): Promise<string | { error: string; problemas?: unknown }> {
+    const corpo = comMotivo.safeParse(await json);
+    if (!corpo.success) {
+      return { error: 'motivo invalido: ao menos 10 caracteres', problemas: corpo.error.issues };
+    }
+    if (await motivoComDadoPessoal(client, corpo.data.motivo)) {
+      return { error: 'o motivo nao pode conter nome nem registro de profissional: a trilha e permanente' };
+    }
+    return corpo.data.motivo;
+  }
+
+  /** Id da revisao nao revogada de (caso, atestado), unica pelo gatilho. */
+  async function revisaoViva(caseId: string, atestadoId: string): Promise<string | undefined> {
+    const { rows } = await client.execute({
+      sql: `SELECT r.id FROM golden_case_review r
+             WHERE r.case_id = ? AND r.attestation_id = ? AND ${SQL_REVISAO_NAO_REVOGADA}`,
+      args: [caseId, atestadoId],
+    });
+    return rows[0] ? String(rows[0].id) : undefined;
+  }
 
   return app;
 }
