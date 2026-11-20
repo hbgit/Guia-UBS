@@ -962,14 +962,17 @@ visíveis.
 
 Um caso golden **nasce inativo** e só entra na suíte (simulação e gate do packer)
 depois que um profissional atestado o revisa. A revisão é **só acréscimo**: não
-há `PUT` nem `DELETE`; registrar errado se corrige pela issue de revogação
-auditada, não por rota.
+há `PUT` nem `DELETE`. Registrar errado se corrige por **revogação auditada**
+(uma linha nova em `golden_case_review_revocation`, também só acréscimo), e um
+caso mal construído sai da suíte por **desativação**, que é definitiva.
 
 | Rota | Método | Quem |
 |---|---|---|
 | `/api/golden-cases` | `POST` | `editor` (`content:write`) — cria o caso **inativo**; `active: 1` responde `422` |
 | `/api/golden-cases/atestados` | `POST` | `clinical_reviewer` — registra o atestado de um profissional, com o ID do `atestados.yaml` |
 | `/api/golden-cases/<id>/revisores` | `POST` | `clinical_reviewer` — acrescenta a revisão; ao atingir o mínimo, o caso fica ativo |
+| `/api/golden-cases/<id>/revisores/<AT-NNNN>/revogar` | `POST` | `clinical_reviewer` — revoga a revisão **viva** daquele atestado naquele caso; corpo `{ "motivo": "..." }` |
+| `/api/golden-cases/<id>/desativar` | `POST` | `clinical_reviewer` — desativa o caso de forma **definitiva**; corpo `{ "motivo": "..." }` |
 
 Fluxo: o ID `AT-NNNN` é atribuído por PR em `seed/golden/atestados.yaml` → o
 **mesmo ID** é registrado em cada CMS → o editor cadastra o caso inativo → o
@@ -985,15 +988,43 @@ curl -s -b ck.txt -X POST $B/api/golden-cases -H "$J" -H "$O" \
 
 curl -s -b ck-revisor.txt -X POST $B/api/golden-cases/caso-exemplo/revisores -H "$J" -H "$O" \
   -d '{"atestado":"AT-9001","reviewed_at":"2026-08-20"}'
+
+# revisão registrada errada: revoga pelo AT- (o motivo cita só o AT-, nunca nome ou registro)
+curl -s -b ck-revisor.txt -X POST $B/api/golden-cases/caso-exemplo/revisores/AT-9001/revogar \
+  -H "$J" -H "$O" -d '{"motivo":"data transcrita errada em AT-9001; refazer o registro"}'
+
+# caso mal construído (nunca red flag): desativa
+curl -s -b ck-revisor.txt -X POST $B/api/golden-cases/caso-exemplo/desativar \
+  -H "$J" -H "$O" -d '{"motivo":"tokens incoerentes, confirmado pelo revisor AT-9001"}'
 ```
+
+Notas da revogação e da desativação:
+
+- **O motivo é permanente** (vai para a trilha) e tem **ao menos 10 caracteres**.
+  Cite o profissional só pelo `AT-NNNN`: motivo que contenha o nome ou o registro
+  de **qualquer** atestado cadastrado, não só do revogado, responde `422` e nada
+  grava.
+- **Revogar não reativa nem desativa nada.** O caso segue `active` e o portão do
+  packer o reprova dizendo que a revisão foi revogada, até haver revisão válida.
+- **Revisão legada (sem `reviewed_hash`) não conta.** Revogue-a e registre de
+  novo; o novo registro grava o hash do conteúdo atual. O mesmo vale para revisão
+  cujo hash não bate com o conteúdo.
+- **Desativado é definitivo no banco.** Não há reativação nem nova revisão
+  (`409`); o substituto entra como caso novo. Caso de **severidade máxima**
+  (red flag) ou de desfecho desconhecido não se desativa: o banco recusa (`422`).
+- **Caso desativado ainda presente no YAML trava o `cms:import-golden`**
+  (conflito, nada é escrito) até o PR que o retira de `clinical_cases.yaml`. O
+  importador também não desfaz uma revogação: revisão revogada com a mesma data
+  no YAML é conflito, e o remédio é corrigir o YAML.
 
 | Resposta | Significa |
 |---|---|
 | `201` | gravado (na revisão, `active` informa se o caso foi ativado) |
 | `403` | falta a permissão, **ou** você cadastrou este caso e não pode revisá-lo |
-| `404` | caso inexistente |
-| `409` | ID, profissional ou termo já registrado (a resposta diz qual); revisão repetida do mesmo atestado |
-| `422` | atestado ou data inválidos (COREN só de enfermeiro; registro só dígitos; data futura) |
+| `200` | desativado (`/desativar`) |
+| `404` | caso inexistente; em `/revogar`, sem revisão não revogada daquele atestado nesse caso |
+| `409` | ID, profissional ou termo já registrado (a resposta diz qual); revisão repetida do mesmo atestado; caso já desativado (revisar ou desativar de novo) |
+| `422` | atestado ou data inválidos (COREN só de enfermeiro; registro só dígitos; data futura); motivo curto ou com nome/registro; desativar red flag ou caso de desfecho desconhecido |
 
 ### 4.6 O job publica
 
