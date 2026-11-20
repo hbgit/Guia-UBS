@@ -264,3 +264,16 @@ export function conferirContraRegistro(
   });
   return problemas;
 }
+
+// A ordem entra no hash: o evaluate ignora ordem (Set), mas o revisor leu essa ordem; reordenar invalida a revisao.
+export async function hashConteudoGolden(tokens: readonly string[], expect: string): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(JSON.stringify([tokens, expect])),
+  );
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Revisao nao revogada. Exige alias `r` em golden_case_review; fonte unica para rota, importador, extract e gatilho. */
+export const SQL_REVISAO_NAO_REVOGADA =
+  'NOT EXISTS (SELECT 1 FROM golden_case_review_revocation v WHERE v.review_id = r.id)';

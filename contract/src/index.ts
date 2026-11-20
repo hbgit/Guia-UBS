@@ -26,6 +26,8 @@ export {
   avaliarRegistro,
   avaliarRevisao,
   conferirContraRegistro,
+  hashConteudoGolden,
+  SQL_REVISAO_NAO_REVOGADA,
   type Atestado,
   type EntradaRegistro,
   type EstadoRevisao,
