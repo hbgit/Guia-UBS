@@ -31,7 +31,7 @@ import { requirePermission, type AuthVariables } from '../auth/middleware.js';
 import { createDb } from '../db/client.js';
 import { classificarViolacao } from '../db/errors.js';
 import { goldenAttestation, goldenCase, goldenCaseReview } from '../db/schema/publishing.js';
-import { comandoDeAuditoria, recordAudit } from '../services/audit.js';
+import { comandoDeAuditoria } from '../services/audit.js';
 
 const novoCaso = z.object({
   id: z.string().min(1),
@@ -85,29 +85,32 @@ export function goldenRoutes(client: Client, salt: string) {
     }
 
     const ator = c.get('operador');
-    const db = createDb(client);
     try {
-      await db.insert(goldenCase).values({
-        id: dados.id,
-        tokensJson: JSON.stringify(dados.tokens),
-        expectedOutcomeId: dados.expect,
-        clinicalSource: dados.clinicalSource ?? null,
-        addedBy: ator.id,
-        active: 0,
-      });
+      // Trilha no mesmo batch: caso sem trilha nao fica.
+      await client.batch(
+        [
+          {
+            sql: `INSERT INTO golden_case
+                    (id, tokens_json, expected_outcome_id, clinical_source, added_by, active)
+                  VALUES (?, ?, ?, ?, ?, 0)`,
+            args: [dados.id, JSON.stringify(dados.tokens), dados.expect, dados.clinicalSource ?? null, ator.id],
+          },
+          comandoDeAuditoria(salt, {
+            actorId: ator.id,
+            action: 'golden_case_create',
+            entityType: 'golden_case',
+            entityId: dados.id,
+            after: { tokens: dados.tokens, expect: dados.expect, active: 0 },
+          }),
+        ],
+        'write',
+      );
     } catch (erro) {
       if (classificarViolacao(erro) === 'duplicidade') {
         return c.json({ error: 'ja existe caso com esse id' }, 409);
       }
       throw erro;
     }
-    await recordAudit(client, salt, {
-      actorId: ator.id,
-      action: 'golden_case_create',
-      entityType: 'golden_case',
-      entityId: dados.id,
-      after: { tokens: dados.tokens, expect: dados.expect, active: 0 },
-    });
     return c.json({ ok: true, id: dados.id, active: 0 }, 201);
   });
 
@@ -165,39 +168,43 @@ export function goldenRoutes(client: Client, salt: string) {
 
     const ator = c.get('operador');
     try {
-      await db.insert(goldenAttestation).values({
-        id: a.id,
-        nome: a.nome,
-        conselho: a.conselho,
-        uf: a.uf,
-        categoria,
-        registro: a.registro,
-        termoSha256: a.termo_sha256,
-        createdBy: ator.id,
-        createdAt: new Date().toISOString(),
-      });
+      // Trilha no mesmo batch: atestado sem trilha nao fica.
+      await client.batch(
+        [
+          {
+            sql: `INSERT INTO golden_attestation
+                    (id, nome, conselho, uf, categoria, registro, termo_sha256, created_by, created_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+              a.id, a.nome, a.conselho, a.uf, categoria, a.registro, a.termo_sha256, ator.id,
+              new Date().toISOString(),
+            ],
+          },
+          comandoDeAuditoria(salt, {
+            actorId: ator.id,
+            action: 'golden_attestation_create',
+            entityType: 'golden_attestation',
+            entityId: a.id,
+            // Sem nome e registro: `golden_attestation` e a UNICA morada deles
+            // (spec/lgpd.md). A trilha e append-only e permanente; uma copia aqui nao
+            // sairia com o expurgo do atestado. O `termo_sha256` liga a linha ao termo.
+            after: {
+              id: a.id,
+              conselho: a.conselho,
+              uf: a.uf,
+              categoria,
+              termo_sha256: a.termo_sha256,
+            },
+          }),
+        ],
+        'write',
+      );
     } catch (erro) {
       if (classificarViolacao(erro) === 'duplicidade') {
         return c.json({ error: 'este termo ja pertence a outro atestado' }, 409);
       }
       throw erro;
     }
-    await recordAudit(client, salt, {
-      actorId: ator.id,
-      action: 'golden_attestation_create',
-      entityType: 'golden_attestation',
-      entityId: a.id,
-      // Sem nome e registro: `golden_attestation` e a UNICA morada deles
-      // (spec/lgpd.md). A trilha e append-only e permanente; uma copia aqui nao
-      // sairia com o expurgo do atestado. O `termo_sha256` liga a linha ao termo.
-      after: {
-        id: a.id,
-        conselho: a.conselho,
-        uf: a.uf,
-        categoria,
-        termo_sha256: a.termo_sha256,
-      },
-    });
     return c.json({ ok: true, id: a.id }, 201);
   });
 

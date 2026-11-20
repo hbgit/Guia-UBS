@@ -632,3 +632,23 @@ test('duas revogacoes simultaneas: so uma efetiva', async () => {
   );
   assert.equal(trilha.length, 1);
 });
+
+test('falha ao gravar a trilha ao criar caso reverte a criacao', async () => {
+  const r = await comTrilhaQuebrada(() =>
+    post(editor.cookie, '/api/golden-cases', { ...CASO, id: 'caso-at-criar' }),
+  );
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar("SELECT 1 FROM golden_case WHERE id = 'caso-at-criar'"), 0);
+  assert.equal((await post(editor.cookie, '/api/golden-cases', { ...CASO, id: 'caso-at-criar' })).status, 201);
+});
+
+test('falha ao gravar a trilha ao criar atestado reverte o registro', async () => {
+  const novo = { ...ATESTADO, id: 'AT-9109', nome: 'Revisora Ficticia Nove', registro: '000109', termo_sha256: termo('9') };
+  const r = await comTrilhaQuebrada(() => post(revisor.cookie, '/api/golden-cases/atestados', novo));
+  assert.ok(r.status >= 500, `respondeu ${r.status}`);
+  assert.equal(await contar("SELECT 1 FROM golden_attestation WHERE id = 'AT-9109'"), 0);
+  assert.equal((await post(revisor.cookie, '/api/golden-cases/atestados', novo)).status, 201);
+  const trilha = (await auditRows(f)).find((a) => a.action === 'golden_attestation_create' && a.entity_id === 'AT-9109');
+  assert.ok(trilha);
+  assert.doesNotMatch(trilha.after_json!, /Revisora Ficticia Nove|000109/);
+});
