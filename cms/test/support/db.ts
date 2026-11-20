@@ -145,7 +145,15 @@ export const APPEND_ONLY_ROWS: Readonly<Record<string, { insert: string; id: str
   golden_case_review: {
     id: 'review-1',
     insert: `INSERT INTO golden_case_review
-       (id, case_id, attestation_id, reviewed_at, recorded_by, recorded_at)
-     VALUES ('review-1', 'g-exemplo', 'AT-9001', '2026-08-20', 'admin-1', '${NOW}')`,
+       (id, case_id, attestation_id, reviewed_at, reviewed_hash, recorded_by, recorded_at)
+     VALUES ('review-1', 'g-exemplo', 'AT-9001', '2026-08-20', '${'d'.repeat(64)}', 'admin-1',
+             '${NOW}')`,
+  },
+  // Revoga a linha de cima: a FK exige que `golden_case_review` venha antes na constante.
+  golden_case_review_revocation: {
+    id: 'revoc-1',
+    insert: `INSERT INTO golden_case_review_revocation
+       (id, review_id, reason, revoked_by, revoked_at)
+     VALUES ('revoc-1', 'review-1', 'motivo ficticio de teste', 'admin-2', '${NOW}')`,
   },
 };

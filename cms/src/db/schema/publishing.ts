@@ -154,6 +154,11 @@ export const goldenCase = sqliteTable('golden_case', {
     .notNull()
     .references(() => adminUser.id),
   active: integer('active').notNull().default(1),
+  /**
+   * Desativacao auditada (#43): definitiva e recusada para red flag, ambas por
+   * gatilho. `active = 0` com isto nulo e o caminho legado, anterior a 0010.
+   */
+  deactivatedAt: text('deactivated_at'),
 });
 
 /**
@@ -212,12 +217,16 @@ export const goldenAttestation = sqliteTable(
  * Revisao de um caso golden por um atestado. APPEND-ONLY.
  *
  * "Nunca remove nem troca quem atestou" e estrutural: o gatilho recusa UPDATE e
- * DELETE. Revisao registrada errada nao se corrige aqui — fica para a issue de
- * revogacao auditada (P0-2, D4).
+ * DELETE. Revisao registrada errada sai de circulacao por linha em
+ * `golden_case_review_revocation` (#43), nunca por escrita aqui.
  *
  * `reviewed_at` e a data em que o PROFISSIONAL revisou (AAAA-MM-DD, do termo);
- * `recorded_at`, quando o operador `recorded_by` a transcreveu. Uma por pessoa
- * por caso: a mesma revisao duas vezes contaria em dobro.
+ * `recorded_at`, quando o operador `recorded_by` a transcreveu. Uma revisao NAO
+ * REVOGADA por pessoa por caso, pelo gatilho `golden_case_review_one_live`: um
+ * UNIQUE impediria revisar de novo depois de revogar.
+ *
+ * `reviewed_hash` e `hashConteudoGolden` do conteudo que o profissional leu; o
+ * portao so conta a revisao se ele ainda bate. NULL = linha anterior a 0010.
  */
 export const goldenCaseReview = sqliteTable(
   'golden_case_review',
@@ -234,8 +243,44 @@ export const goldenCaseReview = sqliteTable(
       .notNull()
       .references(() => adminUser.id),
     recordedAt: text('recorded_at').notNull(),
+    reviewedHash: text('reviewed_hash'),
   },
-  (t) => [unique('golden_case_review_case_attestation').on(t.caseId, t.attestationId)],
+  (t) => [
+    // NULL passa (CHECK que da NULL passa): e a linha legada, que o portao descarta.
+    check(
+      'golden_case_review_hash_hex',
+      sql`length(${t.reviewedHash}) = 64 AND ${t.reviewedHash} NOT GLOB '*[^0-9a-f]*'`,
+    ),
+  ],
+);
+
+/**
+ * Revogacao de uma revisao golden (#43). APPEND-ONLY: revogar e acrescentar,
+ * nunca apagar a revisao. Uma por revisao (UNIQUE).
+ *
+ * O motivo nao leva dado pessoal (a rota recusa nome e registro); o `trim` com
+ * segundo argumento porque o do SQLite sem ele so tira espaco.
+ */
+export const goldenCaseReviewRevocation = sqliteTable(
+  'golden_case_review_revocation',
+  {
+    id: text('id').primaryKey(),
+    reviewId: text('review_id')
+      .notNull()
+      .unique()
+      .references(() => goldenCaseReview.id),
+    reason: text('reason').notNull(),
+    revokedBy: text('revoked_by')
+      .notNull()
+      .references(() => adminUser.id),
+    revokedAt: text('revoked_at').notNull(),
+  },
+  (t) => [
+    check(
+      'golden_case_review_revocation_reason_len',
+      sql`length(trim(${t.reason}, ' ' || char(9, 10, 13))) >= 10`,
+    ),
+  ],
 );
 
 /** Resultado de uma execucao da suite. Falha bloqueia a assinatura (PRD risco R5). */

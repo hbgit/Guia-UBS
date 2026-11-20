@@ -17,7 +17,13 @@ import { after, before, describe, test } from 'node:test';
 import { getTableName } from 'drizzle-orm';
 
 import { APPEND_ONLY_TABLES } from '../src/db/schema/index.js';
-import { APPEND_ONLY_ROWS, freshDatabase, seedIdentity, type TestDatabase } from './support/db.js';
+import {
+  APPEND_ONLY_ROWS,
+  freshDatabase,
+  seedClinicalChain,
+  seedIdentity,
+  type TestDatabase,
+} from './support/db.js';
 
 let fixture: TestDatabase;
 
@@ -44,7 +50,13 @@ test('o piso das tabelas append-only nao encolhe (remover da constante tambem ti
   // A constante alimenta o gerador de gatilhos E o `describe` abaixo: tirar uma
   // tabela dela remove o gatilho e o teste do gatilho juntos, e tudo fica verde.
   // Este piso e literal de proposito — encolher a lista exige editar aqui.
-  const piso = ['audit_entry', 'consent_record', 'approval', 'golden_case_review'];
+  const piso = [
+    'audit_entry',
+    'consent_record',
+    'approval',
+    'golden_case_review',
+    'golden_case_review_revocation',
+  ];
   const nomes = APPEND_ONLY_TABLES.map(({ table }) => getTableName(table));
   for (const nome of piso) {
     assert.ok(nomes.includes(nome), `"${nome}" saiu de APPEND_ONLY_TABLES`);
@@ -111,4 +123,82 @@ test('DELETE em massa tambem e recusado (nao so a linha nomeada)', () => {
   // nada, e um `DELETE FROM t` sem WHERE passaria despercebido. Com linha
   // presente, o comando inteiro aborta.
   assert.throws(() => fixture.db.exec('DELETE FROM audit_entry'), /append-only/);
+});
+
+// ---------------------------------------------------------------------------
+// #43: revogacao, uma revisao viva por atestado e desativacao definitiva
+// ---------------------------------------------------------------------------
+
+describe('golden: gatilhos da #43', () => {
+  let g: TestDatabase;
+  const NOW = '2026-11-20T12:00:00Z';
+  const revisao = (id: string, caso = 'g-exemplo') =>
+    g.db.exec(`INSERT INTO golden_case_review
+      (id, case_id, attestation_id, reviewed_at, reviewed_hash, recorded_by, recorded_at)
+      VALUES ('${id}', '${caso}', 'AT-9001', '2026-11-19', '${'d'.repeat(64)}', 'admin-1', '${NOW}')`);
+  const revogar = (id: string, review: string, motivo = 'motivo ficticio de teste') =>
+    g.db.exec(`INSERT INTO golden_case_review_revocation (id, review_id, reason, revoked_by, revoked_at)
+      VALUES ('${id}', '${review}', '${motivo}', 'admin-2', '${NOW}')`);
+  const desativar = (id: string) =>
+    g.db.exec(`UPDATE golden_case SET active = 0, deactivated_at = '${NOW}' WHERE id = '${id}'`);
+  const caso = (id: string, desfecho: string) =>
+    g.db.exec(`INSERT INTO golden_case (id, tokens_json, expected_outcome_id, added_by, active)
+      VALUES ('${id}', '["chest"]', '${desfecho}', 'admin-1', 1)`);
+
+  before(() => {
+    g = freshDatabase();
+    seedIdentity(g.db);
+  });
+  after(() => g.close());
+
+  test('desativar com routing_outcome vazia aborta (fail-closed)', () => {
+    assert.throws(() => desativar('g-exemplo'), /CHECK constraint failed: golden_case red flag/);
+  });
+
+  test('segunda revisao nao revogada do mesmo atestado aborta como duplicidade; revogada a primeira, entra', () => {
+    revisao('rv-a');
+    assert.throws(() => revisao('rv-b'), /UNIQUE constraint failed/);
+    revogar('vg-a', 'rv-a');
+    revisao('rv-b');
+  });
+
+  test('revogacao com motivo so de espacos e tabs viola CHECK', () => {
+    // 12 caracteres em branco: o trim() do SQLite sem 2o argumento so tira espaco.
+    assert.throws(
+      () => revogar('vg-branco', 'rv-b', ' \t'.repeat(6)),
+      /CHECK constraint failed/,
+    );
+    assert.throws(() => revogar('vg-curto', 'rv-b', 'curto'), /CHECK constraint failed/);
+  });
+
+  test('segunda revogacao da mesma revisao viola UNIQUE', () => {
+    assert.throws(() => revogar('vg-a2', 'rv-a'), /UNIQUE constraint failed/);
+  });
+
+  test('desativar caso de severidade maxima aborta; desfecho inexistente aborta; rotina passa', () => {
+    seedClinicalChain(g.db);
+    g.db.exec(`INSERT INTO routing_outcome
+      (id, severity_level, card_id, venue_id, version, updated_by, updated_at)
+      VALUES ('EMERGENCY', 100, 'card.rotina', 'UBS', 1, 'admin-1', '${NOW}')`);
+    caso('g-emerg', 'EMERGENCY');
+    caso('g-fantasma', 'NAO_EXISTE');
+    assert.throws(() => desativar('g-emerg'), /CHECK constraint failed: golden_case red flag/);
+    assert.throws(() => desativar('g-fantasma'), /CHECK constraint failed: golden_case red flag/);
+    desativar('g-exemplo');
+    const linha = g.db
+      .prepare("SELECT active, deactivated_at FROM golden_case WHERE id = 'g-exemplo'")
+      .get() as { active: number; deactivated_at: string | null };
+    assert.deepEqual({ ...linha }, { active: 0, deactivated_at: NOW });
+  });
+
+  test('caso desativado nao volta: UPDATE active=1 aborta, UPDATE deactivated_at=NULL aborta', () => {
+    assert.throws(
+      () => g.db.exec("UPDATE golden_case SET active = 1 WHERE id = 'g-exemplo'"),
+      /CHECK constraint failed: golden_case desativado e definitivo/,
+    );
+    assert.throws(
+      () => g.db.exec("UPDATE golden_case SET deactivated_at = NULL WHERE id = 'g-exemplo'"),
+      /CHECK constraint failed: golden_case desativado e definitivo/,
+    );
+  });
 });

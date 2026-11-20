@@ -19,7 +19,13 @@
  * `buildPack()` e passar pelos MESMOS portoes. Um segundo construtor para o
  * caminho do banco seria um caminho cujos portoes ninguem exercita em toda PR.
  */
-import type { Atestado, RevisorYaml, Uf } from '@guia-ubs/contract';
+import {
+  hashConteudoGolden,
+  SQL_REVISAO_NAO_REVOGADA,
+  type Atestado,
+  type RevisorYaml,
+  type Uf,
+} from '@guia-ubs/contract';
 import type { Client } from '@libsql/client';
 
 import type { GoldenCase } from './validate.js';
@@ -184,14 +190,35 @@ export async function lerGoldenDoBanco(client: Client): Promise<GoldenCase[]> {
     'SELECT id, tokens_json, expected_outcome_id FROM golden_case WHERE active = 1',
   );
   const revisoes = await client.execute(
-    `SELECT r.case_id, r.reviewed_at, a.id AS atestado, a.conselho, a.uf, a.categoria
+    `SELECT r.case_id, r.reviewed_at, r.reviewed_hash, ${SQL_REVISAO_NAO_REVOGADA} AS viva,
+            a.id AS atestado, a.conselho, a.uf, a.categoria
        FROM golden_case_review r
        JOIN golden_attestation a ON a.id = r.attestation_id
       ORDER BY r.case_id, a.id`,
   );
+  const hashAtual = new Map<string, string>();
+  for (const linha of casos.rows) {
+    const tokens = JSON.parse(String(linha.tokens_json)) as string[];
+    hashAtual.set(String(linha.id), await hashConteudoGolden(tokens, String(linha.expected_outcome_id)));
+  }
 
+  // So conta revisao VALIDA: nao revogada e do conteudo atual (#43). Hash NULL e
+  // linha anterior a 0010, sem vinculo com o que foi lido: tambem nao conta.
   const porCaso = new Map<string, RevisorYaml[]>();
+  const descartadas = new Map<string, { revogadas: number; conteudoMudou: number }>();
   for (const linha of revisoes.rows) {
+    const caso = String(linha.case_id);
+    const motivo = !Number(linha.viva)
+      ? 'revogadas'
+      : linha.reviewed_hash !== hashAtual.get(caso)
+        ? 'conteudoMudou'
+        : null;
+    if (motivo) {
+      const d = descartadas.get(caso) ?? { revogadas: 0, conteudoMudou: 0 };
+      d[motivo] += 1;
+      descartadas.set(caso, d);
+      continue;
+    }
     const base = {
       atestado: String(linha.atestado),
       uf: String(linha.uf) as Uf,
@@ -202,16 +229,20 @@ export async function lerGoldenDoBanco(client: Client): Promise<GoldenCase[]> {
       linha.conselho === 'COREN'
         ? { ...base, conselho: 'COREN', categoria: 'ENF' }
         : { ...base, conselho: 'CRM' };
-    const caso = String(linha.case_id);
     porCaso.set(caso, [...(porCaso.get(caso) ?? []), revisor]);
   }
 
-  return casos.rows.map((linha) => ({
-    id: String(linha.id),
-    tokens: JSON.parse(String(linha.tokens_json)) as string[],
-    expect: String(linha.expected_outcome_id),
-    reviewed_by: porCaso.get(String(linha.id)) ?? null,
-  }));
+  return casos.rows.map((linha) => {
+    const id = String(linha.id);
+    const d = descartadas.get(id);
+    return {
+      id,
+      tokens: JSON.parse(String(linha.tokens_json)) as string[],
+      expect: String(linha.expected_outcome_id),
+      reviewed_by: porCaso.get(id) ?? null,
+      ...(d ? { descartadas: d } : {}),
+    };
+  });
 }
 
 /**

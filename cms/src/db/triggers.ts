@@ -29,6 +29,7 @@
  * da tabela de retencao aprovada pelo encarregado, que ainda nao existe. O item
  * 19 nao o entregou, e a lacuna esta declarada em arquitetura.md 5.12.
  */
+import { SQL_REVISAO_NAO_REVOGADA } from '@guia-ubs/contract';
 import { getTableName } from 'drizzle-orm';
 
 import {
@@ -36,6 +37,8 @@ import {
   VERSION_COLUMN,
   VERSIONED_TABLES,
   approval,
+  goldenCase,
+  goldenCaseReview,
   routingRule,
 } from './schema/index.js';
 
@@ -148,6 +151,71 @@ END`,
   );
 }
 
+/**
+ * Uma revisao NAO REVOGADA por atestado por caso (#43). Substitui o UNIQUE da
+ * 0009, que impediria revisar de novo depois de revogar.
+ */
+function goldenReviewOneLive(): string[] {
+  const tableName = getTableName(goldenCaseReview);
+  const name = `${tableName}_one_live`;
+  // Mensagem comeca como a do UNIQUE: classificarViolacao (db/errors.ts) a le como duplicidade.
+  return trigger(
+    name,
+    `CREATE TRIGGER \`${name}\`
+BEFORE INSERT ON \`${tableName}\`
+WHEN EXISTS (
+  SELECT 1 FROM ${tableName} r
+  WHERE r.case_id = NEW.case_id AND r.attestation_id = NEW.attestation_id AND ${SQL_REVISAO_NAO_REVOGADA}
+)
+BEGIN
+  SELECT RAISE(ABORT, 'UNIQUE constraint failed: golden_case_review revisao nao revogada do mesmo atestado');
+END`,
+  );
+}
+
+/**
+ * Caso desativado com `deactivated_at` nao volta (#43): reativar seria contar de
+ * novo uma revisao que alguem decidiu tirar da suite.
+ */
+function goldenDeactivationFinal(): string[] {
+  const tableName = getTableName(goldenCase);
+  const name = `${tableName}_deactivation_final`;
+  // Mensagem comeca como a do CHECK: classificarViolacao (db/errors.ts) a le como dominio.
+  return trigger(
+    name,
+    `CREATE TRIGGER \`${name}\`
+BEFORE UPDATE ON \`${tableName}\`
+WHEN OLD.deactivated_at IS NOT NULL AND (NEW.active <> 0 OR NEW.deactivated_at IS NOT OLD.deactivated_at)
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case desativado e definitivo');
+END`,
+  );
+}
+
+/**
+ * Red flag nao sai da suite (#43): severidade do desfecho esperado nao menor que
+ * a maxima de `routing_outcome`. A escala e do pack (ADR-008), sem limiar fixo; o
+ * COALESCE recusa desfecho inexistente e tabela vazia (fail-closed).
+ */
+function goldenNoDeactivateRedFlag(): string[] {
+  const tableName = getTableName(goldenCase);
+  const name = `${tableName}_no_deactivate_red_flag`;
+  // Mensagem comeca como a do CHECK: classificarViolacao (db/errors.ts) a le como dominio.
+  return trigger(
+    name,
+    `CREATE TRIGGER \`${name}\`
+BEFORE UPDATE ON \`${tableName}\`
+WHEN OLD.deactivated_at IS NULL AND NEW.deactivated_at IS NOT NULL AND NOT COALESCE(
+  (SELECT severity_level FROM routing_outcome WHERE id = NEW.expected_outcome_id)
+    < (SELECT MAX(severity_level) FROM routing_outcome),
+  0
+)
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: golden_case red flag nao se desativa');
+END`,
+  );
+}
+
 /** Todas as sentencas, na ordem em que sao aplicadas. */
 export function triggerStatements(): string[] {
   return [
@@ -157,6 +225,9 @@ export function triggerStatements(): string[] {
     ...VERSIONED_TABLES.flatMap((table) => versionMonotonic(getTableName(table))),
     ...approvedRuleImmutable(),
     ...noSelfApproval(),
+    ...goldenReviewOneLive(),
+    ...goldenDeactivationFinal(),
+    ...goldenNoDeactivateRedFlag(),
   ];
 }
 
