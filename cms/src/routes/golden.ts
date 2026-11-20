@@ -47,7 +47,7 @@ const novaRevisao = z.object({ atestado: z.unknown().optional(), reviewed_at: z.
 const comMotivo = z.object({ motivo: z.string().trim().min(10) });
 
 const semAcento = (s: string) =>
-  s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
 /**
  * O motivo vai para a trilha, que e permanente: nome e registro do profissional
@@ -363,7 +363,7 @@ export function goldenRoutes(client: Client, salt: string) {
       if (classificarViolacao(erro) === 'dominio') {
         return c.json(
           {
-            error: 'caso de severidade maxima (red flag) nao se desativa',
+            error: 'caso de severidade maxima (red flag) ou de desfecho desconhecido nao se desativa',
             next: 'docs/revisao-golden.md §4',
           },
           422,

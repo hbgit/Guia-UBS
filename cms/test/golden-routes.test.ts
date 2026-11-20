@@ -349,6 +349,8 @@ test('revogar com motivo contendo nome do profissional (sem acento) ou o registr
   for (const motivo of [
     'a revisora ficticia tres pediu correcao',
     'registro 000303 lancado no lugar errado',
+    'a revisora  ficticia tres pediu correcao',
+    'a revisora ficticia\ntres pediu correcao',
   ]) {
     const r = await revogar('caso-rv-403', 'AT-9101', motivo);
     assert.equal(r.status, 422, motivo);
@@ -452,7 +454,7 @@ test('desativar caso EMERGENCY responde 422 (do gatilho) e nada muda', async () 
   const r = await desativar('caso-r1');
   assert.equal(r.status, 422);
   assert.deepEqual(await r.json(), {
-    error: 'caso de severidade maxima (red flag) nao se desativa',
+    error: 'caso de severidade maxima (red flag) ou de desfecho desconhecido nao se desativa',
     next: 'docs/revisao-golden.md §4',
   });
   const [c] = await linha("SELECT active, deactivated_at FROM golden_case WHERE id = 'caso-r1'");
