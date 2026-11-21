@@ -406,6 +406,9 @@ function Traducoes({
   // `undefined` = lendo; `null` = ainda nao existe (a gravacao cria).
   const [lido, setLido] = useState<Lido<Linha> | null | undefined>(undefined);
   const [releitura, setReleitura] = useState(0);
+  // Idioma e botao travados durante o PUT: a resposta de `pt` chegando depois da
+  // troca para `es` instalaria a versao de `pt` no formulario de `es`.
+  const [salvando, setSalvando] = useState(false);
   const [ok, setOk] = useState<string>();
   const [erro, setErro] = useState<string>();
 
@@ -452,6 +455,7 @@ function Traducoes({
     setOk(undefined);
     setErro(undefined);
     const corpo = paraEnvio(texto, campos);
+    setSalvando(true);
     try {
       const versao = await substituir(lido, caminho, corpo);
       setLido({ dados: corpo as Linha, versao });
@@ -466,6 +470,8 @@ function Traducoes({
       } else {
         setErro('Nao foi possivel gravar a traducao.');
       }
+    } finally {
+      setSalvando(false);
     }
   }
 
@@ -475,7 +481,12 @@ function Traducoes({
 
       <form onSubmit={enviar}>
         <label htmlFor="lang">Idioma</label>
-        <select id="lang" value={lang} onChange={(e) => setLang(e.target.value)}>
+        <select
+          id="lang"
+          value={lang}
+          disabled={salvando}
+          onChange={(e) => setLang(e.target.value)}
+        >
           {LANGS.map((l) => (
             <option key={l} value={l}>
               {l}
@@ -497,7 +508,7 @@ function Traducoes({
 
         <Aviso erro={erro} ok={ok} />
 
-        <button type="submit" disabled={lido === undefined}>
+        <button type="submit" disabled={lido === undefined || salvando}>
           Gravar traducao
         </button>
         {erro && (
