@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 
 import { ErroApi, ler, substituir } from '../web/src/api/api.js';
-import { paraEnvio, paraFormulario } from '../web/src/conteudo/traducao.js';
+import { formularioTravado, paraEnvio, paraFormulario } from '../web/src/conteudo/traducao.js';
 import { TEST_ENV, freshApp, pedido, seedConteudo, sessaoDe, type Fixture } from './support/app.js';
 
 let f: Fixture;
@@ -70,4 +70,11 @@ test('SPA: traducao gravada a partir da mesma leitura recebe conflito_versao', a
   const corpo = paraEnvio(paraFormulario(lido.dados, CAMPOS), CAMPOS);
   assert.equal(await substituir(lido, caminho, corpo), 2, 'regravar traducao sem audio precisa passar');
   await assert.rejects(substituir(lido, caminho, { label: 'D' }), conflito(2));
+});
+
+test('formularioTravado: trava lendo e salvando; nao trava em traducao inexistente', () => {
+  assert.equal(formularioTravado(undefined, false), true, 'lendo');
+  assert.equal(formularioTravado({ dados: {}, versao: 1 }, true), true, 'salvando');
+  assert.equal(formularioTravado({ dados: {}, versao: 1 }, false), false, 'lida');
+  assert.equal(formularioTravado(null, false), false, 'inexistente: a gravacao cria');
 });

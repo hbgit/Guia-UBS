@@ -29,3 +29,14 @@ export function paraEnvio(
   for (const c of campos) corpo[c] = texto[c] ? texto[c] : null;
   return corpo;
 }
+
+/**
+ * O formulario aceita edicao? Trava lendo (ou com a leitura falha) e salvando;
+ * `null` e traducao que ainda nao existe, e a gravacao a cria.
+ *
+ * Fonte unica para seletor, campos e botao: texto digitado durante a leitura
+ * seria descartado em silencio quando o `GET` voltasse.
+ */
+export function formularioTravado(lido: unknown, salvando: boolean): boolean {
+  return lido === undefined || salvando;
+}

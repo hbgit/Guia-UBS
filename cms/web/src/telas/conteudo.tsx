@@ -30,7 +30,7 @@ import {
   ORDEM_DE_CRIACAO,
   caminhoDaLinha,
 } from '../conteudo/campos.js';
-import { paraEnvio, paraFormulario } from '../conteudo/traducao.js';
+import { formularioTravado, paraEnvio, paraFormulario } from '../conteudo/traducao.js';
 import { useSessao } from '../sessao.js';
 
 type Linha = Record<string, unknown>;
@@ -425,6 +425,8 @@ function Traducoes({
     // da do atual, e instalaria a versao dele. `cancelado` descarta a atrasada.
     let cancelado = false;
     setLido(undefined);
+    // Texto de outro idioma na tela convida a digitar sobre ele, e o `GET` o descartaria.
+    setTexto({});
     setOk(undefined);
     setErro(undefined);
     ler<Linha>(caminho)
@@ -448,6 +450,8 @@ function Traducoes({
     // `campos` deriva de `entidade`, que ja esta em `caminho`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caminho, releitura]);
+
+  const travado = formularioTravado(lido, salvando);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -484,7 +488,7 @@ function Traducoes({
         <select
           id="lang"
           value={lang}
-          disabled={salvando}
+          disabled={travado}
           onChange={(e) => setLang(e.target.value)}
         >
           {LANGS.map((l) => (
@@ -494,6 +498,8 @@ function Traducoes({
           ))}
         </select>
 
+        {lido === undefined && !erro && <p role="status">Carregando traducao…</p>}
+
         {campos.map((c) => (
           <div key={c}>
             <label htmlFor={`t-${c}`}>{c}</label>
@@ -501,6 +507,7 @@ function Traducoes({
               id={`t-${c}`}
               rows={2}
               value={texto[c] ?? ''}
+              disabled={travado}
               onChange={(e) => setTexto((t) => ({ ...t, [c]: e.target.value }))}
             />
           </div>
@@ -508,7 +515,7 @@ function Traducoes({
 
         <Aviso erro={erro} ok={ok} />
 
-        <button type="submit" disabled={lido === undefined || salvando}>
+        <button type="submit" disabled={travado}>
           Gravar traducao
         </button>
         {erro && (
