@@ -488,7 +488,8 @@ function Traducoes({
         <select
           id="lang"
           value={lang}
-          disabled={travado}
+          // Com a leitura falha, o seletor solta: senao o unico caminho seria insistir no "Reler".
+          disabled={travado && !erro}
           onChange={(e) => setLang(e.target.value)}
         >
           {LANGS.map((l) => (
