@@ -1125,7 +1125,7 @@ O defeito sobreviveu desde o item 19 porque **nenhum teste comparava a FSM com a
 ##### Lacunas novas, declaradas ao fim de 23b
 
 1. ~~**Não há aceite de Termo de Uso no primeiro login.**~~ **Fechada pela #10, §5.21.** Texto original: `legal_document` e `consent_record` existem e são append-only desde o item 16, e **nenhuma rota os toca**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com versão e hash do documento registrados. Construir a tela de entrada tornou a lacuna mais visível, não menor.
-2. **Tradução não tem travamento otimista.** `PUT …/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`; dois editores se sobrescrevem em silêncio. A SPA não tem como corrigir isso do lado dela.
+2. ~~**Tradução não tem travamento otimista.**~~ **Fechada pela #16.** A rota exige `If-Match` para atualizar ou `If-None-Match: *` para criar (428 sem nenhum, 400 com os dois), responde `ETag`, e o 409 carrega `versaoAtual`; ganhou `GET` irmão, e a SPA lê a versão antes de gravar. Texto original: `PUT …/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`; dois editores se sobrescrevem em silêncio. A SPA não tem como corrigir isso do lado dela.
 3. ~~**O CMS não está atrás de TLS.**~~ **Fechada no item 24** — ver §5.14.
 
 

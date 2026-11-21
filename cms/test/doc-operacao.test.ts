@@ -235,7 +235,6 @@ test('o manual descreve a interface, e ela existe', () => {
     'nao ha upload de asset': /upload de asset/i,
     'nao ha importador de conteudo': /importador de conte[uú]do/i,
     'nao ha aceite de Termo de Uso no primeiro login': /Termo de Uso/i,
-    'traducao nao tem travamento otimista': /travamento otimista/i,
   };
   for (const [lacuna, padrao] of Object.entries(LACUNAS_ABERTAS)) {
     assert.match(MANUAL, padrao, `o manual parou de declarar: ${lacuna}`);
