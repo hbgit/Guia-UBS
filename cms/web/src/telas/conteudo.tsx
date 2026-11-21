@@ -467,7 +467,7 @@ function Traducoes({
     } catch (falha) {
       if (falha instanceof ErroApi && falha.falha.tipo === 'conflito_versao') {
         setErro(
-          `Alguem gravou esta traducao antes de voce (versao ${falha.falha.versaoAtual}). Use "Reler esta traducao" para ver a versao atual — nada foi sobrescrito.`,
+          `Alguem gravou esta traducao antes de voce (versao ${falha.falha.versaoAtual}). Nada foi sobrescrito no servidor. "Reler esta traducao" mostra a versao atual e descarta o que voce digitou: copie antes se quiser manter.`,
         );
       } else if (falha instanceof ErroApi && 'mensagem' in falha.falha) {
         setErro(String(falha.falha.mensagem));
