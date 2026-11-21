@@ -186,11 +186,12 @@ test('criar, ler, editar e ver na trilha — o ciclo inteiro', async () => {
 test('a traducao aninhada grava e sobrescreve pela mesma rota', async () => {
   const posta = await pedido(
     f, editor, 'PUT', '/api/content/symptom-tokens/chest/traducoes/pt', { label: 'Peito' },
+    undefined, '*',
   );
-  assert.equal(posta.status, 200, await posta.text());
+  assert.equal(posta.status, 201, await posta.text());
 
   const reposta = await pedido(
-    f, editor, 'PUT', '/api/content/symptom-tokens/chest/traducoes/pt', { label: 'Torax' },
+    f, editor, 'PUT', '/api/content/symptom-tokens/chest/traducoes/pt', { label: 'Torax' }, 1,
   );
   assert.equal(reposta.status, 200, 'reenviar a traducao precisa atualizar, nao falhar');
 

@@ -706,7 +706,8 @@ não escrito uma vez por entidade:
 | `/api/content/<entidade>/<chave>` | `GET` | ler — devolve `ETag` com a versão |
 | `/api/content/<entidade>/<chave>` | `PATCH` | editar — **exige `If-Match`** |
 | `/api/content/<entidade>/<chave>` | `DELETE` | remover, quando permitido |
-| `/api/content/<entidade>/<chave>/traducoes/<lang>` | `PUT` | gravar tradução |
+| `/api/content/<entidade>/<chave>/traducoes/<lang>` | `GET` | ler tradução — devolve `ETag` com a versão |
+| `/api/content/<entidade>/<chave>/traducoes/<lang>` | `PUT` | gravar tradução — **exige `If-Match`**, ou `If-None-Match: *` para criar |
 
 As dez entidades: `municipalities`, `assets`, `symptom-tokens`,
 `routing-outcomes`, `venues`, `cards`, `services`, `documents`,
@@ -749,7 +750,7 @@ curl -s -b ck.txt -X POST $B/api/content/assets -H "$J" -H "$O" \
 curl -s -b ck.txt -X POST $B/api/content/symptom-tokens -H "$J" -H "$O" \
   -d '{"id":"chest","kind":"body_part","iconRef":"icon.head","sortOrder":0,"deprecated":0}'
 curl -s -b ck.txt -X PUT $B/api/content/symptom-tokens/chest/traducoes/pt \
-  -H "$J" -H "$O" -d '{"label":"Peito"}'
+  -H "$J" -H "$O" -H 'If-None-Match: *' -d '{"label":"Peito"}'
 curl -s -b ck.txt -X POST $B/api/content/symptom-tokens -H "$J" -H "$O" \
   -d '{"id":"pain","kind":"symptom","iconRef":"icon.head","sortOrder":1,"deprecated":0}'
 
@@ -811,6 +812,24 @@ curl -s -b ck.txt -X PATCH $B/api/content/symptom-tokens/chest \
 
 O `409` de conflito carrega a versão atual porque um conflito que não diz contra
 o que se perdeu obriga a pessoa a recarregar a tela para descobrir.
+
+**Tradução segue o mesmo contrato**, com uma diferença: a primeira tradução de
+um idioma ainda não tem versão para mandar, então ela é **criada** com
+`If-None-Match: *` ("grave só se não existir") e responde `201` + `ETag: "1"`.
+Se alguém criou antes, vem o mesmo `409` com `versaoAtual`. Mandar os dois
+cabeçalhos juntos responde `400`; nenhum dos dois, `428`.
+
+```sh
+curl -s -b ck.txt -X PUT $B/api/content/symptom-tokens/chest/traducoes/es \
+  -H "$J" -H "$O" -H 'If-None-Match: *' -d '{"label":"Pecho"}'
+curl -s -b ck.txt -X PUT $B/api/content/symptom-tokens/chest/traducoes/es \
+  -H "$J" -H "$O" -H 'If-Match: "1"' -d '{"label":"Tórax"}'
+```
+
+A pré-condição que falha responde **`409`, e não o `412`** que a RFC 9110 prevê.
+É deliberado: o `409` com `versaoAtual` é a forma que a interface já usa para
+dizer contra o que se perdeu, em todas as escritas. Não "corrija" para `412`
+sem mudar o cliente junto.
 
 > **Pela interface:** o formulário lê a linha, guarda o `ETag` e o reenvia como
 > `If-Match` — o `428` é **inalcançável** pela tela, porque a função de gravar só
@@ -1156,7 +1175,6 @@ publique uma versão nova e corrigida.
 |---|---|
 | **Sem upload de asset pela interface** | O formulário de `assets` grava metadado, mas o binário continua vindo de `seed/assets/`: `storageKey` aponta para um objeto que alguém precisa ter enviado por fora. **É a única parte do §4 que ainda não se faz pela tela** |
 | **Sem aceite de Termo de Uso no primeiro login** | `legal_document` e `consent_record` existem no banco e são append-only, e **não há rota nem tela**. A LGPD-RF02/RF04 exige que o primeiro login do CMS bloqueie o acesso até o aceite, com registro da versão e do hash do documento. A interface torna a lacuna **visível**, não a fecha |
-| **Tradução não tem travamento otimista** | `PUT /api/content/<entidade>/<chave>/traducoes/<lang>` é upsert sem `If-Match` e responde sem `ETag`. Dois editores traduzindo o mesmo item se sobrescrevem em silêncio — vence a última gravação, e nada acusa |
 | **Regra escrita no CMS nunca chega ao pack** | Toda regra nasce `draft`, e **não existe rota que a mova para `approved`** — nem o `POST /api/rules`, nem o `PUT`, nem `/revisao`, que também clona como rascunho. Como `extract.ts` filtra `status='approved'`, o §4 inteiro roda até o fim e o portão golden reprova a release: a regra simplesmente não entrou. As regras que hoje chegam ao aparelho vêm do caminho `seed/`, não da autoria. **É o buraco que separa o CMS de ser usável no lançamento** |
 | **Telemetria sem produtor** | `POST /api/telemetry` existe e valida, mas nada envia: o app não faz a chamada, e o lote de um aparelho não alcança k≥20. Falta um agregador que nenhum documento especifica |
 | **Sem importador de conteúdo** | `cms:import-golden` traz os casos clínicos, mas não há equivalente para o conteúdo de `seed/`. Um CMS recém-implantado começa vazio, e a primeira release é montada pela API, item a item |

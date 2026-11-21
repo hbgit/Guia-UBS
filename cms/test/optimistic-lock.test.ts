@@ -115,3 +115,124 @@ test('a versao do ETag de leitura serve para o PATCH seguinte', async () => {
   });
   assert.equal(r.status, 200, await r.text());
 });
+
+// ---------------------------------------------------------------------------
+// Traducao (#16): o mesmo contrato, mais `If-None-Match: *` para criar — sem
+// ele a primeira traducao de um idioma nao teria versao nenhuma para mandar.
+// ---------------------------------------------------------------------------
+
+const TRAD = '/api/content/symptom-tokens/fever/traducoes/pt';
+
+async function traducaoDe(token: string) {
+  const r = await f.client.execute({
+    sql: 'SELECT label, version FROM token_translation WHERE token_id = ? AND lang = ?',
+    args: [token, 'pt'],
+  });
+  const linha = r.rows[0];
+  return linha && { label: linha.label, version: Number(linha.version) };
+}
+
+test('traducao: PUT sem pre-condicao recebe 428', async () => {
+  const r = await pedido(f, editor, 'PUT', TRAD, { label: 'Febre' });
+  assert.equal(r.status, 428);
+  assert.equal(await traducaoDe('fever'), undefined);
+});
+
+test('traducao: If-Match malformado e 428, como no PATCH', async () => {
+  for (const v of ['abc', '0', '-1']) {
+    const r = await pedido(f, editor, 'PUT', TRAD, { label: 'X' }, v);
+    assert.equal(r.status, 428, `If-Match ${v}`);
+  }
+});
+
+test('traducao: If-Match e If-None-Match juntos recebem 400', async () => {
+  const r = await pedido(f, editor, 'PUT', TRAD, { label: 'X' }, 1, '*');
+  assert.equal(r.status, 400);
+  assert.equal(await traducaoDe('fever'), undefined);
+});
+
+test('traducao: If-Match em traducao inexistente e 404, nao cria', async () => {
+  const r = await pedido(f, editor, 'PUT', TRAD, { label: 'Febre' }, 1);
+  assert.equal(r.status, 404);
+  assert.equal(await traducaoDe('fever'), undefined);
+});
+
+test('traducao: If-None-Match * cria com ETag "1"', async () => {
+  const r = await pedido(f, editor, 'PUT', TRAD, { label: 'Febre' }, undefined, '*');
+  assert.equal(r.status, 201, await r.text());
+  assert.equal(r.headers.get('etag'), '"1"');
+});
+
+test('traducao: segunda criacao recebe 409 com versaoAtual e nao sobrescreve', async () => {
+  const r = await pedido(f, editor, 'PUT', TRAD, { label: 'Calor' }, undefined, '*');
+  assert.equal(r.status, 409);
+  assert.equal(((await r.json()) as { versaoAtual?: number }).versaoAtual, 1);
+  assert.deepEqual(await traducaoDe('fever'), { label: 'Febre', version: 1 });
+});
+
+test('traducao: GET devolve a linha com ETag', async () => {
+  const r = await pedido(f, editor, 'GET', TRAD);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('etag'), '"1"');
+  assert.equal(((await r.json()) as { label?: string }).label, 'Febre');
+});
+
+test('traducao: duas escritas a partir da mesma leitura — a segunda recebe 409', async () => {
+  const a = await pedido(f, editor, 'PUT', TRAD, { label: 'Febre alta' }, 1);
+  assert.equal(a.status, 200, await a.text());
+  assert.equal(a.headers.get('etag'), '"2"');
+
+  const b = await pedido(f, editor, 'PUT', TRAD, { label: 'Quentura' }, 1);
+  assert.equal(b.status, 409);
+  assert.equal(((await b.json()) as { versaoAtual?: number }).versaoAtual, 2);
+  assert.deepEqual(await traducaoDe('fever'), { label: 'Febre alta', version: 2 });
+});
+
+test('traducao: so as escritas aceitas entram na trilha', async () => {
+  const t = (await auditRows(f)).filter(
+    (l) => l.action === 'content_translate' && l.entity_id === 'pt/fever',
+  );
+  assert.equal(t.length, 2, 'criacao + uma atualizacao; recusas nao entram');
+  const atualizacoes = t.filter((l) => l.before_json);
+  assert.equal(atualizacoes.length, 1);
+  assert.equal((JSON.parse(atualizacoes[0]!.before_json!) as { label: string }).label, 'Febre');
+});
+
+test('traducao: pai inexistente com If-None-Match * e erro de integridade, nao 500', async () => {
+  const r = await pedido(
+    f, editor, 'PUT', '/api/content/symptom-tokens/nao-existe/traducoes/pt',
+    { label: 'X' }, undefined, '*',
+  );
+  assert.ok(r.status === 409 || r.status === 422, `status ${r.status}`);
+  assert.equal(((await r.json()) as { versaoAtual?: number }).versaoAtual, undefined);
+});
+
+test('traducao: chave composta (services) cria e detecta conflito', async () => {
+  await pedido(f, editor, 'POST', '/api/content/venues', {
+    id: 'UBS', iconRef: 'icon.exemplo', colorToken: 'green', sortOrder: 0,
+  });
+  const servico = await pedido(f, editor, 'POST', '/api/content/services', {
+    municipalityId: 'mun-1', id: 'srv-1', venueId: 'UBS', iconRef: 'icon.exemplo', sortOrder: 0,
+  });
+  assert.equal(servico.status, 201, await servico.text());
+
+  const caminho = '/api/content/services/mun-1/srv-1/traducoes/pt';
+  const criada = await pedido(f, editor, 'PUT', caminho, { label: 'Consulta' }, undefined, '*');
+  assert.equal(criada.status, 201, await criada.text());
+  const editada = await pedido(f, editor, 'PUT', caminho, { label: 'Consulta geral' }, 1);
+  assert.equal(editada.status, 200, await editada.text());
+  assert.equal(editada.headers.get('etag'), '"2"');
+  const perdedora = await pedido(f, editor, 'PUT', caminho, { label: 'Outra' }, 1);
+  assert.equal(perdedora.status, 409);
+  assert.equal(((await perdedora.json()) as { versaoAtual?: number }).versaoAtual, 2);
+
+  const r = await f.client.execute(
+    "SELECT label, version FROM service_translation WHERE municipality_id = 'mun-1' AND service_id = 'srv-1' AND lang = 'pt'",
+  );
+  assert.equal(r.rows[0]!.label, 'Consulta geral');
+  assert.equal(Number(r.rows[0]!.version), 2);
+  const trilha = (await auditRows(f)).filter(
+    (l) => l.action === 'content_translate' && l.entity_id === 'pt/mun-1/srv-1',
+  );
+  assert.equal(trilha.length, 2);
+});

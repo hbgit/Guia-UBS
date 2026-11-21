@@ -294,21 +294,61 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
       Record<string, z.ZodTypeAny>
     >;
 
+    // A chave da traducao e a da entidade, renomeada coluna a coluna, mais o
+    // idioma. Vem do registro para nao existir uma segunda descricao dessa
+    // correspondencia, que divergiria.
+    const chaveDaTraducao = (params: Record<string, string>): Chave => {
+      const chave: Record<string, string> = { lang: params.lang! };
+      traducao.chaveEstrangeira.forEach((destino, i) => {
+        chave[destino] = params[entidade.chave[i]!]!;
+      });
+      return chave;
+    };
+    const lerTraducao = (chave: Chave) =>
+      createDb(client)
+        .select(colunasLegiveis(traducao.tabela))
+        .from(traducao.tabela)
+        .where(condicaoDaChave(traducao.tabela, chave))
+        .limit(1);
+
+    app.get(`${caminho}/traducoes/:lang`, requirePermission('content:read'), async (c) => {
+      const linhas = await lerTraducao(chaveDaTraducao(c.req.param() as Record<string, string>));
+      if (linhas.length === 0) return c.json({ error: 'nao encontrado' }, 404);
+      const linha = linhas[0] as Record<string, unknown>;
+      c.header('ETag', `"${String(linha.version)}"`);
+      return c.json(linha);
+    });
+
+    /*
+     * Mesmo contrato do PATCH: `If-Match` atualiza a partir da versao lida, e
+     * `If-None-Match: *` cria so se ainda nao existir. Sem nenhum dos dois, 428 —
+     * o upsert cego de antes fazia dois editores se sobrescreverem em silencio.
+     * Pre-condicao falha responde 409 com `versaoAtual`, nao o 412 da RFC: e a
+     * forma que a interface usa para dizer contra o que se perdeu.
+     */
     app.put(`${caminho}/traducoes/:lang`, requirePermission('content:write'), async (c) => {
-      const params = c.req.param() as Record<string, string>;
+      const cabecalhoIfMatch = c.req.header('if-match');
+      const cabecalhoIfNoneMatch = c.req.header('if-none-match');
+      if (cabecalhoIfMatch !== undefined && cabecalhoIfNoneMatch !== undefined) {
+        return c.json(
+          { error: 'envie so um: If-Match para atualizar, ou If-None-Match: * para criar' },
+          400,
+        );
+      }
+      const esperada = versaoEsperada(cabecalhoIfMatch);
+      const criar = cabecalhoIfNoneMatch?.trim() === '*';
+      if (esperada === null && !criar) {
+        return c.json(
+          { error: 'informe If-Match com a versao lida, ou If-None-Match: * para criar' },
+          428,
+        );
+      }
+
       const corpo = await c.req.json().catch(() => null);
       if (corpo === null || typeof corpo !== 'object') {
         return c.json({ error: 'dados invalidos' }, 400);
       }
-
-      // A chave da traducao e a da entidade, renomeada coluna a coluna, mais o
-      // idioma. Vem do registro para nao existir uma segunda descricao dessa
-      // correspondencia, que divergiria.
-      const chaveTraducao: Record<string, string> = { lang: params.lang! };
-      traducao.chaveEstrangeira.forEach((destino, i) => {
-        chaveTraducao[destino] = params[entidade.chave[i]!]!;
-      });
-
+      const chaveTraducao = chaveDaTraducao(c.req.param() as Record<string, string>);
       const validado = entradaTraducao
         .omit({ version: true, updatedBy: true, updatedAt: true } as never)
         .safeParse({ ...(corpo as object), ...chaveTraducao });
@@ -317,38 +357,63 @@ export function crudRoutes(entidade: EntidadeConteudo, client: Client, salt: str
       }
 
       const ator = c.get('operador');
-      const db = createDb(client);
-      const agora = new Date().toISOString();
-      const alvo = Object.keys(chaveTraducao).map((k) => coluna(traducao.tabela, k));
-
-      try {
-        await db
-          .insert(traducao.tabela)
-          .values({ ...validado.data, version: 1, updatedBy: ator.id, updatedAt: agora } as never)
-          .onConflictDoUpdate({
-            target: alvo,
-            set: {
-              ...validado.data,
-              // Traducao tambem e versionada, e o gatilho do item 16 exige que o
-              // incremento seja de exatamente 1 — inclusive no ramo de UPDATE
-              // de um upsert.
-              version: sql`${coluna(traducao.tabela, 'version')} + 1`,
-              updatedBy: ator.id,
-              updatedAt: agora,
-            } as never,
-          });
-      } catch (erro) {
-        return respostaDeIntegridade(c, erro);
-      }
-
-      await recordAudit(client, salt, {
+      const trilha = {
         actorId: ator.id,
         action: 'content_translate',
         entityType: getTableName(traducao.tabela),
         entityId: Object.values(chaveTraducao).join('/'),
-        after: validado.data,
-      });
-      return c.json({ ok: true });
+      } as const;
+
+      if (esperada !== null) {
+        const antes = await lerTraducao(chaveTraducao);
+        let resultado;
+        try {
+          resultado = await atualizarComVersao({
+            client,
+            tabela: traducao.tabela,
+            chave: chaveTraducao,
+            versaoEsperada: esperada,
+            valores: validado.data as Record<string, unknown>,
+            atorId: ator.id,
+          });
+        } catch (erro) {
+          return respostaDeIntegridade(c, erro);
+        }
+        if (resultado.estado === 'ausente') return c.json({ error: 'nao encontrado' }, 404);
+        if (resultado.estado === 'conflito') {
+          return c.json(
+            { error: 'a linha mudou desde a leitura', versaoAtual: resultado.versaoAtual },
+            409,
+          );
+        }
+        await recordAudit(client, salt, { ...trilha, before: antes[0], after: validado.data });
+        c.header('ETag', `"${resultado.versao}"`);
+        return c.json({ ok: true, versao: resultado.versao });
+      }
+
+      let inseridas;
+      try {
+        inseridas = await createDb(client)
+          .insert(traducao.tabela)
+          .values({
+            ...validado.data,
+            version: 1,
+            updatedBy: ator.id,
+            updatedAt: new Date().toISOString(),
+          } as never)
+          .onConflictDoNothing()
+          .returning({ version: coluna(traducao.tabela, 'version') });
+      } catch (erro) {
+        return respostaDeIntegridade(c, erro);
+      }
+      if (inseridas.length === 0) {
+        // Alguem criou antes: a mesma resposta de conflito, com a versao dele.
+        const atual = await versaoAtual(client, traducao.tabela, chaveTraducao);
+        return c.json({ error: 'a linha mudou desde a leitura', versaoAtual: atual }, 409);
+      }
+      await recordAudit(client, salt, { ...trilha, after: validado.data });
+      c.header('ETag', '"1"');
+      return c.json({ ok: true, versao: 1 }, 201);
     });
   }
 
