@@ -21,7 +21,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { NomeDeEntidade } from '@guia-ubs/cms/src/content/tipos.js';
 import { LANGS } from '@guia-ubs/contract';
 
-import { ErroApi, buscar, criar, gravar, ler, remover } from '../api/api.js';
+import { ErroApi, buscar, criar, gravar, ler, remover, substituir, type Lido } from '../api/api.js';
 import {
   CAMPOS,
   CAMPOS_DE_TRADUCAO,
@@ -30,6 +30,7 @@ import {
   ORDEM_DE_CRIACAO,
   caminhoDaLinha,
 } from '../conteudo/campos.js';
+import { paraEnvio, paraFormulario } from '../conteudo/traducao.js';
 import { useSessao } from '../sessao.js';
 
 type Linha = Record<string, unknown>;
@@ -402,6 +403,9 @@ function Traducoes({
 }) {
   const [lang, setLang] = useState<string>(LANGS[0]);
   const [texto, setTexto] = useState<Record<string, string>>({});
+  // `undefined` = lendo; `null` = ainda nao existe (a gravacao cria).
+  const [lido, setLido] = useState<Lido<Linha> | null | undefined>(undefined);
+  const [releitura, setReleitura] = useState(0);
   const [ok, setOk] = useState<string>();
   const [erro, setErro] = useState<string>();
 
@@ -409,31 +413,65 @@ function Traducoes({
   // por `web-conformance.test.ts` — campo a menos aqui vira pack que o packer
   // recusa publicar, longe de quem causou.
   const campos = CAMPOS_DE_TRADUCAO[entidade] ?? [];
+  // STRING, de proposito: `chave` e um objeto novo a cada render, e como
+  // dependencia do efeito poria a leitura em laco.
+  const caminho = `${caminhoDaLinha(entidade, chave)}/traducoes/${lang}`;
+
+  useEffect(() => {
+    // Troca rapida de idioma: a resposta do idioma anterior pode chegar depois
+    // da do atual, e instalaria a versao dele. `cancelado` descarta a atrasada.
+    let cancelado = false;
+    setLido(undefined);
+    setOk(undefined);
+    setErro(undefined);
+    ler<Linha>(caminho)
+      .then((r) => {
+        if (cancelado) return;
+        setLido(r);
+        setTexto(paraFormulario(r.dados, campos));
+      })
+      .catch((e: unknown) => {
+        if (cancelado) return;
+        if (e instanceof ErroApi && e.falha.tipo === 'nao_encontrado') {
+          setLido(null);
+          setTexto({});
+        } else {
+          setErro('Nao foi possivel ler a traducao.');
+        }
+      });
+    return () => {
+      cancelado = true;
+    };
+    // `campos` deriva de `entidade`, que ja esta em `caminho`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caminho, releitura]);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
+    if (lido === undefined) return;
     setOk(undefined);
     setErro(undefined);
+    const corpo = paraEnvio(texto, campos);
     try {
-      await criar(`${caminhoDaLinha(entidade, chave)}/traducoes/${lang}`, texto);
+      const versao = await substituir(lido, caminho, corpo);
+      setLido({ dados: corpo as Linha, versao });
       setOk('Traducao gravada.');
-    } catch {
-      setErro('Nao foi possivel gravar a traducao.');
+    } catch (falha) {
+      if (falha instanceof ErroApi && falha.falha.tipo === 'conflito_versao') {
+        setErro(
+          `Alguem gravou esta traducao antes de voce (versao ${falha.falha.versaoAtual}). Use "Reler esta traducao" para ver a versao atual — nada foi sobrescrito.`,
+        );
+      } else if (falha instanceof ErroApi && 'mensagem' in falha.falha) {
+        setErro(String(falha.falha.mensagem));
+      } else {
+        setErro('Nao foi possivel gravar a traducao.');
+      }
     }
   }
 
   return (
     <section className="cartao">
       <h2>Traducoes</h2>
-      {/*
-        Sem travamento otimista: a rota e upsert sem `If-Match` e responde sem
-        `ETag`. Dois editores traduzindo o mesmo item se sobrescrevem em silencio,
-        e a interface nao tem como corrigir isso do lado dela — so avisar.
-        Declarado no §6 do manual.
-      */}
-      <p className="aviso">
-        Esta gravacao nao tem travamento: se duas pessoas traduzirem o mesmo item, vence a ultima.
-      </p>
 
       <form onSubmit={enviar}>
         <label htmlFor="lang">Idioma</label>
@@ -459,7 +497,15 @@ function Traducoes({
 
         <Aviso erro={erro} ok={ok} />
 
-        <button type="submit">Gravar traducao</button>
+        <button type="submit" disabled={lido === undefined}>
+          Gravar traducao
+        </button>
+        {erro && (
+          // Recarregar a pagina perderia o idioma escolhido; reler so a traducao nao.
+          <button type="button" onClick={() => setReleitura((n) => n + 1)}>
+            Reler esta traducao
+          </button>
+        )}
       </form>
     </section>
   );

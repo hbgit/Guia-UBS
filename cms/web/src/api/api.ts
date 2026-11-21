@@ -124,8 +124,10 @@ function classificar(status: number, corpo: CorpoDeErro): Falha {
 interface Opcoes {
   metodo?: string;
   corpo?: unknown;
-  /** So `gravar` preenche, e so a partir de um `Lido`. */
+  /** So `gravar` e `substituir` preenchem, e so a partir de um `Lido`. */
   ifMatch?: number;
+  /** So `substituir` preenche, quando a leitura deu 404. */
+  ifNoneMatch?: '*';
 }
 
 async function bruto(caminho: string, opcoes: Opcoes = {}): Promise<Response> {
@@ -137,6 +139,7 @@ async function bruto(caminho: string, opcoes: Opcoes = {}): Promise<Response> {
   const cabecalhos: Record<string, string> = {};
   if (opcoes.corpo !== undefined) cabecalhos['content-type'] = 'application/json';
   if (opcoes.ifMatch !== undefined) cabecalhos['if-match'] = `"${opcoes.ifMatch}"`;
+  if (opcoes.ifNoneMatch !== undefined) cabecalhos['if-none-match'] = opcoes.ifNoneMatch;
 
   try {
     return await fetch(caminho, {
@@ -235,6 +238,33 @@ export async function gravar(
   // `ETag` sumiu da resposta, e adivinhar `lido.versao + 1` esconderia isso.
   const corpoResposta = (await r.json()) as { versao?: number };
   return corpoResposta.versao ?? lido.versao + 1;
+}
+
+/**
+ * PUT com travamento otimista, para recurso que pode ainda nao existir (traducao).
+ *
+ * `Lido | null` obriga quem chama a decidir entre "atualizo o que li" (`If-Match`)
+ * e "crio porque a leitura deu 404" (`If-None-Match: *`). Nao ha terceira forma:
+ * o 428 (nenhum cabecalho) e o 400 (os dois) ficam inalcancaveis pela SPA, como
+ * em `gravar`. Devolve a versao NOVA.
+ */
+export async function substituir(
+  lido: Lido<unknown> | null,
+  caminho: string,
+  corpo: unknown,
+): Promise<number> {
+  const r = await conferir(
+    await bruto(caminho, {
+      metodo: 'PUT',
+      corpo,
+      ...(lido ? { ifMatch: lido.versao } : { ifNoneMatch: '*' as const }),
+    }),
+  );
+  const nova = versaoDoEtag(r);
+  if (nova > 0) return nova;
+  // Mesmo recuo de `gravar`: sem `ETag`, a versao do corpo; nunca um palpite silencioso.
+  const corpoResposta = (await r.json()) as { versao?: number };
+  return corpoResposta.versao ?? (lido ? lido.versao + 1 : 1);
 }
 
 /** DELETE. Responde 204 sem corpo. */
